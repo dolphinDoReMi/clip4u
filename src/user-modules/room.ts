@@ -62,6 +62,7 @@ import type {
   MessageInterface,
 }                       from './message.js'
 
+/** @internal */
 const MixinBase = wechatifyMixin(
   poolifyMixin(
     RoomEventEmitter,

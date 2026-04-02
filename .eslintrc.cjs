@@ -5,4 +5,8 @@ const rules = {
 module.exports = {
   extends: '@chatie',
   rules,
+  parserOptions: {
+    project: ['./tsconfig.lint.json'],
+    tsconfigRootDir: __dirname,
+  },
 }

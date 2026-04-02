@@ -52,6 +52,7 @@ import type { MessageInterface }  from './message.js'
 import type { TagInterface }      from './tag.js'
 import type { ContactSelfImpl }   from './contact-self.js'
 
+/** @internal */
 const MixinBase = wechatifyMixin(
   poolifyMixin(
     ContactEventEmitter,

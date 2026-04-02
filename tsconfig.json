@@ -36,6 +36,7 @@
     "noUnusedParameters": true,
     "noImplicitThis": true,
     "forceConsistentCasingInFileNames": true,
+    "stripInternal": true,
 
     "outDir": "dist/esm",
     // See: https://github.com/wechaty/wechaty/issues/2551

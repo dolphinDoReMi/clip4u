@@ -34,6 +34,7 @@ import {
   wechatifyMixinBase,
 }                     from '../user-mixins/wechatify.js'
 
+/** @internal */
 const MixinBase = poolifyMixin(
   wechatifyMixinBase(),
 )<TagInterface>()

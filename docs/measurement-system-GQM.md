@@ -37,10 +37,14 @@ Defined in `MiraChat/packages/db/migrations/002_prd_delegation.sql`, extended in
 | `summary.generated` | After `/mirachat/summarize-thread` | `metadata.message_count` |
 | `policy.evaluated` | After `PolicyEngine.evaluate` in worker | `policy_action`, `metadata.policy_reasons`, `metadata.intent_domain` |
 | `draft.created` | After `insertOutboundDraft` | `confidence`, `draft_id`, `metadata.intent_summary` |
+| `draft.auto_queued` | Policy-approved draft enters send queue without human review | `draft_id`, policy reasons |
+| `draft.auto_sent` | Auto-queued draft is actually sent | `draft_id` |
 | `draft.approved_as_is` | Approve endpoint, no edit | `draft_id` |
 | `draft.approved_with_edit` | Edit+approve | `metadata.generated_len`, `edited_len` |
 | `draft.rejected` | Reject endpoint | `draft_id` |
 | `outbound.sent` | After `markOutboundSent` | `draft_id`, `metadata.channel` |
+| `mode.changed` | User changes thread delegation mode | `metadata.from_mode`, `to_mode`, `direction` |
+| `trust.regression` | User lowers autonomy level | `metadata.from_mode`, `to_mode`, reason |
 | `feedback.sounds_like_me` | Manual research input | `metadata.score` (1–5), optional note |
 | `feedback.regret` | Manual research input | Optional note / severity |
 | `feedback.boundary_violation` | Manual research input | Optional note |
@@ -60,6 +64,7 @@ Defined in `MiraChat/packages/db/migrations/002_prd_delegation.sql`, extended in
 ## API
 
 - **`GET /mirachat/metrics?days=7&userId=`** — Pre-aggregated counts and **approval-without-edit rate** for the window.
+- **`POST /mirachat/delegation-mode`** — Persist Assist/Approve/Auto mode transitions and trust-regression events.
 - **`POST /mirachat/feedback`** — Write subjective GQM signals (`sounds_like_me`, `regret`, `boundary_violation`) into `delegation_events`.
 - **UI:** `MiraChat/apps/ops-console/dist/measurement/index.html` (and `measurement.html`) is the dedicated `/measurement` dashboard page.
 

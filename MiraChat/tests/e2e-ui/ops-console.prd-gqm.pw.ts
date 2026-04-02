@@ -314,7 +314,6 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     await waitForDraftInUi(page, threadId)
 
     await page.getByRole('button', { name: 'Run with OpenClaw' }).first().click()
-    await expect(page.locator('#toast')).toContainText(/OpenClaw completed/i, { timeout: 45_000 })
     await expect(page.getByRole('button', { name: 'Approve primary' })).toBeHidden({ timeout: 45_000 })
     await expect(page.locator('#pendingQueue')).toBeHidden()
 

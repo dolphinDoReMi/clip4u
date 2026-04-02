@@ -19,6 +19,32 @@ on:
       - '.github/workflows/mirachat-prd-gqm.yml'
 
 jobs:
+  mirachat-fast-tests:
+    name: Supporting tests (Vitest, no secrets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: MiraChat
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: MiraChat/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run fast Vitest suite
+        run: npm run test:fast
+
   validate-prd-gqm:
     name: Real PRD/GQM Validation
     runs-on: ubuntu-latest

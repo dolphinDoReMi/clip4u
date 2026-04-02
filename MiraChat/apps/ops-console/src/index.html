@@ -1196,7 +1196,12 @@
             <div style="font-size:0.88rem">${escapeHtml(o.text || '')}</div>
             <div class="actions-row">
               <button type="button" class="btn btn-secondary btn-pick-opt" data-i="${i}">Approve this option</button>
-              <button type="button" class="btn btn-primary btn-pick-opt-doer" data-i="${i}">Run with OpenClaw</button>
+              <button
+                type="button"
+                class="btn btn-primary btn-pick-opt-doer"
+                data-i="${i}"
+                aria-label="Run option ${escapeHtml(o.label || 'option ' + (i + 1))} with OpenClaw"
+              >Run with OpenClaw</button>
             </div>
           </div>`
         })
@@ -1212,7 +1217,7 @@
           ${optsHtml}
           <div class="actions-row">
             <button type="button" class="btn btn-ok" id="apprPrimary">Approve primary</button>
-            <button type="button" class="btn btn-primary" id="apprPrimaryDoer">Run with OpenClaw</button>
+            <button type="button" class="btn btn-primary" id="apprPrimaryDoer" aria-label="Run primary with OpenClaw">Run with OpenClaw</button>
             <button type="button" class="btn btn-danger" id="apprReject">Reject</button>
             <button type="button" class="btn btn-secondary" id="apprEdit">Edit &amp; approve</button>
             <button type="button" class="btn btn-secondary" id="apprEditDoer">Edit &amp; OpenClaw</button>
@@ -1234,12 +1239,26 @@
         })
       }
 
+      const upsertPendingRow = (row, fallback = {}) => {
+        if (!row || row.status !== 'APPROVED' || row.sent_at) return
+        const pending = {
+          id: row.id,
+          threadId: row.thread_id || fallback.threadId || state.selectedThreadId,
+          text: (row.edited_text && row.edited_text.trim()) || row.generated_text || fallback.text || '',
+          channel: row.channel || fallback.channel || $('channel').value,
+          accountId: row.account_id || fallback.accountId || $('accountId').value.trim(),
+        }
+        state.pending = [pending, ...state.pending.filter((p) => p.id !== pending.id)]
+        renderPending()
+      }
+
       const doApprove = async (id, useOpenClaw = false, task = '') => {
         const payload = useOpenClaw ? buildOpenClawBody(task) : {}
         const res = await j('/mirachat/drafts/' + id + '/approve', {
           method: 'POST',
           body: JSON.stringify(payload),
         })
+        upsertPendingRow(res)
         if (useOpenClaw) {
           const summary = trimVal(res?.doer?.summary)
           showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
@@ -1260,6 +1279,7 @@
           method: 'POST',
           body: JSON.stringify(payload),
         })
+        upsertPendingRow(res, { text: next })
         if (useOpenClaw) {
           const summary = trimVal(res?.doer?.summary)
           showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
@@ -1272,6 +1292,7 @@
           method: 'POST',
           body: JSON.stringify(payload),
         })
+        upsertPendingRow(res, { text: task })
         if (useOpenClaw) {
           const summary = trimVal(res?.doer?.summary)
           showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
@@ -1666,7 +1687,7 @@
           alert('Select a thread')
           return
         }
-        const text = $('composer').value.trim() || state.messages.filter((m) => m.direction === 'inbound').slice(-1)[0]?.content
+        const text = $('composer').value.trim() || latestInboundText()
         if (!text) {
           alert('Type a message or load thread history')
           return

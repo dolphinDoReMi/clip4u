@@ -47,10 +47,9 @@ Reuse already-running servers: `PW_REUSE_SERVERS=1 npm run test:e2e`.
 
 GitHub Actions workflow: `.github/workflows/mirachat-prd-gqm.yml`
 
-- Requires repository secret `MIRACHAT_CI_DATABASE_URL`
-- Runs `npm run test:prd`
-- Uploads Playwright artifacts on failure
-- On fork PRs or repos without that secret, the workflow writes a summary and skips the real acceptance run
+- **Supporting job** (`mirachat-fast-tests`): always runs `npm run test:fast` (no secrets, including fork PRs)
+- **Real acceptance job** (`validate-prd-gqm`): requires repository secret `MIRACHAT_CI_DATABASE_URL`, runs `npm run test:prd`, uploads Playwright artifacts on failure
+- On fork PRs or repos without that secret, the real job writes a summary and skips the acceptance run; the supporting job still provides automated feedback
 
 ### Real DB pipeline only (no UI)
 

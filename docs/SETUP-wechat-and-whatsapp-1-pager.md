@@ -20,7 +20,7 @@ This guide is intentionally biased toward the **fastest local path that worked**
 | Channel | Runtime path | Auth model | Verified outcome |
 | --- | --- | --- | --- |
 | WeChat | root `wechaty` repo | QR scan | login, read messages, send room/contact message |
-| WhatsApp | `MiraChat` + `whatsapp-web.js` | QR scan | QR bootstrapped locally; one-off sender flow prepared |
+| WhatsApp | `MiraChat` + `whatsapp-web.js` | QR scan | QR bootstrapped locally; one-off sender and list-chats scripts |
 
 ---
 
@@ -167,6 +167,22 @@ Expected behavior:
 - send `hello Jarvis`
 - exit
 
+### 5.5 List chats (names and IDs)
+
+Uses the same `LocalAuth` session as the sender (`--session` default `cursor-whatsapp-send`), so you usually do not need to scan again after the sender has logged in once.
+
+```bash
+./MiraChat/scripts/whatsapp-list-chats.sh
+```
+
+Optional flags:
+
+- `--limit N` — only print the first *N* chats after sorting by name (default: all)
+- `--json` — print a JSON array of `{ name, id, isGroup }`
+- `--session` / `--browser` — same as the sender
+
+Each line is tab-separated: `group|dm`, display name, serialized chat id.
+
 ---
 
 ## 6. WhatsApp Caveats
@@ -210,5 +226,7 @@ The repo now includes:
 - `scripts/wechaty-local.mjs`
 - `MiraChat/scripts/whatsapp-send-once.sh`
 - `MiraChat/scripts/whatsapp-send-once.mjs`
+- `MiraChat/scripts/whatsapp-list-chats.sh`
+- `MiraChat/scripts/whatsapp-list-chats.mjs`
 
 These replace the earlier ad hoc inline commands and encode the known-good local setup.

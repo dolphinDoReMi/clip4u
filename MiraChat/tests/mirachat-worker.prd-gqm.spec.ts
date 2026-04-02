@@ -13,6 +13,7 @@ const dbMocks = vi.hoisted(() => ({
   setInboundStatus: vi.fn(),
   insertOutboundDraft: vi.fn(),
   insertDelegationEvent: vi.fn(),
+  rejectSupersededDraftsForThread: vi.fn(),
 }))
 
 vi.mock('@delegate-ai/db', async importOriginal => {
@@ -23,6 +24,7 @@ vi.mock('@delegate-ai/db', async importOriginal => {
     setInboundStatus: dbMocks.setInboundStatus,
     insertOutboundDraft: dbMocks.insertOutboundDraft,
     insertDelegationEvent: dbMocks.insertDelegationEvent,
+    rejectSupersededDraftsForThread: dbMocks.rejectSupersededDraftsForThread,
   }
 })
 
@@ -52,8 +54,33 @@ describe('mirachat-worker processInboundJob (PRD §5 / GQM instrumentation)', ()
   beforeEach(() => {
     vi.resetAllMocks()
     dbMocks.setInboundStatus.mockResolvedValue(undefined)
-    dbMocks.insertOutboundDraft.mockResolvedValue('draft-out-1')
     dbMocks.insertDelegationEvent.mockResolvedValue(undefined)
+    dbMocks.rejectSupersededDraftsForThread.mockResolvedValue([])
+    dbMocks.insertOutboundDraft.mockImplementation(async (_pool, input) => ({
+      id: 'draft-out-1',
+      inbound_message_id: input.inboundMessageId,
+      generated_text: input.generatedText,
+      confidence_score: input.confidenceScore,
+      status: input.status,
+      rule_triggered: input.ruleTriggered,
+      channel: input.channel,
+      account_id: input.accountId,
+      user_id: input.userId,
+      thread_id: input.threadId,
+      intent_summary: input.intentSummary,
+      reply_options: input.replyOptions ?? null,
+      thread_summary: input.threadSummary ?? null,
+      edited_text: null,
+      approved_at: input.approvedAt ?? null,
+      sent_at: null,
+      send_attempt_count: 0,
+      last_send_attempt_at: null,
+      last_send_error: null,
+      next_send_after: null,
+      dead_lettered_at: null,
+      created_at: new Date('2020-01-01T00:00:00.000Z'),
+      updated_at: new Date('2020-01-01T00:00:00.000Z'),
+    }))
   })
 
   it('writes policy.evaluated + draft.created, inserts DRAFTED outbound for safe path (G1/G4)', async () => {

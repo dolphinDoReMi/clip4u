@@ -70,6 +70,8 @@ export interface MirachatSqlContext {
 export interface DelegateApiContext {
   memoryRuntime: DelegateRuntime
   mirachat: MirachatSqlContext | null
+  /** After startup probe; omit in unit tests (treated as ready when mirachat is set). */
+  mirachatWorkerReady?: boolean
   openClawDoer?: OpenClawDoer
 }
 
@@ -158,29 +160,47 @@ const readMiniProgramSessionToken = (request: IncomingMessage): string | undefin
   return undefined
 }
 
+const finitePositiveTimeoutSeconds = (value: unknown): number | undefined => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return undefined
+  }
+  return Math.floor(value)
+}
+
 const parseOpenClawDoerRequest = (
   body: Record<string, unknown>,
   fallbackTask: string,
 ): OpenClawDoerRequest | null => {
-  const raw = body.doer
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+  if (!Object.prototype.hasOwnProperty.call(body, 'doer')) {
     return null
+  }
+  const raw = body.doer
+  if (raw === undefined || raw === null) {
+    return null
+  }
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('doer must be a plain object')
   }
   const provider = trimString((raw as Record<string, unknown>).provider)
   if (provider !== 'openclaw') {
     throw new Error('doer.provider must be "openclaw"')
   }
+  const explicitTask = trimString((raw as Record<string, unknown>).task)
+  const trimmedFallback = fallbackTask.trim()
+  const task = explicitTask ?? (trimmedFallback || undefined)
+  if (!task) {
+    throw new Error(
+      'OpenClaw doer requires a non-empty task (set doer.task or ensure draft text / edited text / option text)',
+    )
+  }
   return {
     provider,
-    task: trimString((raw as Record<string, unknown>).task) ?? fallbackTask,
+    task,
     agentId: trimString((raw as Record<string, unknown>).agentId),
     sessionId: trimString((raw as Record<string, unknown>).sessionId),
     to: trimString((raw as Record<string, unknown>).to),
     thinking: trimString((raw as Record<string, unknown>).thinking),
-    timeoutSeconds:
-      typeof (raw as Record<string, unknown>).timeoutSeconds === 'number'
-        ? Number((raw as Record<string, unknown>).timeoutSeconds)
-        : undefined,
+    timeoutSeconds: finitePositiveTimeoutSeconds((raw as Record<string, unknown>).timeoutSeconds),
     deliver: (raw as Record<string, unknown>).deliver === true,
     channel: trimString((raw as Record<string, unknown>).channel),
     replyTo: trimString((raw as Record<string, unknown>).replyTo),
@@ -287,6 +307,29 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
           ok: true,
           service: 'delegate-ai-api',
           mirachat: Boolean(ctx.mirachat),
+        })
+        return
+      }
+
+      if (request.method === 'GET' && url.pathname === '/health/mirachat-worker') {
+        if (!ctx.mirachat) {
+          sendJson(response, 200, { ok: true, mirachat: false })
+          return
+        }
+        const workerReady = ctx.mirachatWorkerReady !== false
+        if (!workerReady) {
+          sendJson(response, 503, {
+            ok: false,
+            mirachat: true,
+            workerReady: false,
+            error: 'mirachat_worker_not_ready',
+          })
+          return
+        }
+        sendJson(response, 200, {
+          ok: true,
+          mirachat: true,
+          workerReady: true,
         })
         return
       }
@@ -827,7 +870,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
           sessionId: typeof body.sessionId === 'string' ? body.sessionId : undefined,
           to: typeof body.to === 'string' ? body.to : undefined,
           thinking: typeof body.thinking === 'string' ? body.thinking : undefined,
-          timeoutSeconds: typeof body.timeoutSeconds === 'number' ? body.timeoutSeconds : undefined,
+          timeoutSeconds: finitePositiveTimeoutSeconds(body.timeoutSeconds),
           deliver: body.deliver === true,
           channel: typeof body.channel === 'string' ? body.channel : undefined,
           replyTo: typeof body.replyTo === 'string' ? body.replyTo : undefined,

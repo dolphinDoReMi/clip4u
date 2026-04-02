@@ -60,14 +60,12 @@ If Playwright's dedicated E2E ports `4400` / `4473` are already in use by a corr
 
 ### CI
 
-The strict PRD/GQM validation workflow lives in `.github/workflows/mirachat-prd-gqm.yml`.
-It requires the secret `MIRACHAT_CI_DATABASE_URL` and executes:
+The workflow `.github/workflows/mirachat-prd-gqm.yml` runs two jobs:
 
-```bash
-npm run test:prd
-```
+1. **Supporting tests** — always runs `npm run test:fast` (no secrets; runs on fork PRs too).
+2. **Real PRD/GQM validation** — requires the secret `MIRACHAT_CI_DATABASE_URL` and runs `npm run test:prd`.
 
-If the secret is unavailable, the workflow reports that the real acceptance suite was skipped instead of failing with a vague configuration error.
+If the secret is unavailable, the real job reports that the acceptance suite was skipped instead of failing with a vague configuration error; the supporting job still validates mocked/unit coverage.
 
 ### Twilio Smoke Test
 

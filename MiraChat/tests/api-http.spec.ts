@@ -150,6 +150,56 @@ describe('Delegate API HTTP (mocked SQL)', () => {
     await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
   })
 
+  it('GET /health/mirachat-worker reports mirachat off when context has no DB', async () => {
+    const listener = createDelegateApiListener({
+      memoryRuntime: createInMemoryRuntime(),
+      mirachat: null,
+    })
+    const server = createServer(listener)
+    await new Promise<void>(r => server.listen(0, r))
+    const addr = server.address()
+    const port = typeof addr === 'object' && addr ? addr.port : 0
+    const res = await request(port, { method: 'GET', path: '/health/mirachat-worker' })
+    expect(res.status).toBe(200)
+    expect(JSON.parse(res.body)).toEqual({ ok: true, mirachat: false })
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('GET /health/mirachat-worker 503 when mirachatWorkerReady is false', async () => {
+    const mirachat = createInboundRouteMockMirachat()
+    const listener = createDelegateApiListener({
+      memoryRuntime: createInMemoryRuntime(),
+      mirachat,
+      mirachatWorkerReady: false,
+    })
+    const server = createServer(listener)
+    await new Promise<void>(r => server.listen(0, r))
+    const addr = server.address()
+    const port = typeof addr === 'object' && addr ? addr.port : 0
+    const res = await request(port, { method: 'GET', path: '/health/mirachat-worker' })
+    expect(res.status).toBe(503)
+    const j = JSON.parse(res.body) as { ok: boolean; workerReady: boolean }
+    expect(j.ok).toBe(false)
+    expect(j.workerReady).toBe(false)
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('GET /health/mirachat-worker 200 when mirachat is mocked and worker flag omitted', async () => {
+    const mirachat = createInboundRouteMockMirachat()
+    const listener = createDelegateApiListener({
+      memoryRuntime: createInMemoryRuntime(),
+      mirachat,
+    })
+    const server = createServer(listener)
+    await new Promise<void>(r => server.listen(0, r))
+    const addr = server.address()
+    const port = typeof addr === 'object' && addr ? addr.port : 0
+    const res = await request(port, { method: 'GET', path: '/health/mirachat-worker' })
+    expect(res.status).toBe(200)
+    expect(JSON.parse(res.body)).toEqual({ ok: true, mirachat: true, workerReady: true })
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
   it('POST /mirachat/inbound returns 202 and enqueues pg-boss job (mocked pool)', async () => {
     const mirachat = createInboundRouteMockMirachat()
     const listener = createDelegateApiListener({
@@ -898,6 +948,199 @@ describe('Delegate API HTTP (mocked SQL)', () => {
     expect(res.status).toBe(502)
     expect(openClawDoer.run).toHaveBeenCalledOnce()
     expect(queryLog.some(text => /UPDATE outbound_drafts/.test(text))).toBe(false)
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  const openClawDoerStub = {
+    getConfig: vi.fn(() => ({
+      openclawDir: '/home/dennis/openclaw',
+      openclawEntry: '/home/dennis/openclaw/openclaw.mjs',
+      nodeBin: '/usr/local/bin/node22',
+      defaultAgentId: 'ops-doer',
+      defaultTimeoutSeconds: 180,
+    })),
+    run: vi.fn(),
+  }
+
+  const draftForDoerValidation = {
+    id: 'draft-doer-validate',
+    inbound_message_id: 'in-v',
+    generated_text: 'Task body for validation tests.',
+    confidence_score: 0.8,
+    status: 'DRAFTED',
+    rule_triggered: 'review',
+    edited_text: null,
+    approved_at: null,
+    sent_at: null,
+    channel: 'telegram',
+    account_id: 'acct-1',
+    user_id: 'demo-user',
+    thread_id: 'thread-v',
+    intent_summary: 'delivery',
+    reply_options: null,
+    thread_summary: 'Summary.',
+    created_at: new Date(),
+    updated_at: new Date(),
+  }
+
+  it('POST /mirachat/drafts/:id/approve returns 400 when doer is not a plain object', async () => {
+    const pool = {
+      query: vi.fn(async (text: string) => {
+        if (/SELECT \* FROM outbound_drafts WHERE id = \$1/.test(text)) {
+          return { rows: [draftForDoerValidation] }
+        }
+        throw new Error(`doer validation mock: ${text.slice(0, 100)}`)
+      }),
+    } as unknown as Pool
+    const mirachat: MirachatSqlContext = {
+      pool,
+      boss: { send: vi.fn() } as MirachatSqlContext['boss'],
+      mirachatIdentity: {} as MirachatSqlContext['mirachatIdentity'],
+      mirachatMemory: {} as MirachatSqlContext['mirachatMemory'],
+    }
+    const server = createServer(
+      createDelegateApiListener({
+        memoryRuntime: createInMemoryRuntime(),
+        mirachat,
+        openClawDoer: openClawDoerStub,
+      }),
+    )
+    await new Promise<void>(r => server.listen(0, r))
+    const port = (server.address() as import('node:net').AddressInfo).port
+
+    const res = await request(port, {
+      method: 'POST',
+      path: '/mirachat/drafts/draft-doer-validate/approve',
+      body: JSON.stringify({ doer: ['openclaw'] }),
+    })
+    expect(res.status).toBe(400)
+    expect(JSON.parse(res.body).error).toContain('plain object')
+    expect(openClawDoerStub.run).not.toHaveBeenCalled()
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('POST /mirachat/drafts/:id/approve returns 400 when doer.provider is not openclaw', async () => {
+    const pool = {
+      query: vi.fn(async (text: string) => {
+        if (/SELECT \* FROM outbound_drafts WHERE id = \$1/.test(text)) {
+          return { rows: [draftForDoerValidation] }
+        }
+        throw new Error(`doer provider mock: ${text.slice(0, 100)}`)
+      }),
+    } as unknown as Pool
+    const mirachat: MirachatSqlContext = {
+      pool,
+      boss: { send: vi.fn() } as MirachatSqlContext['boss'],
+      mirachatIdentity: {} as MirachatSqlContext['mirachatIdentity'],
+      mirachatMemory: {} as MirachatSqlContext['mirachatMemory'],
+    }
+    const server = createServer(
+      createDelegateApiListener({
+        memoryRuntime: createInMemoryRuntime(),
+        mirachat,
+        openClawDoer: openClawDoerStub,
+      }),
+    )
+    await new Promise<void>(r => server.listen(0, r))
+    const port = (server.address() as import('node:net').AddressInfo).port
+
+    const res = await request(port, {
+      method: 'POST',
+      path: '/mirachat/drafts/draft-doer-validate/approve',
+      body: JSON.stringify({ doer: { provider: 'shell', task: 'x' } }),
+    })
+    expect(res.status).toBe(400)
+    expect(JSON.parse(res.body).error).toContain('openclaw')
+    expect(openClawDoerStub.run).not.toHaveBeenCalled()
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('POST /mirachat/drafts/:id/edit returns 400 when OpenClaw doer has no task text', async () => {
+    const pool = {
+      query: vi.fn(async (text: string) => {
+        if (/SELECT \* FROM outbound_drafts WHERE id = \$1/.test(text)) {
+          return { rows: [draftForDoerValidation] }
+        }
+        throw new Error(`edit doer mock: ${text.slice(0, 100)}`)
+      }),
+    } as unknown as Pool
+    const mirachat: MirachatSqlContext = {
+      pool,
+      boss: { send: vi.fn() } as MirachatSqlContext['boss'],
+      mirachatIdentity: {} as MirachatSqlContext['mirachatIdentity'],
+      mirachatMemory: {} as MirachatSqlContext['mirachatMemory'],
+    }
+    const server = createServer(
+      createDelegateApiListener({
+        memoryRuntime: createInMemoryRuntime(),
+        mirachat,
+        openClawDoer: openClawDoerStub,
+      }),
+    )
+    await new Promise<void>(r => server.listen(0, r))
+    const port = (server.address() as import('node:net').AddressInfo).port
+
+    const res = await request(port, {
+      method: 'POST',
+      path: '/mirachat/drafts/draft-doer-validate/edit',
+      body: JSON.stringify({
+        editedText: '   ',
+        doer: { provider: 'openclaw', agentId: 'ops-doer' },
+      }),
+    })
+    expect(res.status).toBe(400)
+    expect(JSON.parse(res.body).error).toContain('non-empty task')
+    expect(openClawDoerStub.run).not.toHaveBeenCalled()
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('POST /mirachat/doer/openclaw/run ignores non-finite timeoutSeconds', async () => {
+    const openClawDoer = {
+      ...openClawDoerStub,
+      run: vi.fn(async () => ({
+        ok: true as const,
+        cwd: '/tmp',
+        command: ['node'],
+        selector: {},
+        stdout: '',
+        stderr: '',
+        summary: 'ok',
+        payloads: [],
+        raw: {},
+      })),
+    }
+    const mirachat: MirachatSqlContext = {
+      pool: { query: vi.fn() } as unknown as Pool,
+      boss: { send: vi.fn() } as MirachatSqlContext['boss'],
+      mirachatIdentity: {} as MirachatSqlContext['mirachatIdentity'],
+      mirachatMemory: {} as MirachatSqlContext['mirachatMemory'],
+    }
+    const server = createServer(
+      createDelegateApiListener({
+        memoryRuntime: createInMemoryRuntime(),
+        mirachat,
+        openClawDoer,
+      }),
+    )
+    await new Promise<void>(r => server.listen(0, r))
+    const port = (server.address() as import('node:net').AddressInfo).port
+
+    const res = await request(port, {
+      method: 'POST',
+      path: '/mirachat/doer/openclaw/run',
+      body: JSON.stringify({
+        task: 'Ping',
+        timeoutSeconds: Number.NaN,
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(openClawDoer.run).toHaveBeenCalledWith(
+      expect.objectContaining({ task: 'Ping', timeoutSeconds: undefined }),
+    )
 
     await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
   })

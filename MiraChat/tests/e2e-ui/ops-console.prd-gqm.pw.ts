@@ -16,19 +16,25 @@ const apiBase = () => 'http://127.0.0.1:4400'
 
 const assertRealStack = async (request: APIRequestContext) => {
   const api = apiBase()
-  let healthJson: { mirachat?: boolean } | null = null
-  for (let attempt = 0; attempt < 45; attempt += 1) {
+  let workerJson: { ok?: boolean; mirachat?: boolean; workerReady?: boolean } | null = null
+  for (let attempt = 0; attempt < 90; attempt += 1) {
     try {
-      const health = await request.get(`${api}/health`)
-      if (health.ok()) {
-        healthJson = (await health.json()) as { mirachat?: boolean }
+      const ready = await request.get(`${api}/health/mirachat-worker`)
+      if (!ready.ok()) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        continue
+      }
+      const j = (await ready.json()) as { ok?: boolean; mirachat?: boolean; workerReady?: boolean }
+      if (j.ok && j.mirachat === true && j.workerReady === true) {
+        workerJson = j
         break
       }
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
-  expect(healthJson).not.toBeNull()
-  expect(healthJson.mirachat).toBe(true)
+  expect(workerJson).not.toBeNull()
+  expect(workerJson?.mirachat).toBe(true)
+  expect(workerJson?.workerReady).toBe(true)
   return api
 }
 
@@ -61,7 +67,10 @@ const openApp = async (page: Page, api: string) => {
   let opened = false
   for (let attempt = 0; attempt < 20; attempt += 1) {
     try {
-      await page.goto(`/?api=${encodeURIComponent(api)}`)
+      await page.goto(`/?api=${encodeURIComponent(api)}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 15_000,
+      })
       opened = true
       break
     } catch {}
@@ -313,7 +322,7 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     })
     await waitForDraftInUi(page, threadId)
 
-    await page.getByRole('button', { name: 'Run with OpenClaw' }).first().click()
+    await page.getByRole('button', { name: 'Run primary with OpenClaw' }).click()
     await expect(page.getByRole('button', { name: 'Approve primary' })).toBeHidden({ timeout: 45_000 })
     await expect(page.locator('#pendingQueue')).toBeHidden()
 

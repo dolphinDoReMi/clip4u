@@ -12,6 +12,7 @@ import pg from 'pg'
 import type PgBoss from 'pg-boss'
 import { createDelegateApiListener, type MirachatSqlContext } from './api-listener.js'
 import { registerMirachatWorkers } from './mirachat-worker.js'
+import { waitForMirachatWorkerProbe } from './mirachat-worker-ready.js'
 
 const memoryRuntime = createInMemoryRuntime()
 const port = Number(process.env.PORT ?? 4000)
@@ -27,11 +28,18 @@ if (databaseUrl) {
   await runMigrations(pool)
   await startMirachatBoss(boss)
   await registerMirachatWorkers(boss, pool, mirachatIdentity, mirachatMemory)
+  await waitForMirachatWorkerProbe(boss)
   mirachat = { pool, boss, mirachatIdentity, mirachatMemory }
   console.log('MiraChat: PostgreSQL + pg-boss worker online')
 }
 
-const server = createServer(createDelegateApiListener({ memoryRuntime, mirachat }))
+const server = createServer(
+  createDelegateApiListener({
+    memoryRuntime,
+    mirachat,
+    mirachatWorkerReady: Boolean(mirachat),
+  }),
+)
 
 server.listen(port, () => {
   console.log(`delegate-ai api listening on http://localhost:${port}`)

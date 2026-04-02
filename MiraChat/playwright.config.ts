@@ -11,13 +11,14 @@ if (existsSync(rootEnv)) {
 }
 
 const databaseUrl = process.env.E2E_DATABASE_URL ?? process.env.DATABASE_URL
+const retries = Number(process.env.PLAYWRIGHT_RETRIES ?? '0')
 
 export default defineConfig({
   testDir: path.join(root, 'tests/e2e-ui'),
   testMatch: '**/*.pw.ts',
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
+  retries,
   workers: 1,
   timeout: 120_000,
   expect: { timeout: 45_000 },
@@ -43,7 +44,7 @@ export default defineConfig({
         ...(databaseUrl ? { DATABASE_URL: databaseUrl } : {}),
         PORT: '4400',
       },
-      url: 'http://127.0.0.1:4400/health',
+      url: 'http://127.0.0.1:4400/health/mirachat-worker',
       reuseExistingServer: process.env.PW_REUSE_SERVERS === '1',
       timeout: 120_000,
     },

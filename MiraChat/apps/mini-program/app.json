@@ -1,0 +1,15 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/draft/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "MiraChat",
+    "navigationBarBackgroundColor": "#121319",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0f1014",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

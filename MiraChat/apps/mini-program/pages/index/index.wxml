@@ -1,0 +1,53 @@
+<view class="screen">
+  <view class="card">
+    <view class="title">MiraChat</view>
+    <view class="muted" wx:if="{{session}}">Linked as {{session.userId}}</view>
+    <view class="pill" wx:if="{{connection}}">{{connection.status || 'UNKNOWN'}}</view>
+    <view class="button-row">
+      <button class="secondary-btn" size="mini" bindtap="bootstrap">Refresh</button>
+      <button class="secondary-btn" size="mini" bindtap="resetSession">Relink</button>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{error}}">
+    <view class="label">Error</view>
+    <view class="text-block">{{error}}</view>
+  </view>
+
+  <view class="card">
+    <view class="label">Quick Assist</view>
+    <textarea class="input" placeholder="Ask MiraChat for a summary or draft..." value="{{assistPrompt}}" bindinput="onAssistInput"></textarea>
+    <view class="button-row">
+      <button class="primary-btn" bindtap="submitAssist" loading="{{loading}}">Run Assist</button>
+    </view>
+    <view wx:if="{{assistResult}}">
+      <view class="label">Primary Draft</view>
+      <view class="text-block">{{assistResult.primaryDraft.response}}</view>
+      <view class="label">Thread Summary</view>
+      <view class="text-block">{{assistResult.threadSummary}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="title">Pending Drafts</view>
+    <view class="muted" wx:if="{{!drafts.length}}">No pending drafts.</view>
+    <block wx:for="{{drafts}}" wx:key="id">
+      <view class="card" data-id="{{item.id}}" bindtap="openDraft">
+        <view class="label">{{item.threadId}}</view>
+        <view class="text-block">{{item.threadSummary || item.inboundText || item.generatedText}}</view>
+        <view class="muted">Confidence: {{item.confidenceScore}}</view>
+      </view>
+    </block>
+  </view>
+
+  <view class="card">
+    <view class="title">Recent Threads</view>
+    <view class="muted" wx:if="{{!threads.length}}">No thread summaries yet.</view>
+    <block wx:for="{{threads}}" wx:key="threadId">
+      <view class="card">
+        <view class="label">{{item.threadId}}</view>
+        <view class="text-block">{{item.preview || item.latestText || ''}}</view>
+      </view>
+    </block>
+  </view>
+</view>

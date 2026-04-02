@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>MiraChat Measurement</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1014;
+        --panel: rgba(20, 21, 28, 0.88);
+        --panel-2: rgba(28, 29, 37, 0.94);
+        --line: rgba(255, 255, 255, 0.09);
+        --line-strong: rgba(255, 255, 255, 0.16);
+        --text: #f7f7f8;
+        --muted: #a8a8b3;
+        --soft: #8d8d98;
+        --accent: #ff4fd8;
+        --accent-2: #ff8a00;
+        --accent-3: #7c4dff;
+        --warn: #ffb224;
+        --danger: #ff5d73;
+        --good: #4ade80;
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+        --story: linear-gradient(135deg, #fd1d1d 0%, #f77737 24%, #fcaf45 48%, #c13584 72%, #833ab4 100%);
+        --font: 'Manrope', system-ui, sans-serif;
+        --mono: 'IBM Plex Mono', monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top left, rgba(193, 53, 132, 0.26), transparent 24%), radial-gradient(circle at top right, rgba(252, 175, 69, 0.18), transparent 22%), radial-gradient(circle at bottom left, rgba(124, 77, 255, 0.14), transparent 24%), var(--bg); color: var(--text); font-family: var(--font); }
+      a { color: inherit; }
+      button, input, select, textarea { font: inherit; }
+      .shell { max-width: 1400px; margin: 0 auto; padding: 32px 20px 56px; }
+      .topbar { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+      .eyebrow { color: #ff8eea; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; font-weight: 800; }
+      h1 { margin: 8px 0 10px; font-size: clamp(30px, 5vw, 52px); line-height: 0.96; letter-spacing: -0.04em; }
+      .lede { margin: 0; max-width: 760px; color: var(--muted); line-height: 1.55; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      .btn { border: 1px solid var(--line); color: var(--text); background: rgba(255,255,255,0.05); padding: 11px 15px; border-radius: 999px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease; }
+      .btn:hover { transform: translateY(-1px); border-color: var(--line-strong); }
+      .btn.primary { background: var(--story); border-color: rgba(255,255,255,0.12); box-shadow: 0 12px 26px rgba(193, 53, 132, 0.28); }
+      .controls { display: grid; grid-template-columns: 1.2fr 0.9fr 0.7fr auto auto auto; gap: 12px; margin-bottom: 18px; }
+      .field { background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 18px; padding: 10px 12px; backdrop-filter: blur(14px); }
+      .field label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .field input, .field select, .field textarea { width: 100%; color: var(--text); background: transparent; border: none; outline: none; }
+      .hero-grid { display: grid; grid-template-columns: 2fr 1.15fr; gap: 16px; margin-bottom: 18px; }
+      .panel { background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)); border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow); backdrop-filter: blur(20px); }
+      .panel.pad { padding: 18px; }
+      .panel h2, .panel h3 { margin: 0; letter-spacing: -0.03em; }
+      .sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
+      .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+      .metric { padding: 16px; border-radius: 22px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); min-height: 112px; }
+      .metric .label { color: var(--muted); font-size: 13px; }
+      .metric .value { margin-top: 10px; font-size: 28px; font-weight: 800; letter-spacing: -0.04em; }
+      .metric .note { margin-top: 8px; font-size: 12px; color: var(--muted); }
+      .status { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+      .status.good { color: var(--good); background: rgba(74,222,128,0.12); }
+      .status.warn { color: var(--warn); background: rgba(255,178,36,0.12); }
+      .status.bad { color: var(--danger); background: rgba(255,93,115,0.12); }
+      .sections { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .section-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+      .mini { padding: 14px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); }
+      .mini .k { color: var(--muted); font-size: 12px; }
+      .mini .v { margin-top: 8px; font-size: 22px; font-weight: 800; letter-spacing: -0.03em; }
+      .chart { padding: 18px; }
+      .chart-svg { width: 100%; height: 220px; display: block; }
+      .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-top: 8px; }
+      .dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+      .feedback-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; }
+      .events { max-height: 360px; overflow: auto; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 12px; }
+      .event-row { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: grid; gap: 8px; }
+      .event-meta { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+      .event-type { font-family: var(--mono); font-size: 12px; color: #c7b2ff; }
+      .pick { font-size: 12px; padding: 7px 10px; border-radius: 999px; background: rgba(255,79,216,0.12); border: 1px solid rgba(255,79,216,0.24); color: #ff8eea; }
+      .score-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+      .score-btn { padding: 12px 0; border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: var(--text); cursor: pointer; }
+      .score-btn.active { border-color: rgba(255,79,216,0.34); background: rgba(255,79,216,0.14); color: #ff8eea; }
+      .stack { display: grid; gap: 14px; }
+      .mono { font-family: var(--mono); }
+      .toast { position: fixed; right: 18px; bottom: 18px; background: rgba(20,21,28,0.95); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; color: var(--text); opacity: 0; transform: translateY(12px); transition: all 0.18s ease; box-shadow: var(--shadow); }
+      .toast.show { opacity: 1; transform: translateY(0); }
+      .error { color: #ffd5dc; background: rgba(255,93,115,0.12); border: 1px solid rgba(255,93,115,0.25); padding: 12px 14px; border-radius: 18px; margin-bottom: 16px; display: none; }
+      .error.show { display: block; }
+      @media (max-width: 1120px) {
+        .hero-grid, .sections, .feedback-grid { grid-template-columns: 1fr; }
+        .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .controls { grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 720px) {
+        .metric-grid, .section-grid, .controls { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="topbar">
+        <div>
+          <div class="eyebrow">Measurement System</div>
+          <h1>GQM Dashboard</h1>
+          <p class="lede">Track trust, productivity, identity, and autonomy for MiraForU with live rollups from <span class="mono">delegation_events</span>, draft lifecycle data, onboarding/ingestion events, and explicit user feedback.</p>
+        </div>
+        <div class="actions">
+          <a class="btn" id="openConsole" href="../">Open console</a>
+          <button class="btn primary" id="refreshBtn" type="button">Refresh dashboard</button>
+        </div>
+      </div>
+
+      <div class="error" id="error"></div>
+
+      <div class="controls">
+        <div class="field"><label>API base</label><input id="apiBase" placeholder="http://127.0.0.1:4000" /></div>
+        <div class="field"><label>User ID</label><input id="userId" placeholder="demo-user" /></div>
+        <div class="field"><label>Window</label><select id="days"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select></div>
+        <button class="btn" id="saveBtn" type="button">Save</button>
+        <a class="btn" id="oauthGoogle" href="#">Connect Gmail</a>
+        <a class="btn" id="oauthSlack" href="#">Connect Slack</a>
+      </div>
+
+      <div class="hero-grid">
+        <section class="panel pad">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px;">
+            <div>
+              <h2>Core PMF indicators</h2>
+              <div class="sub" id="windowLabel">Loading…</div>
+            </div>
+            <div class="status warn" id="healthBadge">Waiting for data</div>
+          </div>
+          <div class="metric-grid" id="coreMetrics"></div>
+        </section>
+        <section class="panel chart">
+          <h2>Daily series</h2>
+          <div class="sub">Inbound, drafts, approvals, auto-queue, and sends over time.</div>
+          <svg class="chart-svg" id="seriesSvg" viewBox="0 0 900 220" preserveAspectRatio="none"></svg>
+          <div class="legend">
+            <span><span class="dot" style="background:#c7b2ff"></span> inbound</span>
+            <span><span class="dot" style="background:#ff7be3"></span> drafts</span>
+            <span><span class="dot" style="background:#ffb224"></span> approvals</span>
+            <span><span class="dot" style="background:#ff8a9d"></span> auto queued</span>
+            <span><span class="dot" style="background:#4ade80"></span> sent</span>
+          </div>
+        </section>
+      </div>
+
+      <div class="sections">
+        <section class="panel pad">
+          <h2>G1 Trustworthy delegation</h2>
+          <div class="sub">Proxy trust, guardrails, and user-rated risk.</div>
+          <div class="section-grid" id="trustGrid"></div>
+        </section>
+        <section class="panel pad">
+          <h2>G2 Productivity gains</h2>
+          <div class="sub">Latency and throughput from real thread/draft lifecycle data.</div>
+          <div class="section-grid" id="productivityGrid"></div>
+        </section>
+        <section class="panel pad">
+          <h2>G3 Identity &amp; intent</h2>
+          <div class="sub">Relationship graph, memory, and “sounds like me” feedback.</div>
+          <div class="section-grid" id="identityGrid"></div>
+        </section>
+        <section class="panel pad">
+          <h2>G4 Safe autonomy</h2>
+          <div class="sub">Policy action mix, coordination activity, and autonomy readiness.</div>
+          <div class="section-grid" id="autonomyGrid"></div>
+        </section>
+      </div>
+
+      <div class="feedback-grid" style="margin-top:16px;">
+        <section class="panel pad">
+          <h2>Research feedback</h2>
+          <div class="sub">Record subjective GQM signals so the dashboard tracks more than proxy events.</div>
+          <div class="stack" style="margin-top:14px;">
+            <div class="field"><label>Selected draft ID</label><input id="fbDraftId" placeholder="Optional draft id" /></div>
+            <div class="field"><label>Selected thread ID</label><input id="fbThreadId" placeholder="Optional thread id" /></div>
+            <div>
+              <div class="sub" style="margin-bottom:8px;">Sounds like me (1–5)</div>
+              <div class="score-row" id="scoreRow"></div>
+            </div>
+            <div class="field"><label>Research note</label><textarea id="fbNote" placeholder="Optional note for tone mismatch, regret reason, or context."></textarea></div>
+            <div class="actions">
+              <button class="btn primary" id="submitScore" type="button">Save score</button>
+              <button class="btn" id="submitRegret" type="button">Log regret</button>
+              <button class="btn" id="submitBoundary" type="button">Log boundary violation</button>
+            </div>
+          </div>
+        </section>
+        <section class="panel pad">
+          <h2>Recent measurable events</h2>
+          <div class="sub">Pick a recent approval/send to prefill feedback and review instrumentation quality.</div>
+          <div class="events" id="recentEvents"></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id)
+      const params = new URLSearchParams(location.search)
+      let score = null
+      let toastTimer = null
+
+      const api = () => {
+        const raw = $('apiBase').value.trim()
+        return raw.endsWith('/') ? raw.slice(0, -1) : raw
+      }
+
+      const saveSettings = () => {
+        localStorage.setItem('mirachatApiBase', api())
+        localStorage.setItem('mirachatUserId', $('userId').value.trim())
+        const url = new URL(location.href)
+        url.searchParams.set('api', api())
+        history.replaceState(null, '', url)
+        updateOauthLinks()
+      }
+
+      const loadSettings = () => {
+        $('apiBase').value = params.get('api') || localStorage.getItem('mirachatApiBase') || 'http://127.0.0.1:4000'
+        $('userId').value = localStorage.getItem('mirachatUserId') || 'demo-user'
+        $('days').value = localStorage.getItem('mirachatMeasurementDays') || '30'
+        updateOauthLinks()
+      }
+
+      const updateOauthLinks = () => {
+        const uid = encodeURIComponent($('userId').value.trim() || 'demo-user')
+        $('oauthGoogle').href = api() + '/oauth/google/start?userId=' + uid
+        $('oauthSlack').href = api() + '/oauth/slack/start?userId=' + uid
+        $('openConsole').href = '../?api=' + encodeURIComponent(api())
+      }
+
+      const showToast = (msg) => {
+        const t = $('toast')
+        if (toastTimer) clearTimeout(toastTimer)
+        t.textContent = msg
+        t.classList.add('show')
+        toastTimer = setTimeout(() => t.classList.remove('show'), 2200)
+      }
+
+      const showError = (msg) => {
+        const el = $('error')
+        if (!msg) {
+          el.classList.remove('show')
+          el.textContent = ''
+          return
+        }
+        el.textContent = msg
+        el.classList.add('show')
+      }
+
+      const j = async (path, opts = {}) => {
+        const res = await fetch(api() + path, {
+          ...opts,
+          headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
+        })
+        const text = await res.text()
+        let data = null
+        try { data = text ? JSON.parse(text) : null } catch { data = text }
+        if (!res.ok) throw new Error((data && data.error) || text || res.statusText)
+        return data
+      }
+
+      const pct = (v, digits = 1) => (v == null ? 'n/a' : (v * 100).toFixed(digits) + '%')
+      const num = (v, digits = 1) => (v == null ? 'n/a' : Number(v).toFixed(digits))
+      const secs = (v) => {
+        if (v == null) return 'n/a'
+        if (v < 60) return num(v, 0) + 's'
+        if (v < 3600) return num(v / 60, 1) + 'm'
+        return num(v / 3600, 1) + 'h'
+      }
+      const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+      const metricStatus = (value, rule) => {
+        if (value == null) return ['warn', 'No data yet']
+        if (rule === 'approval') return value >= 0.7 ? ['good', 'On target'] : value >= 0.55 ? ['warn', 'Below target'] : ['bad', 'Needs work']
+        if (rule === 'assist') return value >= 0.6 ? ['good', 'On target'] : value >= 0.4 ? ['warn', 'Growing'] : ['bad', 'Low coverage']
+        if (rule === 'sounds') return value >= 4.0 ? ['good', 'Strong fit'] : value >= 3.5 ? ['warn', 'Mixed'] : ['bad', 'Weak fit']
+        if (rule === 'regret') return value <= 0.01 ? ['good', 'Within target'] : value <= 0.02 ? ['warn', 'Watch closely'] : ['bad', 'Too high']
+        if (rule === 'timeValue') return value <= 300 ? ['good', 'Fast activation'] : value <= 900 ? ['warn', 'Slow setup'] : ['bad', 'Too slow']
+        return ['warn', 'Informational']
+      }
+
+      const metricCard = (label, value, note, rule) => {
+        const [kind, msg] = metricStatus(value, rule)
+        let rendered = 'n/a'
+        if (note.kind === 'pct') rendered = pct(value)
+        else if (note.kind === 'secs') rendered = secs(value)
+        else if (note.kind === 'num2') rendered = num(value, 2)
+        else rendered = String(value ?? 'n/a')
+        return `<div class="metric"><div class="label">${esc(label)}</div><div class="value">${esc(rendered)}</div><div class="note">${esc(note.text)} · <span class="status ${kind}">${esc(msg)}</span></div></div>`
+      }
+
+      const mini = (label, value, extra = '') => `<div class="mini"><div class="k">${esc(label)}</div><div class="v">${esc(value)}</div>${extra ? `<div class="sub">${esc(extra)}</div>` : ''}</div>`
+
+      const drawSeries = (series) => {
+        const svg = $('seriesSvg')
+        if (!Array.isArray(series) || !series.length) {
+          svg.innerHTML = '<text x="50%" y="50%" fill="#a8a8b3" dominant-baseline="middle" text-anchor="middle">No series data yet</text>'
+          return
+        }
+        const keys = [
+          ['inboundEnqueued', '#c7b2ff'],
+          ['draftsCreated', '#ff7be3'],
+          ['approvals', '#ffb224'],
+          ['autoQueued', '#ff8a9d'],
+          ['sent', '#4ade80'],
+        ]
+        const valueFor = (row, key) => {
+          if (key === 'approvals') return Number(row.approvedAsIs || 0) + Number(row.approvedWithEdit || 0)
+          return Number(row[key] || 0)
+        }
+        const max = Math.max(1, ...series.flatMap(d => keys.map(([k]) => valueFor(d, k))))
+        const w = 900, h = 220, left = 40, right = 16, top = 16, bottom = 28
+        const innerW = w - left - right, innerH = h - top - bottom
+        const x = (i) => left + (series.length === 1 ? innerW / 2 : (i * innerW) / (series.length - 1))
+        const y = (v) => top + innerH - (v / max) * innerH
+        const grid = [0.25, 0.5, 0.75, 1].map(r => `<line x1="${left}" x2="${w-right}" y1="${top + innerH - innerH*r}" y2="${top + innerH - innerH*r}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4 6" />`).join('')
+        const lines = keys.map(([key, color]) => `<path d="${series.map((row, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(valueFor(row, key))}`).join(' ')}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />`).join('')
+        const labels = series.map((row, i) => `<text x="${x(i)}" y="${h - 8}" text-anchor="middle" fill="#88a1b6" font-size="11">${row.day.slice(5)}</text>`).join('')
+        svg.innerHTML = grid + lines + labels
+      }
+
+      const fillCore = (m) => {
+        $('coreMetrics').innerHTML = [
+          metricCard('Approval without edit', m.approvalWithoutEditRate, { kind: 'pct', text: 'G1 trust proxy target > 70%' }, 'approval'),
+          metricCard('Assisted or delegated rate', m.overview.assistedOrDelegatedRate, { kind: 'pct', text: 'G2 usage target > 60%' }, 'assist'),
+          metricCard('Sounds like me', m.avgSoundsLikeMeScore, { kind: 'num2', text: 'G3 identity target > 4.0' }, 'sounds'),
+          metricCard('Regret rate', m.regretRate, { kind: 'pct', text: 'G1 harm target < 1%' }, 'regret'),
+        ].join('')
+        const [kind, msg] = metricStatus(m.approvalWithoutEditRate, 'approval')
+        $('healthBadge').className = 'status ' + kind
+        $('healthBadge').textContent = msg
+        $('windowLabel').textContent = `${m.userId || 'all users'} · ${m.since.slice(0, 10)} to ${m.until.slice(0, 10)}`
+      }
+
+      const fillSections = (m) => {
+        $('trustGrid').innerHTML = [
+          mini('As-is approvals', String(m.asIsApprovals), 'Drafts sent without edits'),
+          mini('Edited approvals', String(m.editedApprovals), 'User-changed approvals'),
+          mini('Review rate', pct(m.trust.reviewRate), 'policy.evaluated → REVIEW'),
+          mini('Block rate', pct(m.trust.blockRate), 'policy.evaluated → BLOCK'),
+          mini('Boundary violation rate', pct(m.boundaryViolationRate), 'Manual research signal'),
+          mini('Auto-eligible rate', pct(m.trust.autoEligibleRate), 'AUTO_SEND share of policy outcomes'),
+        ].join('')
+
+        $('productivityGrid').innerHTML = [
+          mini('Inbound enqueued', String(m.overview.inboundEnqueued), 'Demand entering the system'),
+          mini('Drafts created', String(m.overview.draftsCreated), 'Delegated responses produced'),
+          mini('Avg draft latency', secs(m.productivity.avgDraftLatencySeconds), 'Inbound → draft'),
+          mini('Avg resolution time', secs(m.productivity.avgResolutionSeconds), 'Inbound → sent'),
+          mini('Avg approval latency', secs(m.productivity.avgApprovalLatencySeconds), 'Draft → approval'),
+          mini('Avg send latency', secs(m.productivity.avgSendLatencySeconds), 'Approval → sent'),
+        ].join('')
+
+        $('identityGrid').innerHTML = [
+          mini('Relationships tracked', String(m.identity.relationshipCount), 'relationship_graph rows'),
+          mini('High-risk relationships', String(m.identity.highRiskRelationshipCount), 'risk_level = high'),
+          mini('Hard constraints', String(m.identity.hardConstraintCount), 'Identity guardrails'),
+          mini('Memory chunks', String(m.identity.memoryChunkCount), 'Ingested memory'),
+          mini('OAuth connections', String(m.identity.oauthConnections), 'Connected providers in window'),
+          mini('Ingests completed', String(m.identity.ingestsCompleted), 'Cold-start acceleration'),
+        ].join('')
+
+        $('autonomyGrid').innerHTML = [
+          mini('Active users', String(m.overview.activeUsers), 'Users with measured activity'),
+          mini('Active threads', String(m.overview.activeThreads), 'thread_id seen in window'),
+          mini('Time to value', secs(m.productivity.timeToValueSeconds), 'OAuth/ingest → first draft'),
+          mini('Auto queued', String(m.overview.autoQueued), 'Policy-approved without human checkpoint'),
+          mini('Auto sent', String(m.overview.autoSent), 'Queued auto drafts actually sent'),
+          mini('Human sent', String(m.overview.humanSent), 'Human-approved sends'),
+          mini('Mode changes', String(m.overview.modeChanges), 'assist / approve / auto transitions'),
+          mini('Trust regressions', String(m.overview.trustRegressions), 'Autonomy dialed back'),
+          mini('Negotiation turns', String(m.coordination.negotiationTurns), 'Scheduling/coordination'),
+          mini('A2A proposals', String(m.coordination.a2aProposals), 'Future protocol activity'),
+          mini('Doer completed', String(m.coordination.doerCompleted), 'Actuation completions'),
+        ].join('')
+      }
+
+      const fillEvents = (events) => {
+        const interesting = (events || []).filter((e) => ['outbound.sent','draft.approved_as_is','draft.approved_with_edit'].includes(e.event_type)).slice(0, 20)
+        $('recentEvents').innerHTML = interesting.length ? interesting.map((e) => `
+          <div class="event-row">
+            <div class="event-meta"><span class="event-type">${esc(e.event_type)}</span><span>${esc((e.created_at || '').replace('T', ' ').slice(0, 16))}</span></div>
+            <div class="mono">thread=${esc(e.thread_id || '')} · draft=${esc(e.draft_id || '')}</div>
+            <div><button class="pick" data-draft="${esc(e.draft_id || '')}" data-thread="${esc(e.thread_id || '')}">Use for feedback</button></div>
+          </div>`).join('') : '<div class="sub" style="padding:14px 0;">No recent approval/send events yet.</div>'
+        $('recentEvents').querySelectorAll('.pick').forEach((btn) => btn.addEventListener('click', () => {
+          $('fbDraftId').value = btn.dataset.draft || ''
+          $('fbThreadId').value = btn.dataset.thread || ''
+          showToast('Feedback target selected')
+        }))
+      }
+
+      const setScore = (next) => {
+        score = next
+        document.querySelectorAll('.score-btn').forEach((btn) => btn.classList.toggle('active', Number(btn.dataset.score) === next))
+      }
+
+      const buildScoreButtons = () => {
+        $('scoreRow').innerHTML = [1,2,3,4,5].map((n) => `<button class="score-btn" data-score="${n}" type="button">${n}</button>`).join('')
+        document.querySelectorAll('.score-btn').forEach((btn) => btn.addEventListener('click', () => setScore(Number(btn.dataset.score))))
+      }
+
+      const submitFeedback = async (type) => {
+        const userId = $('userId').value.trim()
+        const body = { userId, type, draftId: $('fbDraftId').value.trim() || null, threadId: $('fbThreadId').value.trim() || null, note: $('fbNote').value.trim() || null }
+        if (type === 'sounds_like_me') {
+          if (!score) {
+            showError('Pick a 1–5 score before saving “sounds like me” feedback.')
+            return
+          }
+          body.score = score
+        }
+        await j('/mirachat/feedback', { method: 'POST', body: JSON.stringify(body) })
+        $('fbNote').value = ''
+        showError('')
+        showToast('Feedback recorded')
+        await refresh()
+      }
+
+      const refresh = async () => {
+        showError('')
+        saveSettings()
+        localStorage.setItem('mirachatMeasurementDays', $('days').value)
+        try {
+          const q = `/mirachat/metrics?days=${encodeURIComponent($('days').value)}&userId=${encodeURIComponent($('userId').value.trim())}`
+          const [metrics, events] = await Promise.all([j(q), j('/mirachat/delegation-events?limit=80').catch(() => [])])
+          fillCore(metrics)
+          fillSections(metrics)
+          fillEvents(events)
+          drawSeries(metrics.dailySeries || [])
+        } catch (err) {
+          showError(String(err.message || err))
+        }
+      }
+
+      $('saveBtn').addEventListener('click', () => { saveSettings(); showToast('Saved') })
+      $('refreshBtn').addEventListener('click', refresh)
+      $('submitScore').addEventListener('click', () => submitFeedback('sounds_like_me'))
+      $('submitRegret').addEventListener('click', () => submitFeedback('regret'))
+      $('submitBoundary').addEventListener('click', () => submitFeedback('boundary_violation'))
+      $('apiBase').addEventListener('change', saveSettings)
+      $('userId').addEventListener('change', saveSettings)
+      $('days').addEventListener('change', refresh)
+
+      loadSettings()
+      buildScoreButtons()
+      refresh()
+    </script>
+  </body>
+</html>

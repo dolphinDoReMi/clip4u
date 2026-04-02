@@ -1,0 +1,42 @@
+{
+  "name": "mirachat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "npm run build:packages && npm run build:services && npm run build:apps",
+    "build:packages": "npm run build --workspace @delegate-ai/adapter-types && npm run build --workspace @delegate-ai/gateway-runtime && npm run build --workspace @delegate-ai/db && npm run build --workspace @delegate-ai/identity && npm run build --workspace @delegate-ai/memory && npm run build --workspace @delegate-ai/approval && npm run build --workspace @delegate-ai/policy-engine && npm run build --workspace @delegate-ai/negotiation-tools && npm run build --workspace @delegate-ai/openclaw-doer && npm run build --workspace @delegate-ai/assist-core && npm run build --workspace @delegate-ai/agent-core",
+    "build:services": "npm run build --workspace @delegate-ai/api",
+    "build:apps": "npm run build --workspace @delegate-ai/ops-console && npm run build --workspace @delegate-ai/mini-program && npm run build --workspace @delegate-ai/gateway-whatsapp && npm run build --workspace @delegate-ai/gateway-wechaty && npm run build --workspace @delegate-ai/gateway-wecom && npm run build --workspace @delegate-ai/gateway-twilio && npm run build --workspace @delegate-ai/gateway-telegram",
+    "dev:api": "npm run dev --workspace @delegate-ai/api",
+    "dev:ops": "npm run dev --workspace @delegate-ai/ops-console",
+    "dev:whatsapp": "npm run dev --workspace @delegate-ai/gateway-whatsapp",
+    "dev:wechaty": "npm run dev --workspace @delegate-ai/gateway-wechaty",
+    "dev:wecom": "npm run dev --workspace @delegate-ai/gateway-wecom",
+    "dev:twilio": "npm run dev --workspace @delegate-ai/gateway-twilio",
+    "dev:telegram": "npm run dev --workspace @delegate-ai/gateway-telegram",
+    "mirachat:migrate": "npm run migrate --workspace @delegate-ai/db",
+    "test": "vitest run",
+    "test:fast": "vitest run --exclude tests/e2e/**",
+    "test:prd:db": "vitest run tests/e2e/mirachat-pipeline.e2e.spec.ts",
+    "test:prd": "node scripts/run-prd-validation.mjs",
+    "test:twilio": "node twilio-smoke-test.mjs",
+    "test:wecom": "node scripts/wecom-smoke-test.mjs",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "@types/node": "^24.5.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

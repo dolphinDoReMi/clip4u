@@ -1,0 +1,9 @@
+dist
+node_modules
+.env
+.wwebjs_auth
+.wechaty-state
+playwright-report
+test-results
+blob-report
+playwright/.cache

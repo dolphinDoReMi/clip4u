@@ -1,0 +1,19 @@
+{
+  "name": "@delegate-ai/agent-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@delegate-ai/adapter-types": "file:../adapter-types",
+    "@delegate-ai/approval": "file:../approval",
+    "@delegate-ai/assist-core": "file:../assist-core",
+    "@delegate-ai/identity": "file:../identity",
+    "@delegate-ai/memory": "file:../memory",
+    "@delegate-ai/policy-engine": "file:../policy-engine"
+  }
+}

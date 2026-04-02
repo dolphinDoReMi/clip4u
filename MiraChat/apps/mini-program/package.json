@@ -1,0 +1,8 @@
+{
+  "name": "@delegate-ai/mini-program",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/verify.mjs"
+  }
+}

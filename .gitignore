@@ -69,6 +69,9 @@ tags
 package-lock.json
 .babel.json
 
+# MiraChat secrets (single root `.env`)
+MiraChat/.env
+
 .idea
 examples/.config
 examples/.pki

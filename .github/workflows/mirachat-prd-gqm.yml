@@ -1,0 +1,83 @@
+name: MiraChat PRD GQM
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'MiraChat/**'
+      - 'docs/PRD-MiraForU.md'
+      - 'docs/product-GQM-MiraForU.md'
+      - 'docs/prd-gqm-e2e-test-suite.md'
+      - '.github/workflows/mirachat-prd-gqm.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'MiraChat/**'
+      - 'docs/PRD-MiraForU.md'
+      - 'docs/product-GQM-MiraForU.md'
+      - 'docs/prd-gqm-e2e-test-suite.md'
+      - '.github/workflows/mirachat-prd-gqm.yml'
+
+jobs:
+  validate-prd-gqm:
+    name: Real PRD/GQM Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      DATABASE_URL: ${{ secrets.MIRACHAT_CI_DATABASE_URL }}
+      E2E_DATABASE_URL: ${{ secrets.MIRACHAT_CI_DATABASE_URL }}
+      CI: true
+
+    defaults:
+      run:
+        working-directory: MiraChat
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: MiraChat/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check real database configuration
+        id: db
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "has_db=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Real PRD/GQM validation skipped"
+              echo
+              echo "This workflow is real-only and requires the repository secret \`MIRACHAT_CI_DATABASE_URL\`."
+              echo "Fork PRs and branches without that secret cannot run the acceptance suite."
+              echo
+              echo "Required database: PostgreSQL with \`pgvector\` enabled."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_db=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Playwright browser
+        if: steps.db.outputs.has_db == 'true'
+        run: npm run test:e2e:install
+
+      - name: Run real PRD/GQM validation
+        if: steps.db.outputs.has_db == 'true'
+        run: npm run test:prd
+
+      - name: Upload Playwright artifacts
+        if: failure() && steps.db.outputs.has_db == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mirachat-playwright-artifacts
+          path: |
+            MiraChat/test-results
+            MiraChat/playwright-report
+          if-no-files-found: ignore

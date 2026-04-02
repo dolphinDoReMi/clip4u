@@ -1,0 +1,22 @@
+{
+  "name": "@delegate-ai/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "migrate": "tsx src/cli-migrate.ts"
+  },
+  "dependencies": {
+    "@delegate-ai/adapter-types": "file:../adapter-types",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1",
+    "pg-boss": "^10.1.5"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.20.5"
+  }
+}

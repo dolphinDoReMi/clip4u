@@ -1,0 +1,41 @@
+<view class="screen">
+  <view class="card" wx:if="{{error}}">
+    <view class="label">Error</view>
+    <view class="text-block">{{error}}</view>
+  </view>
+
+  <view class="card" wx:if="{{draft}}">
+    <view class="title">{{draft.threadId}}</view>
+    <view class="label">Inbound</view>
+    <view class="text-block">{{draft.inboundText || '-'}}</view>
+    <view class="label">Summary</view>
+    <view class="text-block">{{draft.threadSummary || '-'}}</view>
+    <view class="label">Suggested Reply</view>
+    <view class="text-block">{{draft.generatedText}}</view>
+    <view class="label">Edit Before Approve</view>
+    <textarea class="input" value="{{editedText}}" bindinput="onEditInput"></textarea>
+
+    <view class="button-row">
+      <button class="primary-btn" bindtap="approve">Approve</button>
+      <button class="secondary-btn" bindtap="saveEdit">Approve Edit</button>
+      <button class="danger-btn" bindtap="reject">Reject</button>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{draft && draft.replyOptions && draft.replyOptions.length}}">
+    <view class="title">Reply Options</view>
+    <block wx:for="{{draft.replyOptions}}" wx:key="label">
+      <view class="card">
+        <view class="label">{{item.label}}</view>
+        <view class="text-block">{{item.text}}</view>
+        <view class="button-row">
+          <button class="secondary-btn" data-index="{{index}}" bindtap="chooseOption">Use Option</button>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view class="card" wx:if="{{!loading && !draft}}">
+    <view class="text-block">Draft not found.</view>
+  </view>
+</view>

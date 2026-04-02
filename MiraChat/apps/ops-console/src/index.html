@@ -1,0 +1,1814 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>MiraChat — Proxy Self</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --ig-bg: #0f1014;
+        --ig-bg-elevated: #15161c;
+        --ig-panel: rgba(21, 22, 28, 0.92);
+        --ig-panel-2: rgba(28, 29, 37, 0.94);
+        --ig-border: rgba(255, 255, 255, 0.09);
+        --ig-border-strong: rgba(255, 255, 255, 0.16);
+        --ig-text: #f7f7f8;
+        --ig-muted: #a8a8b3;
+        --ig-soft: #8d8d98;
+        --ig-in: #1b1d25;
+        --ig-out: linear-gradient(135deg, #fd1d1d 0%, #f56040 30%, #f77737 52%, #fcaf45 74%, #c13584 100%);
+        --ig-accent: #ff4fd8;
+        --ig-accent-2: #ff8a00;
+        --ig-accent-3: #7c4dff;
+        --ig-danger: #ff5d73;
+        --ig-warn: #ffb224;
+        --ig-success: #4ade80;
+        --ig-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+        --ig-story: linear-gradient(135deg, #fd1d1d 0%, #f77737 24%, #fcaf45 48%, #c13584 72%, #833ab4 100%);
+        --font: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: var(--font);
+        background:
+          radial-gradient(circle at top left, rgba(193, 53, 132, 0.28), transparent 26%),
+          radial-gradient(circle at top right, rgba(252, 175, 69, 0.2), transparent 22%),
+          radial-gradient(circle at bottom left, rgba(124, 77, 255, 0.16), transparent 24%),
+          var(--ig-bg);
+        color: var(--ig-text);
+        -webkit-tap-highlight-color: transparent;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 22%),
+          radial-gradient(circle at center, rgba(255, 255, 255, 0.035), transparent 55%);
+        mix-blend-mode: screen;
+      }
+      button {
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+      }
+      .app {
+        display: flex;
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+        position: relative;
+      }
+      .sidebar {
+        width: 100%;
+        max-width: 390px;
+        min-width: 280px;
+        border-right: 1px solid var(--ig-border);
+        display: flex;
+        flex-direction: column;
+        background: var(--ig-panel);
+        backdrop-filter: blur(18px);
+        box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+      }
+      @media (max-width: 768px) {
+        .sidebar {
+          max-width: none;
+        }
+        .sidebar.hidden-mobile {
+          display: none;
+        }
+        .chat-pane.hidden-mobile {
+          display: none;
+        }
+      }
+      .sb-top {
+        padding: 0.9rem 1rem;
+        background: rgba(17, 18, 24, 0.82);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--ig-border);
+        backdrop-filter: blur(16px);
+      }
+      .sb-top h1 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 800;
+        flex: 1;
+        letter-spacing: -0.04em;
+      }
+      .icon-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--ig-muted);
+        display: grid;
+        place-items: center;
+        font-size: 1.15rem;
+        border: 1px solid transparent;
+        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+      }
+      .icon-btn:hover {
+        background: rgba(255, 255, 255, 0.07);
+        border-color: var(--ig-border);
+        color: var(--ig-text);
+        transform: translateY(-1px);
+      }
+      .search-wrap {
+        padding: 0.8rem 0.85rem 0.7rem;
+        border-bottom: 1px solid var(--ig-border);
+      }
+      .search-wrap input {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 0.78rem 1rem;
+        color: var(--ig-text);
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+      }
+      .search-wrap input::placeholder {
+        color: var(--ig-soft);
+      }
+      .search-wrap input:focus {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 79, 216, 0.45);
+        box-shadow: 0 0 0 4px rgba(255, 79, 216, 0.12);
+      }
+      .thread-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.4rem 0;
+      }
+      .thread-item {
+        display: flex;
+        gap: 0.8rem;
+        padding: 0.85rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        align-items: flex-start;
+        transition: background 0.18s ease, transform 0.18s ease;
+      }
+      .thread-item:hover {
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .thread-item.active {
+        background:
+          linear-gradient(90deg, rgba(255, 79, 216, 0.15), rgba(255, 138, 0, 0.08)),
+          rgba(255, 255, 255, 0.04);
+        box-shadow: inset 3px 0 0 #ff4fd8;
+      }
+      .avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 999px;
+        background:
+          linear-gradient(var(--ig-bg-elevated), var(--ig-bg-elevated)) padding-box,
+          var(--ig-story) border-box;
+        border: 2px solid transparent;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--ig-text);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+      .thread-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .thread-row1 {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.35rem;
+      }
+      .thread-title {
+        font-size: 1rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .thread-time {
+        font-size: 0.72rem;
+        color: var(--ig-soft);
+        flex-shrink: 0;
+      }
+      .thread-preview {
+        font-size: 0.82rem;
+        color: var(--ig-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 0.28rem;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.35rem;
+        height: 1.35rem;
+        padding: 0 0.35rem;
+        border-radius: 999px;
+        background: var(--ig-story);
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 700;
+        margin-left: 0.35rem;
+        vertical-align: middle;
+      }
+      .chat-pane {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        background:
+          radial-gradient(circle at top center, rgba(131, 58, 180, 0.14), transparent 30%),
+          radial-gradient(circle at bottom right, rgba(252, 175, 69, 0.12), transparent 26%),
+          linear-gradient(180deg, #0f1014, #111217 42%, #0f1014);
+      }
+      .chat-head {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.8rem 1rem;
+        background: rgba(17, 18, 24, 0.72);
+        border-bottom: 1px solid var(--ig-border);
+        backdrop-filter: blur(18px);
+      }
+      .chat-head .back-m {
+        display: none;
+      }
+      @media (max-width: 768px) {
+        .chat-head .back-m {
+          display: grid;
+        }
+      }
+      .head-meta {
+        flex: 1;
+        min-width: 0;
+      }
+      .head-title {
+        font-weight: 700;
+        font-size: 0.98rem;
+      }
+      .head-sub {
+        font-size: 0.72rem;
+        color: var(--ig-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        align-items: center;
+        margin-top: 0.15rem;
+      }
+      .pill {
+        font-size: 0.66rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--ig-muted);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .pill.mode-assist {
+        border-color: rgba(255, 178, 36, 0.4);
+        color: #ffd277;
+      }
+      .pill.mode-approve {
+        border-color: rgba(255, 79, 216, 0.38);
+        color: #ff7be3;
+      }
+      .pill.mode-auto {
+        border-color: rgba(124, 77, 255, 0.38);
+        color: #c7b2ff;
+      }
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem 1.15rem 0.8rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .day-label {
+        align-self: center;
+        font-size: 0.72rem;
+        color: var(--ig-muted);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 0.32rem 0.8rem;
+        border-radius: 999px;
+        margin: 0.35rem 0;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(10px);
+      }
+      .bubble-row {
+        display: flex;
+        width: 100%;
+      }
+      .bubble-row.in {
+        justify-content: flex-start;
+      }
+      .bubble-row.out {
+        justify-content: flex-end;
+      }
+      .bubble {
+        max-width: min(680px, 82%);
+        padding: 0.7rem 0.85rem 0.62rem;
+        border-radius: 18px;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .bubble.in {
+        background: linear-gradient(180deg, rgba(33, 35, 44, 0.98), rgba(25, 27, 34, 0.98));
+        border-top-left-radius: 6px;
+      }
+      .bubble.out {
+        background: var(--ig-out);
+        border-top-right-radius: 6px;
+        color: white;
+        border-color: rgba(255, 255, 255, 0.12);
+      }
+      .bubble time {
+        display: block;
+        font-size: 0.65rem;
+        color: rgba(255, 255, 255, 0.72);
+        text-align: right;
+        margin-top: 0.35rem;
+      }
+      .approval-panel {
+        border-top: 1px solid var(--ig-border);
+        background: rgba(19, 20, 26, 0.86);
+        padding: 0.9rem 1rem;
+        max-height: 42vh;
+        overflow-y: auto;
+        backdrop-filter: blur(16px);
+      }
+      .approval-panel h3 {
+        margin: 0 0 0.45rem;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #ff7be3;
+      }
+      .policy-bar {
+        font-size: 0.75rem;
+        color: var(--ig-muted);
+        margin-bottom: 0.7rem;
+      }
+      .summary-box {
+        font-size: 0.82rem;
+        color: var(--ig-text);
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 0.75rem 0.85rem;
+        margin-bottom: 0.6rem;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-left: 3px solid #ff4fd8;
+      }
+      .opt-block {
+        margin-bottom: 0.65rem;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .opt-label {
+        font-size: 0.72rem;
+        color: var(--ig-muted);
+        margin-bottom: 0.3rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .composer-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom));
+        background: rgba(17, 18, 24, 0.78);
+        border-top: 1px solid var(--ig-border);
+        backdrop-filter: blur(18px);
+      }
+      .pending-queue {
+        font-size: 0.78rem;
+        color: #ffd277;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        align-items: center;
+      }
+      .composer-row {
+        display: flex;
+        gap: 0.45rem;
+        align-items: flex-end;
+      }
+      .composer-row textarea {
+        flex: 1;
+        resize: none;
+        min-height: 46px;
+        max-height: 120px;
+        border-radius: 24px;
+        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--ig-text);
+        padding: 0.78rem 0.95rem;
+        font-size: 0.92rem;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      }
+      .composer-row textarea:focus {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 79, 216, 0.4);
+        box-shadow: 0 0 0 4px rgba(255, 79, 216, 0.12);
+      }
+      .btn {
+        border-radius: 999px;
+        padding: 0.65rem 0.95rem;
+        font-weight: 700;
+        font-size: 0.82rem;
+        border: 1px solid transparent;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn-primary {
+        background: var(--ig-story);
+        color: white;
+        box-shadow: 0 10px 24px rgba(193, 53, 132, 0.28);
+      }
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--ig-text);
+        border-color: rgba(255, 255, 255, 0.07);
+      }
+      .btn-danger {
+        background: rgba(255, 93, 115, 0.14);
+        color: #ffd4db;
+        border-color: rgba(255, 93, 115, 0.2);
+      }
+      .btn-ok {
+        background: rgba(74, 222, 128, 0.14);
+        color: #97efaf;
+        border-color: rgba(74, 222, 128, 0.2);
+      }
+      .actions-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-top: 0.6rem;
+      }
+      .drawer-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 40;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      .drawer-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: min(420px, 100%);
+        height: 100%;
+        background: rgba(18, 19, 25, 0.96);
+        z-index: 50;
+        transform: translateX(100%);
+        transition: transform 0.22s ease;
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid var(--ig-border);
+        box-shadow: -18px 0 48px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(18px);
+      }
+      .drawer.open {
+        transform: translateX(0);
+      }
+      .drawer-head {
+        padding: 1rem;
+        border-bottom: 1px solid var(--ig-border);
+        font-weight: 700;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.85rem;
+      }
+      .drawer-footer {
+        position: sticky;
+        bottom: -0.85rem;
+        margin: 1rem -0.85rem -0.85rem;
+        padding: 0.75rem 0.85rem calc(0.75rem + env(safe-area-inset-bottom));
+        background: linear-gradient(180deg, rgba(18, 19, 25, 0.75), rgba(18, 19, 25, 1) 30%);
+        border-top: 1px solid var(--ig-border);
+      }
+      .drawer-note {
+        font-size: 0.74rem;
+        color: var(--ig-muted);
+        margin-top: 0.45rem;
+      }
+      .field {
+        margin-bottom: 0.85rem;
+      }
+      .field label {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--ig-muted);
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .field input,
+      .field textarea,
+      .field select {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 16px;
+        padding: 0.7rem 0.8rem;
+        color: var(--ig-text);
+        font-family: inherit;
+        font-size: 0.88rem;
+        outline: none;
+      }
+      .field textarea {
+        min-height: 72px;
+        resize: vertical;
+      }
+      .tabs {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .tab {
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--ig-muted);
+        font-size: 0.78rem;
+        border: 1px solid transparent;
+      }
+      .tab.active {
+        background: rgba(255, 79, 216, 0.12);
+        border-color: rgba(255, 79, 216, 0.3);
+        color: #ff7be3;
+      }
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+      }
+      .metric-card {
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 18px;
+        padding: 0.8rem;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .metric-card strong {
+        display: block;
+        font-size: 1.1rem;
+        color: #ff7be3;
+      }
+      .log-line {
+        font-size: 0.72rem;
+        color: var(--ig-muted);
+        border-bottom: 1px solid var(--ig-border);
+        padding: 0.35rem 0;
+        font-family: var(--mono);
+      }
+      .banner-err {
+        background: rgba(255, 93, 115, 0.15);
+        color: #ffd4db;
+        padding: 0.55rem 0.8rem;
+        font-size: 0.82rem;
+        display: none;
+      }
+      .banner-err.show {
+        display: block;
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(1rem + env(safe-area-inset-bottom));
+        transform: translate(-50%, 16px);
+        min-width: min(360px, calc(100vw - 2rem));
+        max-width: calc(100vw - 2rem);
+        padding: 0.7rem 0.9rem;
+        border-radius: 18px;
+        border: 1px solid var(--ig-border);
+        background: rgba(20, 21, 28, 0.96);
+        color: var(--ig-text);
+        box-shadow: var(--ig-shadow);
+        font-size: 0.84rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s ease, transform 0.18s ease;
+        z-index: 80;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+      .toast.success {
+        border-color: rgba(255, 79, 216, 0.35);
+      }
+      .toast.error {
+        border-color: rgba(255, 93, 115, 0.35);
+        color: #ffd4db;
+      }
+      .empty-state {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        color: var(--ig-muted);
+        font-size: 0.9rem;
+        text-align: center;
+        padding: 2rem;
+      }
+      #qrConn img {
+        max-width: 100%;
+        border-radius: 22px;
+        border: 1px solid var(--ig-border);
+        margin-top: 0.5rem;
+      }
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: none;
+        place-items: center;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.6);
+      }
+      .modal.show {
+        display: grid;
+      }
+      .modal-card {
+        background: rgba(20, 21, 28, 0.98);
+        border-radius: 24px;
+        max-width: 520px;
+        width: 100%;
+        max-height: 85vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--ig-border);
+        box-shadow: var(--ig-shadow);
+      }
+      .modal-card .mh {
+        padding: 0.85rem 1rem;
+        border-bottom: 1px solid var(--ig-border);
+        font-weight: 700;
+      }
+      .modal-card .mb {
+        padding: 1rem;
+        overflow-y: auto;
+        font-size: 0.88rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner-err" id="banner"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="sb-top">
+          <h1>MiraChat</h1>
+          <button type="button" class="icon-btn" id="btnMeasurement" title="Measurement dashboard" aria-label="Measurement dashboard">◎</button>
+          <button type="button" class="icon-btn" id="btnMenu" title="Settings & tools" aria-label="Menu">☰</button>
+        </div>
+        <div class="search-wrap">
+          <input type="search" id="threadSearch" placeholder="Search DMs" autocomplete="off" />
+        </div>
+        <div class="thread-list" id="threadList"></div>
+      </aside>
+      <section class="chat-pane" id="chatPane">
+        <div class="empty-state" id="emptyChat" style="display: none">
+          <div>
+            <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Select a conversation</p>
+            <p style="margin: 0; font-size: 0.85rem">A cleaner IG-style inbox for draft, approve, and send workflows.</p>
+          </div>
+        </div>
+        <div id="chatActive" style="display: flex; flex-direction: column; flex: 1; min-height: 0">
+          <header class="chat-head">
+            <button type="button" class="icon-btn back-m" id="btnBack" aria-label="Back">←</button>
+            <div class="avatar" id="headAvatar">?</div>
+            <div class="head-meta">
+              <div class="head-title" id="headTitle">—</div>
+              <div class="head-sub">
+                <span class="pill" id="healthPill">API …</span>
+                <span class="pill" id="connPill">conn …</span>
+                <span class="pill mode-approve" id="modePill">Approve mode</span>
+              </div>
+            </div>
+            <button type="button" class="icon-btn" id="btnModeCycle" title="Cycle delegation: Assist → Approve → Auto">⇄</button>
+          </header>
+          <div class="messages" id="messages"></div>
+          <div class="approval-panel" id="approvalPanel" style="display: none"></div>
+          <div class="composer-wrap">
+            <div class="pending-queue" id="pendingQueue" style="display: none"></div>
+            <div class="composer-row">
+              <textarea id="composer" rows="1" placeholder="Drop in a DM to simulate…"></textarea>
+              <button type="button" class="btn btn-primary" id="btnInbound">Send</button>
+            </div>
+            <div class="actions-row">
+              <button type="button" class="btn btn-secondary" id="btnAssist">Assist &amp; options</button>
+              <button type="button" class="btn btn-secondary" id="btnNegotiate">Negotiate schedule</button>
+              <button type="button" class="btn btn-secondary" id="btnSummarize">Summarize thread</button>
+              <button type="button" class="btn btn-secondary" id="btnRefresh">Refresh</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="drawer-overlay" id="overlay"></div>
+    <aside class="drawer" id="drawer">
+      <div class="drawer-head">
+        <span>Settings &amp; roadmap</span>
+        <button type="button" class="icon-btn" id="btnCloseDrawer" aria-label="Close">×</button>
+      </div>
+      <div class="drawer-body">
+        <div class="tabs" id="drawerTabs">
+          <button type="button" class="tab active" data-tab="conn">Connection</button>
+          <button type="button" class="tab" data-tab="metrics">Metrics</button>
+          <button type="button" class="tab" data-tab="audit">Audit</button>
+          <button type="button" class="tab" data-tab="identity">Identity</button>
+          <button type="button" class="tab" data-tab="rel">Relationship</button>
+        </div>
+        <div id="panel-conn">
+          <div class="field">
+            <label for="apiBase">API base URL</label>
+            <input id="apiBase" type="url" placeholder="http://127.0.0.1:4000" />
+          </div>
+          <div class="field">
+            <label for="userId">User ID</label>
+            <input id="userId" placeholder="demo-user" />
+          </div>
+          <div class="field">
+            <label for="channel">Channel</label>
+            <select id="channel">
+              <option value="twilio_whatsapp">WhatsApp (Twilio)</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="wechat">WeChat</option>
+              <option value="telegram">Telegram</option>
+              <option value="twilio_sms">SMS (Twilio)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="accountId">Account ID</label>
+            <input id="accountId" placeholder="default-account" />
+          </div>
+          <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">OpenClaw doer settings (used by “Run with OpenClaw” approval actions)</p>
+          <div class="field">
+            <label for="openClawAgentId">OpenClaw agent ID</label>
+            <input id="openClawAgentId" placeholder="optional agent id" />
+          </div>
+          <div class="field">
+            <label for="openClawSessionId">OpenClaw session ID</label>
+            <input id="openClawSessionId" placeholder="optional session id" />
+          </div>
+          <div class="field">
+            <label for="openClawTo">OpenClaw session seed (`--to`)</label>
+            <input id="openClawTo" placeholder="+15550000000" />
+          </div>
+          <div class="field">
+            <label for="openClawThinking">OpenClaw thinking</label>
+            <input id="openClawThinking" placeholder="optional thinking level" />
+          </div>
+          <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">Gateway connection (scan QR when auth required)</p>
+          <div id="qrConn"></div>
+          <div class="drawer-footer">
+            <button type="button" class="btn btn-primary" id="btnSaveSettings" style="width: 100%">Save &amp; reconnect</button>
+            <div class="drawer-note" id="connSaveHint">Changes are stored locally. Press Enter in a field to reconnect.</div>
+          </div>
+        </div>
+        <div id="panel-metrics" style="display: none"></div>
+        <div id="panel-audit" style="display: none"></div>
+        <div id="panel-identity" style="display: none">
+          <div class="field">
+            <label>Display name</label>
+            <input id="idDisplayName" />
+          </div>
+          <div class="field">
+            <label>Tone</label>
+            <textarea id="idTone"></textarea>
+          </div>
+          <div class="field">
+            <label>Style guide (one per line)</label>
+            <textarea id="idStyle"></textarea>
+          </div>
+          <div class="field">
+            <label>Hard boundaries (one per line)</label>
+            <textarea id="idBoundaries"></textarea>
+          </div>
+          <button type="button" class="btn btn-primary" id="btnSaveIdentity" style="width: 100%">Save identity</button>
+        </div>
+        <div id="panel-rel" style="display: none">
+          <p style="font-size: 0.8rem; color: var(--ig-muted)">Uses active thread as contact ID.</p>
+          <div class="field">
+            <label>Role</label>
+            <input id="relRole" />
+          </div>
+          <div class="field">
+            <label>Relationship tone</label>
+            <textarea id="relTone"></textarea>
+          </div>
+          <div class="field">
+            <label>Risk</label>
+            <select id="relRisk">
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Notes (one per line)</label>
+            <textarea id="relNotes"></textarea>
+          </div>
+          <button type="button" class="btn btn-primary" id="btnSaveRel" style="width: 100%">Save relationship</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="modal" id="assistModal" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="mh">Assist — multi-option &amp; summary</div>
+        <div class="mb" id="assistBody"></div>
+        <div style="padding: 0.65rem 1rem; border-top: 1px solid var(--ig-border)">
+          <button type="button" class="btn btn-secondary" id="assistClose" style="width: 100%">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="negotiateModal" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="mh">Relationship-aware scheduling</div>
+        <div class="mb">
+          <div class="field">
+            <label for="negCounterpartyText">Counterparty message</label>
+            <textarea id="negCounterpartyText" placeholder="Can we move this to Thursday afternoon?"></textarea>
+          </div>
+          <div class="field">
+            <label for="negPriority">Relationship priority</label>
+            <select id="negPriority">
+              <option value="critical">critical</option>
+              <option value="high">high</option>
+              <option value="normal" selected>normal</option>
+              <option value="defer">defer</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="negPreference">Time preference</label>
+            <select id="negPreference">
+              <option value="morning">morning</option>
+              <option value="afternoon">afternoon</option>
+              <option value="flex" selected>flex</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="negDuration">Duration minutes</label>
+            <input id="negDuration" type="number" min="15" step="15" value="30" />
+          </div>
+          <div class="field">
+            <label for="negConstraints">Constraints (one per line)</label>
+            <textarea id="negConstraints" placeholder="No Friday&#10;Need 30 minutes"></textarea>
+          </div>
+          <div id="negotiateResult" class="summary-box" style="display: none"></div>
+        </div>
+        <div style="padding: 0.65rem 1rem; border-top: 1px solid var(--ig-border); display: flex; gap: 0.5rem">
+          <button type="button" class="btn btn-secondary" id="negotiateClose" style="flex: 1">Close</button>
+          <button type="button" class="btn btn-primary" id="negotiateRun" style="flex: 1">Run negotiation</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id)
+
+      const state = {
+        selectedThreadId: null,
+        threads: [],
+        drafts: [],
+        pending: [],
+        messages: [],
+        drawerTab: 'conn',
+      }
+      let toastTimer = null
+
+      const params = new URLSearchParams(location.search)
+      const loadStored = () => {
+        $('apiBase').value = params.get('api') || localStorage.getItem('mirachatApiBase') || 'http://127.0.0.1:4000'
+        $('userId').value = localStorage.getItem('mirachatUserId') || 'demo-user'
+        $('channel').value = localStorage.getItem('mirachatChannel') || 'twilio_whatsapp'
+        $('accountId').value = localStorage.getItem('mirachatAccountId') || 'default-account'
+        $('openClawAgentId').value = localStorage.getItem('mirachatOpenClawAgentId') || ''
+        $('openClawSessionId').value = localStorage.getItem('mirachatOpenClawSessionId') || ''
+        $('openClawTo').value = localStorage.getItem('mirachatOpenClawTo') || ''
+        $('openClawThinking').value = localStorage.getItem('mirachatOpenClawThinking') || ''
+      }
+
+      const persist = () => {
+        localStorage.setItem('mirachatApiBase', api())
+        localStorage.setItem('mirachatUserId', $('userId').value.trim())
+        localStorage.setItem('mirachatChannel', $('channel').value)
+        localStorage.setItem('mirachatAccountId', $('accountId').value.trim())
+        localStorage.setItem('mirachatOpenClawAgentId', $('openClawAgentId').value.trim())
+        localStorage.setItem('mirachatOpenClawSessionId', $('openClawSessionId').value.trim())
+        localStorage.setItem('mirachatOpenClawTo', $('openClawTo').value.trim())
+        localStorage.setItem('mirachatOpenClawThinking', $('openClawThinking').value.trim())
+      }
+
+      const syncApiQueryParam = () => {
+        const url = new URL(location.href)
+        url.searchParams.set('api', api())
+        history.replaceState(null, '', url)
+      }
+
+      const api = () => {
+        const base = $('apiBase').value.trim()
+        return base.endsWith('/') ? base.slice(0, -1) : base
+      }
+
+      const trimVal = (value) => {
+        const next = String(value || '').trim()
+        return next || undefined
+      }
+
+      const openClawSettings = () => ({
+        agentId: trimVal($('openClawAgentId').value),
+        sessionId: trimVal($('openClawSessionId').value),
+        to: trimVal($('openClawTo').value),
+        thinking: trimVal($('openClawThinking').value),
+      })
+
+      const buildOpenClawBody = (task) => {
+        const settings = openClawSettings()
+        const doer = { provider: 'openclaw', task }
+        if (settings.agentId) doer.agentId = settings.agentId
+        if (settings.sessionId) doer.sessionId = settings.sessionId
+        if (settings.to) doer.to = settings.to
+        if (settings.thinking) doer.thinking = settings.thinking
+        return { doer }
+      }
+
+      const showErr = (msg) => {
+        const b = $('banner')
+        if (!msg) {
+          b.classList.remove('show')
+          b.textContent = ''
+          return
+        }
+        b.textContent = msg
+        b.classList.add('show')
+      }
+
+      const showToast = (msg, kind = 'success') => {
+        const toast = $('toast')
+        if (toastTimer) clearTimeout(toastTimer)
+        toast.textContent = msg
+        toast.className = `toast ${kind} show`
+        toastTimer = setTimeout(() => {
+          toast.className = 'toast'
+          toast.textContent = ''
+          toastTimer = null
+        }, 2600)
+      }
+
+      const latestInboundText = () =>
+        state.messages.filter((m) => m.direction === 'inbound').slice(-1)[0]?.content ||
+        draftForThread(state.selectedThreadId)?.inboundText ||
+        ''
+
+      const j = async (path, opts = {}) => {
+        const res = await fetch(api() + path, {
+          ...opts,
+          headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
+        })
+        const text = await res.text()
+        let data
+        try {
+          data = text ? JSON.parse(text) : null
+        } catch {
+          data = text
+        }
+        if (!res.ok) {
+          const msg = typeof data === 'object' && data?.error ? data.error : text || res.statusText
+          throw new Error(msg)
+        }
+        return data
+      }
+
+      const threadMode = (tid) => {
+        const m = localStorage.getItem(`mirachat_mode_${tid}`) || 'approve'
+        return m === 'assist' || m === 'auto' ? m : 'approve'
+      }
+
+      const setThreadMode = (tid, mode) => {
+        localStorage.setItem(`mirachat_mode_${tid}`, mode)
+      }
+
+      const persistDelegationMode = async (tid, fromMode, toMode) => {
+        const userId = $('userId').value.trim()
+        const channel = $('channel').value
+        const accountId = $('accountId').value.trim()
+        return j('/mirachat/delegation-mode', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId,
+            threadId: tid,
+            channel,
+            accountId,
+            fromMode,
+            toMode,
+            reason: 'ui_mode_cycle',
+          }),
+        })
+      }
+
+      const cycleMode = async () => {
+        if (!state.selectedThreadId) return
+        const order = ['assist', 'approve', 'auto']
+        const cur = threadMode(state.selectedThreadId)
+        const i = order.indexOf(cur)
+        const next = order[(i + 1) % order.length]
+        setThreadMode(state.selectedThreadId, next)
+        updateModePill()
+        try {
+          await persistDelegationMode(state.selectedThreadId, cur, next)
+          showToast(`Mode: ${cur} -> ${next}`)
+        } catch (e) {
+          setThreadMode(state.selectedThreadId, cur)
+          updateModePill()
+          showErr(String(e.message || e))
+          showToast('Mode update failed', 'error')
+        }
+      }
+
+      const updateModePill = () => {
+        const el = $('modePill')
+        const m = state.selectedThreadId ? threadMode(state.selectedThreadId) : 'approve'
+        el.className = 'pill mode-' + m
+        const labels = { assist: 'Assist mode', approve: 'Approve mode (default)', auto: 'Auto (policy-gated, v2)' }
+        el.textContent = labels[m]
+      }
+
+      const formatTime = (isoOrMs) => {
+        if (isoOrMs == null) return ''
+        const d = typeof isoOrMs === 'number' ? new Date(isoOrMs) : new Date(isoOrMs)
+        if (Number.isNaN(d.getTime())) return ''
+        return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+      }
+
+      const initials = (tid) => {
+        const s = String(tid || '?').slice(0, 2)
+        return s.toUpperCase()
+      }
+
+      const draftForThread = (tid) => state.drafts.find((d) => d.threadId === tid)
+
+      const mergeThreads = () => {
+        const byId = new Map()
+        for (const t of state.threads) {
+          byId.set(t.threadId, { ...t, draftCount: 0 })
+        }
+        for (const d of state.drafts) {
+          const ex = byId.get(d.threadId)
+          if (ex) ex.draftCount += 1
+          else {
+            byId.set(d.threadId, {
+              threadId: d.threadId,
+              lastAt: d.createdAt || new Date().toISOString(),
+              preview: d.inboundText?.slice(0, 80) || 'Pending approval',
+              draftCount: 1,
+            })
+          }
+        }
+        return [...byId.values()].sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt))
+      }
+
+      const renderThreadList = () => {
+        const q = $('threadSearch').value.trim().toLowerCase()
+        const merged = mergeThreads()
+        const list = $('threadList')
+        list.innerHTML = ''
+        const filtered = q ? merged.filter((t) => t.threadId.toLowerCase().includes(q)) : merged
+        if (!filtered.length) {
+          list.innerHTML =
+            '<div class="empty-state" style="padding:1.5rem">No chats yet. Send a simulated message or connect a gateway.</div>'
+          return
+        }
+        for (const t of filtered) {
+          const row = document.createElement('div')
+          row.className = 'thread-item' + (t.threadId === state.selectedThreadId ? ' active' : '')
+          row.dataset.tid = t.threadId
+          const badge = t.draftCount ? `<span class="badge">${t.draftCount}</span>` : ''
+          row.innerHTML = `
+            <div class="avatar">${initials(t.threadId)}</div>
+            <div class="thread-body">
+              <div class="thread-row1">
+                <span class="thread-title">${escapeHtml(t.threadId)}</span>
+                <span class="thread-time">${formatTime(t.lastAt)}</span>
+              </div>
+              <div class="thread-preview">${escapeHtml(t.preview || '')}${badge}</div>
+            </div>`
+          row.addEventListener('click', () => selectThread(t.threadId))
+          list.appendChild(row)
+        }
+      }
+
+      const escapeHtml = (s) =>
+        String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+
+      const renderMessages = () => {
+        const el = $('messages')
+        el.innerHTML = ''
+        if (!state.messages.length) {
+          el.innerHTML = '<div class="day-label">No history in store for this thread</div>'
+          return
+        }
+        el.appendChild(document.createElement('div')).className = 'day-label'
+        el.lastChild.textContent = 'Today'
+        for (const m of state.messages) {
+          const row = document.createElement('div')
+          row.className = 'bubble-row ' + (m.direction === 'outbound' ? 'out' : 'in')
+          const b = document.createElement('div')
+          b.className = 'bubble ' + (m.direction === 'outbound' ? 'out' : 'in')
+          b.innerHTML = `${escapeHtml(m.content)}<time>${formatTime(m.timestamp)}</time>`
+          row.appendChild(b)
+          el.appendChild(row)
+        }
+        el.scrollTop = el.scrollHeight
+      }
+
+      const renderApproval = () => {
+        const panel = $('approvalPanel')
+        const d = draftForThread(state.selectedThreadId)
+        if (!d) {
+          panel.style.display = 'none'
+          panel.innerHTML = ''
+          return
+        }
+        panel.style.display = 'block'
+        const conf = d.confidenceScore != null ? (Number(d.confidenceScore) * 100).toFixed(0) : '—'
+        const opts = Array.isArray(d.replyOptions) ? d.replyOptions : []
+        let optsHtml = ''
+        opts.forEach((o, i) => {
+          optsHtml += `<div class="opt-block">
+            <div class="opt-label">${escapeHtml(o.label || 'Option ' + (i + 1))}</div>
+            <div style="font-size:0.88rem">${escapeHtml(o.text || '')}</div>
+            <div class="actions-row">
+              <button type="button" class="btn btn-secondary btn-pick-opt" data-i="${i}">Approve this option</button>
+              <button type="button" class="btn btn-primary btn-pick-opt-doer" data-i="${i}">Run with OpenClaw</button>
+            </div>
+          </div>`
+        })
+        panel.innerHTML = `
+          <h3>Draft → approve → send</h3>
+          <div class="policy-bar">Confidence ${conf}% · ${escapeHtml(d.intentSummary || '')}
+            ${d.ruleTriggered ? ' · Rules: ' + escapeHtml(d.ruleTriggered) : ''}</div>
+          ${d.threadSummary ? `<div class="summary-box"><strong>Thread summary</strong><br/>${escapeHtml(d.threadSummary)}</div>` : ''}
+          <div class="opt-label">Inbound</div>
+          <div class="summary-box" style="border-left-color: var(--ig-warn)">${escapeHtml(d.inboundText || '')}</div>
+          <div class="opt-label">Primary draft</div>
+          <div class="summary-box" style="border-left-color: var(--ig-accent-3)">${escapeHtml(d.generatedText || '')}</div>
+          ${optsHtml}
+          <div class="actions-row">
+            <button type="button" class="btn btn-ok" id="apprPrimary">Approve primary</button>
+            <button type="button" class="btn btn-primary" id="apprPrimaryDoer">Run with OpenClaw</button>
+            <button type="button" class="btn btn-danger" id="apprReject">Reject</button>
+            <button type="button" class="btn btn-secondary" id="apprEdit">Edit &amp; approve</button>
+            <button type="button" class="btn btn-secondary" id="apprEditDoer">Edit &amp; OpenClaw</button>
+          </div>`
+        panel.querySelector('#apprPrimary').addEventListener('click', () => doApprove(d.id))
+        panel.querySelector('#apprPrimaryDoer').addEventListener('click', () => doApprove(d.id, true, d.generatedText))
+        panel.querySelector('#apprReject').addEventListener('click', () => doReject(d.id))
+        panel.querySelector('#apprEdit').addEventListener('click', () => doEdit(d.id, d.generatedText))
+        panel.querySelector('#apprEditDoer').addEventListener('click', () => doEdit(d.id, d.generatedText, true))
+        panel.querySelectorAll('.btn-pick-opt').forEach((btn) => {
+          btn.addEventListener('click', () => doSelectOpt(d.id, Number(btn.dataset.i)))
+        })
+        panel.querySelectorAll('.btn-pick-opt-doer').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const idx = Number(btn.dataset.i)
+            const selected = opts[idx] || {}
+            doSelectOpt(d.id, idx, true, selected.text || '')
+          })
+        })
+      }
+
+      const doApprove = async (id, useOpenClaw = false, task = '') => {
+        const payload = useOpenClaw ? buildOpenClawBody(task) : {}
+        const res = await j('/mirachat/drafts/' + id + '/approve', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
+        if (useOpenClaw) {
+          const summary = trimVal(res?.doer?.summary)
+          showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+        }
+        await refreshData()
+      }
+      const doReject = async (id) => {
+        await j('/mirachat/drafts/' + id + '/reject', { method: 'POST', body: '{}' })
+        await refreshData()
+      }
+      const doEdit = async (id, text, useOpenClaw = false) => {
+        const next = prompt('Edited reply', text || '')
+        if (next === null) return
+        const payload = useOpenClaw
+          ? { editedText: next, ...buildOpenClawBody(next) }
+          : { editedText: next }
+        const res = await j('/mirachat/drafts/' + id + '/edit', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
+        if (useOpenClaw) {
+          const summary = trimVal(res?.doer?.summary)
+          showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+        }
+        await refreshData()
+      }
+      const doSelectOpt = async (id, index, useOpenClaw = false, task = '') => {
+        const payload = useOpenClaw ? { index, ...buildOpenClawBody(task) } : { index }
+        const res = await j('/mirachat/drafts/' + id + '/select-option', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
+        if (useOpenClaw) {
+          const summary = trimVal(res?.doer?.summary)
+          showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+        }
+        await refreshData()
+      }
+
+      const renderPending = () => {
+        const bar = $('pendingQueue')
+        const ch = $('channel').value
+        const acc = $('accountId').value.trim()
+        const forThread = state.pending.filter((p) => p.threadId === state.selectedThreadId)
+        if (!forThread.length) {
+          bar.style.display = 'none'
+          bar.innerHTML = ''
+          return
+        }
+        bar.style.display = 'flex'
+        bar.innerHTML =
+          '<span>Queued for gateway (' +
+          escapeHtml(ch) +
+          '):</span> ' +
+          forThread
+            .map(
+              (p) =>
+                `<button type="button" class="btn btn-secondary btn-mark" data-id="${escapeHtml(p.id)}" style="font-size:0.72rem;padding:0.25rem 0.5rem">Mark sent · ${escapeHtml(p.id.slice(0, 8))}…</button>`,
+            )
+            .join('')
+        bar.querySelectorAll('.btn-mark').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            await j('/mirachat/drafts/' + btn.dataset.id + '/mark-sent', { method: 'POST', body: '{}' })
+            await refreshData()
+          })
+        })
+      }
+
+      const renderIdleComposerState = () => {
+        state.messages = []
+        $('emptyChat').style.display = 'none'
+        $('chatActive').style.display = 'flex'
+        $('headTitle').textContent = 'New conversation'
+        $('headAvatar').textContent = '+'
+        $('healthPill').textContent = $('healthPill').textContent || 'API …'
+        updateModePill()
+        renderMessages()
+        renderApproval()
+        renderPending()
+      }
+
+      function layoutMobile() {
+        const narrow = window.innerWidth <= 768
+        if (!narrow) {
+          $('sidebar').classList.remove('hidden-mobile')
+          $('chatPane').classList.remove('hidden-mobile')
+          return
+        }
+        if (state.selectedThreadId) {
+          $('sidebar').classList.add('hidden-mobile')
+          $('chatPane').classList.remove('hidden-mobile')
+        } else {
+          $('sidebar').classList.remove('hidden-mobile')
+          $('chatPane').classList.add('hidden-mobile')
+        }
+      }
+
+      async function selectThread(tid) {
+        state.selectedThreadId = tid
+        $('headTitle').textContent = tid
+        $('headAvatar').textContent = initials(tid)
+        updateModePill()
+        layoutMobile()
+        renderThreadList()
+        await loadThreadMessages()
+        renderApproval()
+        renderPending()
+      }
+
+      async function loadThreadMessages() {
+        if (!state.selectedThreadId) return
+        try {
+          const data = await j('/mirachat/thread?threadId=' + encodeURIComponent(state.selectedThreadId))
+          state.messages = data.messages || []
+          renderMessages()
+        } catch (e) {
+          state.messages = []
+          renderMessages()
+          showErr(String(e.message || e))
+        }
+      }
+
+      async function refreshData() {
+        showErr('')
+        try {
+          const uid = $('userId').value.trim()
+          const [threads, drafts, health] = await Promise.all([
+            j('/mirachat/threads?userId=' + encodeURIComponent(uid)).catch(() => []),
+            j('/mirachat/drafts').catch(() => []),
+            j('/health').catch(() => ({})),
+          ])
+          state.threads = Array.isArray(threads) ? threads : []
+          state.drafts = Array.isArray(drafts) ? drafts : []
+          const ch = $('channel').value
+          const acc = $('accountId').value.trim()
+          state.pending = await j(
+            '/mirachat/pending-send?channel=' + encodeURIComponent(ch) + '&accountId=' + encodeURIComponent(acc),
+          ).catch(() => [])
+          $('healthPill').textContent = health.ok ? (health.mirachat ? 'DB online' : 'No DB') : 'API down'
+          await refreshConn()
+          renderThreadList()
+          if (state.selectedThreadId) {
+            await loadThreadMessages()
+            renderApproval()
+            renderPending()
+          } else {
+            renderIdleComposerState()
+          }
+        } catch (e) {
+          showErr(String(e.message || e))
+        }
+      }
+
+      async function refreshConn() {
+        const ch = $('channel').value
+        const acc = $('accountId').value.trim()
+        try {
+          const row = await j('/mirachat/connection?channel=' + encodeURIComponent(ch) + '&accountId=' + encodeURIComponent(acc))
+          const st = row.status || 'UNKNOWN'
+          $('connPill').textContent = st
+          const qr = $('qrConn')
+          qr.innerHTML = ''
+          if (st === 'AUTH_REQUIRED' && row.qr_payload) {
+            const img = document.createElement('img')
+            img.alt = 'QR'
+            img.src = row.qr_payload.startsWith('http')
+              ? row.qr_payload
+              : 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(row.qr_payload)
+            qr.appendChild(img)
+          }
+        } catch {
+          $('connPill').textContent = '—'
+        }
+      }
+
+      async function loadMetrics() {
+        const el = $('panel-metrics')
+        el.innerHTML = 'Loading…'
+        try {
+          const uid = $('userId').value.trim()
+          const q = '/mirachat/metrics?days=7&userId=' + encodeURIComponent(uid)
+          const m = await j(q)
+          const rate =
+            m.approvalWithoutEditRate != null ? (m.approvalWithoutEditRate * 100).toFixed(1) + '%' : 'n/a'
+          el.innerHTML = `<div class="metrics-grid">
+            <div class="metric-card"><strong>${rate}</strong>Approved without edit</div>
+            <div class="metric-card"><strong>${m.asIsApprovals ?? 0}</strong>As-is approvals</div>
+            <div class="metric-card"><strong>${m.editedApprovals ?? 0}</strong>Edited approvals</div>
+            <div class="metric-card"><strong>${Object.keys(m.eventCounts || {}).length}</strong>Event types (7d)</div>
+          </div>
+          <pre style="font-size:0.72rem;overflow:auto;margin-top:0.75rem;color:var(--ig-muted)">${escapeHtml(JSON.stringify(m.eventCounts || {}, null, 2))}</pre>`
+        } catch (e) {
+          el.innerHTML = '<p style="color:#ffd4db">' + escapeHtml(String(e.message || e)) + '</p>'
+        }
+      }
+
+      async function loadAudit() {
+        const el = $('panel-audit')
+        el.innerHTML = 'Loading…'
+        try {
+          const ev = await j('/mirachat/delegation-events?limit=80')
+          const list = Array.isArray(ev) ? ev : []
+          el.innerHTML = list
+            .map(
+              (e) =>
+                `<div class="log-line">${escapeHtml(e.created_at)} · ${escapeHtml(e.event_type)} · ${escapeHtml(e.thread_id || '')}</div>`,
+            )
+            .join('')
+        } catch (e) {
+          el.innerHTML = '<p style="color:#ffd4db">' + escapeHtml(String(e.message || e)) + '</p>'
+        }
+      }
+
+      async function loadIdentity() {
+        try {
+          const uid = $('userId').value.trim()
+          const p = await j('/mirachat/identity?userId=' + encodeURIComponent(uid))
+          $('idDisplayName').value = p.displayName || ''
+          $('idTone').value = p.tone || ''
+          $('idStyle').value = (p.styleGuide || []).join('\n')
+          $('idBoundaries').value = (p.hardBoundaries || []).join('\n')
+        } catch {
+          $('idDisplayName').value = ''
+          $('idTone').value = ''
+          $('idStyle').value = ''
+          $('idBoundaries').value = ''
+        }
+      }
+
+      async function loadRelationship() {
+        try {
+          const uid = $('userId').value.trim()
+          const cid = state.selectedThreadId || ''
+          if (!cid) return
+          const p = await j(
+            '/mirachat/relationship?userId=' + encodeURIComponent(uid) + '&contactId=' + encodeURIComponent(cid),
+          )
+          $('relRole').value = p.role || ''
+          $('relTone').value = p.tone || ''
+          $('relRisk').value = p.riskLevel || 'low'
+          $('relNotes').value = (p.notes || []).join('\n')
+        } catch {
+          $('relRole').value = ''
+          $('relTone').value = ''
+          $('relRisk').value = 'low'
+          $('relNotes').value = ''
+        }
+      }
+
+      function openDrawer() {
+        $('overlay').classList.add('open')
+        $('drawer').classList.add('open')
+      }
+      function closeDrawer() {
+        $('overlay').classList.remove('open')
+        $('drawer').classList.remove('open')
+      }
+
+      function setRelationshipFormDisabled(disabled) {
+        ;['relRole', 'relTone', 'relRisk', 'relNotes', 'btnSaveRel'].forEach((id) => {
+          $(id).disabled = disabled
+        })
+      }
+
+      function setDrawerTab(name) {
+        state.drawerTab = name
+        document.querySelectorAll('#drawerTabs .tab').forEach((t) => {
+          t.classList.toggle('active', t.dataset.tab === name)
+        })
+        ;['conn', 'metrics', 'audit', 'identity', 'rel'].forEach((id) => {
+          $('panel-' + id).style.display = id === name ? 'block' : 'none'
+        })
+        if (name === 'metrics') loadMetrics()
+        if (name === 'audit') loadAudit()
+        if (name === 'identity') loadIdentity()
+        if (name === 'rel') {
+          setRelationshipFormDisabled(true)
+          loadRelationship().finally(() => setRelationshipFormDisabled(false))
+        }
+      }
+
+      $('btnMenu').addEventListener('click', () => {
+        openDrawer()
+        setDrawerTab('conn')
+      })
+      $('btnMeasurement').addEventListener('click', () => {
+        const target = new URL('./measurement/', location.href)
+        target.searchParams.set('api', api())
+        window.open(target.toString(), '_blank')
+      })
+      $('btnCloseDrawer').addEventListener('click', closeDrawer)
+      $('overlay').addEventListener('click', closeDrawer)
+      $('drawerTabs').addEventListener('click', (e) => {
+        const t = e.target.closest('.tab')
+        if (t) setDrawerTab(t.dataset.tab)
+      })
+
+      const persistConnectionFields = () => {
+        persist()
+        syncApiQueryParam()
+        $('connSaveHint').textContent = 'Saved locally. Reconnect to apply.'
+      }
+
+      async function saveSettingsAndReconnect() {
+        persistConnectionFields()
+        const btn = $('btnSaveSettings')
+        const prev = btn.textContent
+        btn.disabled = true
+        btn.textContent = 'Reconnecting…'
+        try {
+          await refreshData()
+          showErr('')
+          $('connSaveHint').textContent = 'Connected. Settings stored locally.'
+          closeDrawer()
+          showToast(`Connected to ${api()}`)
+        } catch (e) {
+          const msg = String(e.message || e)
+          $('connSaveHint').textContent = 'Reconnect failed. Review the API URL and try again.'
+          showErr(msg)
+          showToast('Reconnect failed', 'error')
+        } finally {
+          btn.disabled = false
+          btn.textContent = prev
+        }
+      }
+
+      ;['apiBase', 'userId', 'channel', 'accountId', 'openClawAgentId', 'openClawSessionId', 'openClawTo', 'openClawThinking'].forEach((id) => {
+        $(id).addEventListener('change', persistConnectionFields)
+        $(id).addEventListener('blur', persistConnectionFields)
+      })
+
+      ;['apiBase', 'userId', 'accountId', 'openClawAgentId', 'openClawSessionId', 'openClawTo', 'openClawThinking'].forEach((id) => {
+        $(id).addEventListener('keydown', async (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            await saveSettingsAndReconnect()
+          }
+        })
+      })
+      $('channel').addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          await saveSettingsAndReconnect()
+        }
+      })
+
+      $('btnSaveSettings').addEventListener('click', saveSettingsAndReconnect)
+
+      $('btnSaveIdentity').addEventListener('click', async () => {
+        const uid = $('userId').value.trim()
+        const body = {
+          userId: uid,
+          displayName: $('idDisplayName').value,
+          tone: $('idTone').value,
+          styleGuide: $('idStyle').value.split('\n').map((s) => s.trim()).filter(Boolean),
+          hardBoundaries: $('idBoundaries').value.split('\n').map((s) => s.trim()).filter(Boolean),
+        }
+        await j('/mirachat/identity', { method: 'PUT', body: JSON.stringify(body) })
+        showErr('')
+        closeDrawer()
+        showToast('Identity saved')
+      })
+
+      $('btnSaveRel').addEventListener('click', async () => {
+        const uid = $('userId').value.trim()
+        const cid = state.selectedThreadId
+        if (!cid) {
+          alert('Select a thread first')
+          return
+        }
+        const body = {
+          userId: uid,
+          contactId: cid,
+          role: $('relRole').value,
+          tone: $('relTone').value,
+          riskLevel: $('relRisk').value,
+          notes: $('relNotes').value.split('\n').map((s) => s.trim()).filter(Boolean),
+        }
+        await j('/mirachat/relationship', { method: 'PUT', body: JSON.stringify(body) })
+        closeDrawer()
+        showToast('Relationship saved')
+      })
+
+      $('btnBack').addEventListener('click', () => {
+        state.selectedThreadId = null
+        renderIdleComposerState()
+        layoutMobile()
+        renderThreadList()
+      })
+
+      $('btnModeCycle').addEventListener('click', cycleMode)
+
+      $('threadSearch').addEventListener('input', renderThreadList)
+
+      $('btnInbound').addEventListener('click', async () => {
+        const text = $('composer').value.trim()
+        if (!text) return
+        const tid =
+          state.selectedThreadId ||
+          prompt('Thread / contact id', 'demo-contact') ||
+          'demo-contact'
+        if (!state.selectedThreadId) await selectThread(tid)
+        const uid = $('userId').value.trim()
+        const ch = $('channel').value
+        const acc = $('accountId').value.trim()
+        await j('/mirachat/inbound', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId: uid,
+            channel: ch,
+            accountId: acc,
+            threadId: tid,
+            contactId: tid,
+            senderId: tid,
+            text,
+          }),
+        })
+        $('composer').value = ''
+        await refreshData()
+      })
+
+      $('btnAssist').addEventListener('click', async () => {
+        if (!state.selectedThreadId) {
+          alert('Select a thread')
+          return
+        }
+        const text = $('composer').value.trim() || state.messages.filter((m) => m.direction === 'inbound').slice(-1)[0]?.content
+        if (!text) {
+          alert('Type a message or load thread history')
+          return
+        }
+        const uid = $('userId').value.trim()
+        const ch = $('channel').value
+        const acc = $('accountId').value.trim()
+        try {
+          const res = await j('/mirachat/assist', {
+            method: 'POST',
+            body: JSON.stringify({
+              userId: uid,
+              channel: ch,
+              accountId: acc,
+              threadId: state.selectedThreadId,
+              senderId: state.selectedThreadId,
+              text,
+            }),
+          })
+          const parts = []
+          if (res.threadSummary) parts.push('<h4 style="margin:0.5rem 0 0.25rem">Thread summary</h4><p>' + escapeHtml(res.threadSummary) + '</p>')
+          if (res.primaryDraft?.response) {
+            parts.push('<h4 style="margin:0.5rem 0 0.25rem">Primary draft</h4><p>' + escapeHtml(res.primaryDraft.response) + '</p>')
+          }
+          if (Array.isArray(res.replyOptions)) {
+            res.replyOptions.forEach((o) => {
+              parts.push('<div class="opt-block"><div class="opt-label">' + escapeHtml(o.label) + '</div>' + escapeHtml(o.text) + '</div>')
+            })
+          }
+          if (Array.isArray(res.assistVariants)) {
+            res.assistVariants.forEach((o) => {
+              const body = o.text ?? o.response ?? ''
+              parts.push(
+                '<div class="opt-block"><div class="opt-label">Variant: ' +
+                  escapeHtml(o.label || '') +
+                  '</div>' +
+                  escapeHtml(body) +
+                  '</div>',
+              )
+            })
+          }
+          $('assistBody').innerHTML = parts.join('') || '<p>No content</p>'
+          $('assistModal').classList.add('show')
+        } catch (e) {
+          showErr(String(e.message || e))
+        }
+      })
+
+      $('assistClose').addEventListener('click', () => $('assistModal').classList.remove('show'))
+
+      $('btnNegotiate').addEventListener('click', () => {
+        if (!state.selectedThreadId) {
+          showToast('Select a thread first', 'error')
+          return
+        }
+        $('negCounterpartyText').value = $('composer').value.trim() || latestInboundText()
+        $('negConstraints').value = ''
+        $('negDuration').value = '30'
+        $('negPreference').value = 'flex'
+        $('negPriority').value = 'normal'
+        $('negotiateResult').style.display = 'none'
+        $('negotiateResult').innerHTML = ''
+        $('negotiateModal').classList.add('show')
+      })
+
+      $('negotiateClose').addEventListener('click', () => $('negotiateModal').classList.remove('show'))
+
+      $('negotiateRun').addEventListener('click', async () => {
+        if (!state.selectedThreadId) {
+          showToast('Select a thread first', 'error')
+          return
+        }
+        const counterpartyText = $('negCounterpartyText').value.trim()
+        if (!counterpartyText) {
+          showToast('Add the counterparty message first', 'error')
+          return
+        }
+        const constraints = $('negConstraints').value
+          .split('\n')
+          .map((s) => s.trim())
+          .filter(Boolean)
+        try {
+          const res = await j('/mirachat/tools/negotiate', {
+            method: 'POST',
+            body: JSON.stringify({
+              userId: $('userId').value.trim(),
+              threadRef: state.selectedThreadId,
+              counterpartyText,
+              relationshipPriority: $('negPriority').value,
+              durationMinutes: Number($('negDuration').value || '30'),
+              preference: $('negPreference').value,
+              constraints,
+            }),
+          })
+          $('negotiateResult').style.display = 'block'
+          $('negotiateResult').innerHTML = `
+            <strong style="display:block;margin-bottom:0.35rem">Suggested reply</strong>
+            ${escapeHtml(res.reply || '')}
+            <div style="margin-top:0.6rem">
+              <strong style="display:block;margin-bottom:0.25rem">Proposed slots</strong>
+              ${escapeHtml((res.slotToolSample?.slots || []).join(', '))}
+            </div>
+            <div style="margin-top:0.6rem">
+              <strong style="display:block;margin-bottom:0.25rem">Rationale</strong>
+              ${escapeHtml(res.slotToolSample?.rationale || '')}
+            </div>
+            <div style="margin-top:0.6rem">
+              <strong style="display:block;margin-bottom:0.25rem">Tools used</strong>
+              ${escapeHtml((res.toolsUsed || []).join(', '))}
+            </div>
+          `
+          showToast('Negotiation suggestion ready')
+        } catch (e) {
+          showErr(String(e.message || e))
+          showToast('Negotiation failed', 'error')
+        }
+      })
+
+      $('btnSummarize').addEventListener('click', async () => {
+        if (!state.selectedThreadId) return
+        try {
+          const uid = $('userId').value.trim()
+          const res = await j('/mirachat/summarize-thread', {
+            method: 'POST',
+            body: JSON.stringify({ threadId: state.selectedThreadId, userId: uid }),
+          })
+          alert(res.summary || 'No summary')
+        } catch (e) {
+          showErr(String(e.message || e))
+        }
+      })
+
+      $('btnRefresh').addEventListener('click', refreshData)
+
+      loadStored()
+      renderIdleComposerState()
+      layoutMobile()
+      window.addEventListener('resize', layoutMobile)
+      refreshData()
+      setInterval(() => {
+        j('/health').catch(() => ({}))
+      }, 20000)
+    </script>
+  </body>
+</html>

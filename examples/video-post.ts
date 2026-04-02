@@ -1,4 +1,4 @@
-import PUPPET from 'wechaty-puppet'
+import * as PUPPET from 'wechaty-puppet'
 import { FileBox } from 'file-box'
 
 import {
@@ -40,7 +40,9 @@ async function testVideoPost () {
     const post2 = await message.toPost()
 
     const counter = post2.counter()
-    console.info('total tap(like) number:', counter.taps && counter.taps[PUPPET.types.Tap.Like])
+    const taps = counter.taps
+    const likeKey = PUPPET.types.Tap.Like as keyof NonNullable<typeof taps>
+    console.info('total tap(like) number:', taps?.[likeKey])
     console.info('total children number:', counter.descendant)
 
     /**

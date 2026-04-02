@@ -1,5 +1,13 @@
 name: MiraChat PRD GQM
 
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: mirachat-prd-gqm-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]

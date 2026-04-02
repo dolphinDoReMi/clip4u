@@ -66,8 +66,6 @@ tags
 /package
 /wechaty-*.*.*.tgz
 *.bak
-# Ignore root lockfile only; MiraChat commits package-lock.json for CI npm cache.
-/package-lock.json
 .babel.json
 
 # MiraChat secrets (single root `.env`)

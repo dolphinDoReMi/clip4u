@@ -1,4 +1,4 @@
-# Clean install, build, and test on current Node LTS (no repo-root lockfile — npm cache disabled).
+# Clean install, build, and test on Node 22 (uses root package-lock.json).
 
 name: Node.js CI
 
@@ -7,6 +7,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: node-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -22,12 +29,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-      - run: npm install
-      - run: npm run build --if-present
-      - run: npm test
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+      - run: npm run ci
         env:
           CI: true

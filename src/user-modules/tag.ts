@@ -35,11 +35,9 @@ import {
 }                     from '../user-mixins/wechatify.js'
 
 /** @internal */
-const MixinBase = poolifyMixin(
+class TagMixin extends poolifyMixin(
   wechatifyMixinBase(),
-)<TagInterface>()
-
-class TagMixin extends MixinBase {
+)<TagInterface>() {
 
   /**
    * @hideconstructor

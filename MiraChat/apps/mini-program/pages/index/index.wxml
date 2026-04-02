@@ -1,6 +1,10 @@
 <view class="screen">
   <view class="card">
     <view class="title">MiraChat</view>
+    <view class="label">Gateway (WeChat / WhatsApp / Telegram / WeCom)</view>
+    <picker mode="selector" range="{{presetLabels}}" value="{{presetIndex}}" bindchange="onPresetChange">
+      <view class="picker-row">{{channelLabel || presetLabels[presetIndex]}}</view>
+    </picker>
     <view class="muted" wx:if="{{session}}">Linked as {{session.userId}}</view>
     <view class="pill" wx:if="{{connection}}">{{connection.status || 'UNKNOWN'}}</view>
     <view class="button-row">

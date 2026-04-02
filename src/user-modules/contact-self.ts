@@ -37,11 +37,6 @@ import {
 import { validationMixin } from '../user-mixins/validation.js'
 import { poolifyMixin } from '../user-mixins/poolify.js'
 
-/** @internal */
-const MixinBase = poolifyMixin(
-  ContactImpl,
-)<ContactSelfInterface>()
-
 /**
  * Bot itself will be encapsulated as a ContactSelf.
  *
@@ -53,7 +48,10 @@ const MixinBase = poolifyMixin(
  *   console.log(`user ${user} login`)
  * })
  */
-class ContactSelfMixin extends MixinBase {
+/** @internal */
+class ContactSelfMixin extends poolifyMixin(
+  ContactImpl,
+)<ContactSelfInterface>() {
 
   static override async find (
     query : string | PUPPET.filters.Contact,

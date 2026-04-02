@@ -1,4 +1,5 @@
 const api = require('../../utils/api')
+const channelConfig = require('../../utils/config')
 
 Page({
   data: {
@@ -20,7 +21,8 @@ Page({
   async refresh() {
     this.setData({ loading: true, error: '' })
     try {
-      const bootstrap = await api.getBootstrap()
+      const { channel, accountId } = channelConfig.getChannelPreset()
+      const bootstrap = await api.getBootstrap({ channel, accountId })
       const draft = (bootstrap.drafts || []).find(item => item.id === this.data.id) || null
       this.setData({
         loading: false,

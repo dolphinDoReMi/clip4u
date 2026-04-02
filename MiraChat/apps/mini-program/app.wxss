@@ -93,3 +93,12 @@ page {
   color: #f7f7f8;
   box-sizing: border-box;
 }
+
+.picker-row {
+  margin-top: 12rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 28rpx;
+}

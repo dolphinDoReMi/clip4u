@@ -62,20 +62,18 @@ import type {
   MessageInterface,
 }                       from './message.js'
 
-/** @internal */
-const MixinBase = wechatifyMixin(
-  poolifyMixin(
-    RoomEventEmitter,
-  )<RoomImplInterface>(),
-)
-
 /**
  * All WeChat rooms(groups) will be encapsulated as a Room.
  *
  * [Examples/Room-Bot]{@link https://github.com/wechaty/wechaty/blob/1523c5e02be46ebe2cc172a744b2fbe53351540e/examples/room-bot.ts}
  *
  */
-class RoomMixin extends MixinBase implements SayableSayer {
+/** @internal */
+class RoomMixin extends wechatifyMixin(
+  poolifyMixin(
+    RoomEventEmitter,
+  )<RoomImplInterface>(),
+) implements SayableSayer {
 
   /**
    * Create a new room.

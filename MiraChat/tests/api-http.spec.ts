@@ -122,7 +122,7 @@ describe('Delegate API HTTP (mocked SQL)', () => {
     })
   })
 
-  it('GET /mirachat/drafts 404 when MiraChat SQL is disabled', async () => {
+  it('GET /mirachat/drafts 503 when MiraChat SQL is disabled', async () => {
     const listener = createDelegateApiListener({
       memoryRuntime: createInMemoryRuntime(),
       mirachat: null,
@@ -131,7 +131,8 @@ describe('Delegate API HTTP (mocked SQL)', () => {
     await new Promise<void>(r => server.listen(0, r))
     const port = (server.address() as import('node:net').AddressInfo).port
     const res = await request(port, { method: 'GET', path: '/mirachat/drafts' })
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(503)
+    expect(JSON.parse(res.body).error).toBe('mirachat_unavailable')
     await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
   })
 
@@ -1274,6 +1275,47 @@ describe('Delegate API HTTP (mocked SQL)', () => {
     expect(respond.status).toBe(400)
 
     await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('POST /mini-program/dev-login returns 403 when MINI_PROGRAM_DEV_LOGIN is not enabled', async () => {
+    vi.stubEnv('MINI_PROGRAM_DEV_LOGIN', '')
+    const server = createServer(
+      createDelegateApiListener({ memoryRuntime: createInMemoryRuntime(), mirachat: null }),
+    )
+    await new Promise<void>(r => server.listen(0, r))
+    const port = (server.address() as import('node:net').AddressInfo).port
+
+    const res = await request(port, {
+      method: 'POST',
+      path: '/mini-program/dev-login',
+      body: JSON.stringify({ userId: 'u-dev' }),
+    })
+    expect(res.status).toBe(403)
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+    vi.unstubAllEnvs()
+  })
+
+  it('POST /mini-program/dev-login returns a session token when MINI_PROGRAM_DEV_LOGIN=1', async () => {
+    vi.stubEnv('MINI_PROGRAM_DEV_LOGIN', '1')
+    const server = createServer(
+      createDelegateApiListener({ memoryRuntime: createInMemoryRuntime(), mirachat: null }),
+    )
+    await new Promise<void>(r => server.listen(0, r))
+    const port = (server.address() as import('node:net').AddressInfo).port
+
+    const res = await request(port, {
+      method: 'POST',
+      path: '/mini-program/dev-login',
+      body: JSON.stringify({ userId: 'web-tester' }),
+    })
+    expect(res.status).toBe(200)
+    const json = JSON.parse(res.body) as { sessionToken?: string; userId?: string }
+    expect(json.userId).toBe('web-tester')
+    expect(json.sessionToken).toBeTruthy()
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+    vi.unstubAllEnvs()
   })
 
   it('mini-program bootstrap requires a valid session token', async () => {

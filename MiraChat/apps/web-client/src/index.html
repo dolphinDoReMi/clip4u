@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>MiraChat — Web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --ig-bg: #0f1014;
+        --ig-bg-elevated: #15161c;
+        --ig-panel: rgba(21, 22, 28, 0.92);
+        --ig-border: rgba(255, 255, 255, 0.09);
+        --ig-text: #f7f7f8;
+        --ig-muted: #a8a8b3;
+        --ig-soft: #8d8d98;
+        --ig-out: linear-gradient(135deg, #fd1d1d 0%, #f56040 30%, #f77737 52%, #fcaf45 74%, #c13584 100%);
+        --ig-story: linear-gradient(135deg, #fd1d1d 0%, #f77737 24%, #fcaf45 48%, #c13584 72%, #833ab4 100%);
+        --ig-accent: #ff4fd8;
+        --ig-danger: #ff5d73;
+        --ig-success: #4ade80;
+        --ig-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+        --font: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: var(--font);
+        background:
+          radial-gradient(circle at top left, rgba(193, 53, 132, 0.28), transparent 26%),
+          radial-gradient(circle at top right, rgba(252, 175, 69, 0.2), transparent 22%),
+          radial-gradient(circle at bottom left, rgba(124, 77, 255, 0.16), transparent 24%),
+          var(--ig-bg);
+        color: var(--ig-text);
+        -webkit-tap-highlight-color: transparent;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 22%);
+        mix-blend-mode: screen;
+      }
+      button {
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+      }
+      .banner-err {
+        background: rgba(255, 93, 115, 0.15);
+        color: #ffd4db;
+        padding: 0.55rem 0.8rem;
+        font-size: 0.82rem;
+        display: none;
+      }
+      .banner-err.show {
+        display: block;
+      }
+      .app {
+        display: flex;
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+        position: relative;
+      }
+      .sidebar {
+        width: 100%;
+        max-width: 390px;
+        min-width: 280px;
+        border-right: 1px solid var(--ig-border);
+        display: flex;
+        flex-direction: column;
+        background: var(--ig-panel);
+        backdrop-filter: blur(18px);
+      }
+      @media (max-width: 768px) {
+        .sidebar.hidden-mobile {
+          display: none;
+        }
+        .chat-pane.hidden-mobile {
+          display: none;
+        }
+      }
+      .sb-top {
+        padding: 0.9rem 1rem;
+        background: rgba(17, 18, 24, 0.82);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--ig-border);
+      }
+      .sb-top h1 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 800;
+        flex: 1;
+        letter-spacing: -0.04em;
+      }
+      .icon-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--ig-muted);
+        display: grid;
+        place-items: center;
+        font-size: 1.15rem;
+        border: 1px solid transparent;
+      }
+      .icon-btn:hover {
+        background: rgba(255, 255, 255, 0.07);
+        border-color: var(--ig-border);
+        color: var(--ig-text);
+      }
+      .search-wrap {
+        padding: 0.8rem 0.85rem 0.7rem;
+        border-bottom: 1px solid var(--ig-border);
+      }
+      .search-wrap input {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 0.78rem 1rem;
+        color: var(--ig-text);
+        font-size: 0.9rem;
+        outline: none;
+      }
+      .search-wrap input::placeholder {
+        color: var(--ig-soft);
+      }
+      .search-wrap input:focus {
+        border-color: rgba(255, 79, 216, 0.45);
+        box-shadow: 0 0 0 4px rgba(255, 79, 216, 0.12);
+      }
+      .thread-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.4rem 0;
+      }
+      .thread-item {
+        display: flex;
+        gap: 0.8rem;
+        padding: 0.85rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        align-items: flex-start;
+      }
+      .thread-item:hover {
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .thread-item.active {
+        background: linear-gradient(90deg, rgba(255, 79, 216, 0.15), rgba(255, 138, 0, 0.08)),
+          rgba(255, 255, 255, 0.04);
+        box-shadow: inset 3px 0 0 #ff4fd8;
+      }
+      .avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 999px;
+        background: linear-gradient(var(--ig-bg-elevated), var(--ig-bg-elevated)) padding-box, var(--ig-story) border-box;
+        border: 2px solid transparent;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+      .thread-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .thread-row1 {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.35rem;
+      }
+      .thread-title {
+        font-size: 1rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .thread-time {
+        font-size: 0.72rem;
+        color: var(--ig-soft);
+        flex-shrink: 0;
+      }
+      .thread-preview {
+        font-size: 0.82rem;
+        color: var(--ig-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 0.28rem;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.35rem;
+        height: 1.35rem;
+        padding: 0 0.35rem;
+        border-radius: 999px;
+        background: var(--ig-story);
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 700;
+        margin-left: 0.35rem;
+      }
+      .chat-pane {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        background:
+          radial-gradient(circle at top center, rgba(131, 58, 180, 0.14), transparent 30%),
+          linear-gradient(180deg, #0f1014, #111217 42%, #0f1014);
+      }
+      .chat-head {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.8rem 1rem;
+        background: rgba(17, 18, 24, 0.72);
+        border-bottom: 1px solid var(--ig-border);
+        backdrop-filter: blur(18px);
+      }
+      .chat-head .back-m {
+        display: none;
+      }
+      @media (max-width: 768px) {
+        .chat-head .back-m {
+          display: grid;
+        }
+      }
+      .head-meta {
+        flex: 1;
+        min-width: 0;
+      }
+      .head-title {
+        font-weight: 700;
+        font-size: 0.98rem;
+      }
+      .head-sub {
+        font-size: 0.72rem;
+        color: var(--ig-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.15rem;
+      }
+      .pill {
+        font-size: 0.66rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--ig-muted);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .pill.ok {
+        border-color: rgba(74, 222, 128, 0.35);
+        color: #97efaf;
+      }
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem 1.15rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .empty-state {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        text-align: center;
+        color: var(--ig-muted);
+        font-size: 0.9rem;
+      }
+      .bubble-row {
+        display: flex;
+        width: 100%;
+      }
+      .bubble-row.in {
+        justify-content: flex-start;
+      }
+      .bubble-row.out {
+        justify-content: flex-end;
+      }
+      .bubble {
+        max-width: min(680px, 82%);
+        padding: 0.7rem 0.85rem;
+        border-radius: 18px;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .bubble.in {
+        background: linear-gradient(180deg, rgba(33, 35, 44, 0.98), rgba(25, 27, 34, 0.98));
+        border-top-left-radius: 6px;
+      }
+      .bubble.out {
+        background: var(--ig-out);
+        border-top-right-radius: 6px;
+        color: white;
+      }
+      .approval-panel {
+        border-top: 1px solid var(--ig-border);
+        background: rgba(19, 20, 26, 0.86);
+        padding: 0.9rem 1rem;
+        max-height: 38vh;
+        overflow-y: auto;
+        backdrop-filter: blur(16px);
+      }
+      .approval-panel h3 {
+        margin: 0 0 0.45rem;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #ff7be3;
+      }
+      .summary-box {
+        font-size: 0.82rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 0.75rem 0.85rem;
+        margin-bottom: 0.6rem;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-left: 3px solid #ff4fd8;
+      }
+      .composer-wrap {
+        padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom));
+        background: rgba(17, 18, 24, 0.78);
+        border-top: 1px solid var(--ig-border);
+        backdrop-filter: blur(18px);
+      }
+      .composer-row {
+        display: flex;
+        gap: 0.45rem;
+        align-items: flex-end;
+      }
+      .composer-row textarea {
+        flex: 1;
+        resize: none;
+        min-height: 46px;
+        max-height: 120px;
+        border-radius: 24px;
+        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--ig-text);
+        padding: 0.78rem 0.95rem;
+        font-size: 0.92rem;
+        outline: none;
+      }
+      .composer-row textarea:focus {
+        border-color: rgba(255, 79, 216, 0.4);
+        box-shadow: 0 0 0 4px rgba(255, 79, 216, 0.12);
+      }
+      .btn {
+        border-radius: 999px;
+        padding: 0.65rem 0.95rem;
+        font-weight: 700;
+        font-size: 0.82rem;
+        border: 1px solid transparent;
+      }
+      .btn-primary {
+        background: var(--ig-story);
+        color: white;
+        box-shadow: 0 10px 24px rgba(193, 53, 132, 0.28);
+      }
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--ig-text);
+        border-color: rgba(255, 255, 255, 0.07);
+      }
+      .btn-danger {
+        background: rgba(255, 93, 115, 0.14);
+        color: #ffd4db;
+        border-color: rgba(255, 93, 115, 0.2);
+      }
+      .btn-ok {
+        background: rgba(74, 222, 128, 0.14);
+        color: #97efaf;
+        border-color: rgba(74, 222, 128, 0.2);
+      }
+      .actions-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-top: 0.6rem;
+      }
+      .drawer-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 40;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      .drawer-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: min(420px, 100%);
+        height: 100%;
+        background: rgba(18, 19, 25, 0.96);
+        z-index: 50;
+        transform: translateX(100%);
+        transition: transform 0.22s ease;
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid var(--ig-border);
+        backdrop-filter: blur(18px);
+      }
+      .drawer.open {
+        transform: translateX(0);
+      }
+      .drawer-head {
+        padding: 1rem;
+        border-bottom: 1px solid var(--ig-border);
+        font-weight: 700;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.85rem;
+      }
+      .drawer-footer {
+        padding: 0.75rem 0.85rem calc(0.75rem + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--ig-border);
+        background: rgba(18, 19, 25, 0.95);
+      }
+      .drawer-note {
+        font-size: 0.74rem;
+        color: var(--ig-muted);
+        margin-top: 0.45rem;
+      }
+      .field {
+        margin-bottom: 0.85rem;
+      }
+      .field label {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--ig-muted);
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .field input,
+      .field select {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 16px;
+        padding: 0.7rem 0.8rem;
+        color: var(--ig-text);
+        font-family: inherit;
+        font-size: 0.88rem;
+        outline: none;
+      }
+      .settings-err {
+        color: #ffd4db;
+        font-size: 0.82rem;
+        margin-top: 0.5rem;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .assist-out {
+        font-size: 0.82rem;
+        color: var(--ig-muted);
+        white-space: pre-wrap;
+        padding: 0.5rem 0;
+      }
+      #chatActive:not(.hidden) {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+      }
+      #emptyChat.hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner-err" id="banner"></div>
+    <div class="app">
+      <aside class="sidebar" id="sidebar">
+        <div class="sb-top">
+          <h1>MiraChat</h1>
+          <button type="button" class="icon-btn" id="btnMenu" title="Connection &amp; login">☰</button>
+        </div>
+        <div class="search-wrap">
+          <input type="search" id="threadSearch" placeholder="Search threads…" autocomplete="off" />
+        </div>
+        <div class="thread-list" id="threadList"></div>
+      </aside>
+      <section class="chat-pane" id="chatPane">
+        <div class="empty-state" id="emptyChat">
+          <div>
+            <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Your inbox</p>
+            <p style="margin: 0; font-size: 0.85rem">
+              Open <strong>☰</strong> to set API URL, gateway (WeChat / WhatsApp / Telegram / WeCom), and
+              <strong>Dev login</strong>. Then pick a thread or draft — same layout as the ops console, tuned for IG-style
+              gradients.
+            </p>
+          </div>
+        </div>
+        <div id="chatActive" class="hidden">
+          <header class="chat-head">
+            <button type="button" class="icon-btn back-m" id="btnBack" aria-label="Back">←</button>
+            <div class="avatar" id="headAvatar">?</div>
+            <div class="head-meta">
+              <div class="head-title" id="headTitle">—</div>
+              <div class="head-sub">
+                <span class="pill" id="gatewayPill">Gateway</span>
+                <span class="pill" id="sessionPill">Session</span>
+                <span class="pill hidden ok" id="connPill">Conn</span>
+              </div>
+            </div>
+            <button type="button" class="icon-btn" id="btnRefresh" title="Refresh">↻</button>
+          </header>
+          <div class="messages" id="messages"></div>
+          <div class="approval-panel hidden" id="approvalPanel"></div>
+          <div class="composer-wrap">
+            <div class="assist-out hidden" id="assistOut"></div>
+            <div class="composer-row">
+              <textarea id="assistText" rows="1" placeholder="Ask for a summary or draft…"></textarea>
+              <button type="button" class="btn btn-primary" id="btnAssist">Assist</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="drawer-overlay" id="overlay"></div>
+    <aside class="drawer" id="drawer">
+      <div class="drawer-head">
+        <span>Connection</span>
+        <button type="button" class="icon-btn" id="btnCloseDrawer" aria-label="Close">×</button>
+      </div>
+      <div class="drawer-body">
+        <div class="field">
+          <label for="apiBase">API base URL</label>
+          <input id="apiBase" type="url" placeholder="http://127.0.0.1:4000" />
+        </div>
+        <div class="field">
+          <label for="userId">User ID</label>
+          <input id="userId" value="demo-user" />
+        </div>
+        <div class="field">
+          <label for="channelPreset">Gateway</label>
+          <select id="channelPreset"></select>
+        </div>
+        <p class="drawer-note">
+          Dev login needs <code style="font-family: var(--mono); font-size: 0.7rem">MINI_PROGRAM_DEV_LOGIN=1</code> on the
+          API. Production WeChat uses <code style="font-family: var(--mono); font-size: 0.7rem">wx.login</code>.
+        </p>
+        <div class="settings-err hidden" id="settingsErr"></div>
+      </div>
+      <div class="drawer-footer">
+        <button type="button" class="btn btn-primary" style="width: 100%" id="btnDevLogin">Dev login</button>
+        <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem" id="btnSaveSettings">
+          Save settings
+        </button>
+        <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem" id="btnLogout">
+          Clear session
+        </button>
+        <div class="drawer-note">Settings are stored in localStorage. Session token in sessionStorage.</div>
+      </div>
+    </aside>
+
+    <script>
+      const CHANNEL_PRESETS = [
+        { label: 'WeChat', channel: 'wechat', accountId: 'wechat-account' },
+        { label: 'WhatsApp (Twilio)', channel: 'twilio_whatsapp', accountId: 'default-account' },
+        { label: 'Telegram', channel: 'telegram', accountId: 'telegram-account' },
+        { label: 'WeCom', channel: 'wecom', accountId: 'wecom-app' },
+      ]
+      const K = {
+        apiBase: 'mirachatWebApiBase',
+        token: 'mirachatWebSessionToken',
+        userId: 'mirachatWebUserId',
+        preset: 'mirachatWebChannelPreset',
+      }
+      const $ = (id) => document.getElementById(id)
+      const state = {
+        drafts: [],
+        threads: [],
+        connection: null,
+        selectedKey: null,
+        activeDraft: null,
+      }
+
+      const apiBase = () => {
+        const v = $('apiBase').value.trim()
+        return v.endsWith('/') ? v.slice(0, -1) : v
+      }
+      const preset = () => {
+        const i = Number($('channelPreset').value)
+        return CHANNEL_PRESETS[i] || CHANNEL_PRESETS[0]
+      }
+      const authHeaders = () => {
+        const t = sessionStorage.getItem(K.token)
+        const h = { 'content-type': 'application/json' }
+        if (t) h.Authorization = 'Bearer ' + t
+        return h
+      }
+
+      async function j(path, opts = {}) {
+        const { skipAuth, ...fetchOpts } = opts
+        const baseHeaders = skipAuth
+          ? { 'content-type': 'application/json' }
+          : authHeaders()
+        let res
+        try {
+          res = await fetch(apiBase() + path, {
+            ...fetchOpts,
+            headers: { ...baseHeaders, ...(fetchOpts.headers || {}) },
+          })
+        } catch (net) {
+          const m = net instanceof Error ? net.message : String(net)
+          throw new Error(
+            m.includes('fetch') || m.includes('Load failed') || m.includes('NetworkError')
+              ? 'Cannot reach API (network/CORS).'
+              : m,
+          )
+        }
+        const text = await res.text()
+        let data = {}
+        try {
+          data = text ? JSON.parse(text) : {}
+        } catch {
+          data = { error: text }
+        }
+        if (!res.ok) {
+          throw new Error(
+            [data.message, data.error].filter(Boolean).join(' — ') || res.statusText || String(res.status),
+          )
+        }
+        return data
+      }
+
+      function showBanner(msg) {
+        const b = $('banner')
+        if (!msg) {
+          b.classList.remove('show')
+          b.textContent = ''
+          return
+        }
+        b.textContent = msg
+        b.classList.add('show')
+      }
+
+      function showSettingsErr(msg) {
+        const el = $('settingsErr')
+        if (!msg) {
+          el.classList.add('hidden')
+          el.textContent = ''
+          return
+        }
+        el.textContent = msg
+        el.classList.remove('hidden')
+      }
+
+      function initials(s) {
+        const t = String(s || '?').replace(/[^a-zA-Z0-9+]/g, ' ').trim()
+        if (!t) return '?'
+        const p = t.split(/\s+/)
+        return (p[0][0] + (p[1]?.[0] || '')).toUpperCase().slice(0, 2)
+      }
+
+      function formatTime(iso) {
+        if (!iso) return ''
+        const d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return ''
+        return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+      }
+
+      function loadSettings() {
+        $('apiBase').value = localStorage.getItem(K.apiBase) || 'http://127.0.0.1:4000'
+        $('userId').value = localStorage.getItem(K.userId) || 'demo-user'
+        const sel = $('channelPreset')
+        sel.innerHTML = ''
+        CHANNEL_PRESETS.forEach((p, i) => {
+          const o = document.createElement('option')
+          o.value = String(i)
+          o.textContent = p.label
+          sel.appendChild(o)
+        })
+        try {
+          const saved = JSON.parse(localStorage.getItem(K.preset) || '{}')
+          const idx = CHANNEL_PRESETS.findIndex((x) => x.channel === saved.channel && x.accountId === saved.accountId)
+          sel.value = String(idx >= 0 ? idx : 0)
+        } catch {
+          sel.value = '0'
+        }
+      }
+
+      function saveSettings() {
+        localStorage.setItem(K.apiBase, apiBase())
+        localStorage.setItem(K.userId, $('userId').value.trim())
+        const p = preset()
+        localStorage.setItem(K.preset, JSON.stringify({ channel: p.channel, accountId: p.accountId }))
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+      }
+
+      function hasSession() {
+        return Boolean(sessionStorage.getItem(K.token))
+      }
+
+      function mergeSidebarRows() {
+        const q = ($('threadSearch').value || '').trim().toLowerCase()
+        const byThread = new Set(state.drafts.map((d) => d.threadId))
+        const rows = []
+        for (const d of state.drafts) {
+          const title = d.threadId
+          const prev = [d.intentSummary, d.inboundText].filter(Boolean).join(' · ') || 'Draft'
+          if (q && !title.toLowerCase().includes(q) && !prev.toLowerCase().includes(q)) continue
+          rows.push({
+            key: 'draft:' + d.id,
+            kind: 'draft',
+            title,
+            preview: prev,
+            time: d.createdAt,
+            draft: d,
+          })
+        }
+        for (const t of state.threads) {
+          if (byThread.has(t.threadId)) continue
+          const title = t.threadId
+          const prev = t.preview || `${t.messageCount} messages`
+          if (q && !title.toLowerCase().includes(q) && !prev.toLowerCase().includes(q)) continue
+          rows.push({
+            key: 'thread:' + t.threadId,
+            kind: 'thread',
+            title,
+            preview: prev,
+            time: t.lastAt,
+            thread: t,
+          })
+        }
+        return rows
+      }
+
+      function layoutMobile() {
+        const narrow = window.innerWidth <= 768
+        const sel = Boolean(state.selectedKey)
+        const tok = hasSession()
+        $('sidebar').classList.toggle('hidden-mobile', narrow && tok && sel)
+        $('chatPane').classList.toggle('hidden-mobile', narrow && tok && !sel)
+      }
+
+      function openDrawer() {
+        $('overlay').classList.add('open')
+        $('drawer').classList.add('open')
+      }
+
+      function closeDrawer() {
+        $('overlay').classList.remove('open')
+        $('drawer').classList.remove('open')
+      }
+
+      function updateSessionChrome() {
+        const tok = hasSession()
+        $('sessionPill').textContent = tok ? 'Session: active' : 'Session: none'
+        $('sessionPill').classList.toggle('ok', tok)
+        $('connPill').classList.toggle('hidden', !state.connection)
+        if (state.connection) $('connPill').textContent = 'Linked'
+      }
+
+      function renderSidebar() {
+        const list = $('threadList')
+        list.innerHTML = ''
+        if (!hasSession()) {
+          list.innerHTML =
+            '<div class="empty-state" style="padding:1.5rem;font-size:0.85rem">Use ☰ → Dev login to load threads.</div>'
+          return
+        }
+        const rows = mergeSidebarRows()
+        if (!rows.length) {
+          list.innerHTML =
+            '<div class="empty-state" style="padding:1.5rem;font-size:0.85rem">No threads yet for this user.</div>'
+          return
+        }
+        for (const r of rows) {
+          const div = document.createElement('div')
+          div.className = 'thread-item' + (state.selectedKey === r.key ? ' active' : '')
+          div.dataset.key = r.key
+          const badge = r.kind === 'draft' ? '<span class="badge">Draft</span>' : ''
+          div.innerHTML =
+            '<div class="avatar">' +
+            escapeHtml(initials(r.title)) +
+            '</div><div class="thread-body"><div class="thread-row1"><span class="thread-title">' +
+            escapeHtml(r.title) +
+            badge +
+            '</span><span class="thread-time">' +
+            escapeHtml(formatTime(r.time)) +
+            '</span></div><div class="thread-preview">' +
+            escapeHtml(r.preview) +
+            '</div></div>'
+          div.addEventListener('click', () => {
+            state.selectedKey = r.key
+            state.activeDraft = r.kind === 'draft' ? r.draft : null
+            renderSidebar()
+            renderMain()
+            layoutMobile()
+          })
+          list.appendChild(div)
+        }
+      }
+
+      function renderMain() {
+        const tok = hasSession()
+        $('emptyChat').classList.toggle('hidden', tok)
+        $('chatActive').classList.toggle('hidden', !tok)
+        if (!tok) return
+
+        updateSessionChrome()
+        const pr = preset()
+        $('gatewayPill').textContent = pr.label
+
+        const draft = state.activeDraft
+        const threadOnly = state.selectedKey && state.selectedKey.startsWith('thread:')
+        const threadId = draft
+          ? draft.threadId
+          : threadOnly
+            ? state.selectedKey.slice('thread:'.length)
+            : null
+
+        if (!state.selectedKey) {
+          $('headTitle').textContent = 'MiraChat'
+          $('headAvatar').textContent = 'MC'
+          $('messages').innerHTML =
+            '<div class="empty-state" style="flex:1">Select a thread or draft from the list.</div>'
+          $('approvalPanel').classList.add('hidden')
+          $('approvalPanel').innerHTML = ''
+          $('assistOut').classList.add('hidden')
+          $('assistOut').textContent = ''
+          return
+        }
+
+        $('headTitle').textContent = threadId || '—'
+        $('headAvatar').textContent = initials(threadId)
+
+        const msgs = $('messages')
+        msgs.innerHTML = ''
+
+        if (draft) {
+          if (draft.inboundText) {
+            const row = document.createElement('div')
+            row.className = 'bubble-row in'
+            row.innerHTML = '<div class="bubble in">' + escapeHtml(draft.inboundText) + '</div>'
+            msgs.appendChild(row)
+          }
+          const out = document.createElement('div')
+          out.className = 'bubble-row out'
+          out.innerHTML = '<div class="bubble out">' + escapeHtml(draft.generatedText || '') + '</div>'
+          msgs.appendChild(out)
+        } else {
+          const hint = document.createElement('div')
+          hint.className = 'empty-state'
+          hint.style.flex = '1'
+          hint.textContent = 'Use Assist below for this thread, or open a draft when one appears.'
+          msgs.appendChild(hint)
+        }
+
+        const ap = $('approvalPanel')
+        if (draft && draft.replyOptions?.length) {
+          ap.classList.remove('hidden')
+          let optBtns = ''
+          draft.replyOptions.forEach((opt, i) => {
+            optBtns +=
+              '<button type="button" class="btn btn-secondary btn-pick-opt" data-i="' +
+              i +
+              '">' +
+              escapeHtml(opt.label || 'Option ' + (i + 1)) +
+              '</button>'
+          })
+          ap.innerHTML =
+            '<h3>Review</h3>' +
+            (draft.threadSummary
+              ? '<div class="summary-box"><strong>Thread</strong><br/>' + escapeHtml(draft.threadSummary) + '</div>'
+              : '') +
+            (draft.intentSummary
+              ? '<div class="summary-box"><strong>Intent</strong><br/>' + escapeHtml(draft.intentSummary) + '</div>'
+              : '') +
+            '<div class="field"><label>Edit before send</label><textarea id="editDraftText" rows="3">' +
+            escapeHtml(draft.generatedText || '') +
+            '</textarea></div>' +
+            '<div class="actions-row">' +
+            '<button type="button" class="btn btn-ok" id="btnApprove">Approve</button>' +
+            '<button type="button" class="btn btn-primary" id="btnApproveEdit">Save edit &amp; send</button>' +
+            '<button type="button" class="btn btn-danger" id="btnReject">Reject</button>' +
+            '</div>' +
+            '<div class="actions-row" style="margin-top:0.75rem">' +
+            optBtns +
+            '</div>'
+
+          $('btnApprove').onclick = () => draftAction('approve')
+          $('btnApproveEdit').onclick = () => draftAction('edit')
+          $('btnReject').onclick = () => draftAction('reject')
+          ap.querySelectorAll('.btn-pick-opt').forEach((btn) => {
+            btn.addEventListener('click', () => draftAction('select', Number(btn.dataset.i)))
+          })
+        } else if (draft) {
+          ap.classList.remove('hidden')
+          ap.innerHTML =
+            '<h3>Review</h3>' +
+            '<div class="actions-row">' +
+            '<button type="button" class="btn btn-ok" id="btnApprove2">Approve</button>' +
+            '<button type="button" class="btn btn-danger" id="btnReject2">Reject</button>' +
+            '</div>'
+          $('btnApprove2').onclick = () => draftAction('approve')
+          $('btnReject2').onclick = () => draftAction('reject')
+        } else {
+          ap.classList.add('hidden')
+          ap.innerHTML = ''
+        }
+
+        msgs.scrollTop = msgs.scrollHeight
+      }
+
+      async function draftAction(kind, optionIndex) {
+        const d = state.activeDraft
+        if (!d) return
+        const id = d.id
+        showBanner('')
+        try {
+          if (kind === 'approve') {
+            await j('/mini-program/drafts/' + encodeURIComponent(id) + '/approve', { method: 'POST', body: '{}' })
+          } else if (kind === 'reject') {
+            await j('/mini-program/drafts/' + encodeURIComponent(id) + '/reject', { method: 'POST', body: '{}' })
+          } else if (kind === 'edit') {
+            const ta = $('editDraftText')
+            const text = ta ? ta.value : d.generatedText
+            await j('/mini-program/drafts/' + encodeURIComponent(id) + '/edit', {
+              method: 'POST',
+              body: JSON.stringify({ editedText: text }),
+            })
+          } else if (kind === 'select') {
+            await j('/mini-program/drafts/' + encodeURIComponent(id) + '/select-option', {
+              method: 'POST',
+              body: JSON.stringify({ index: optionIndex }),
+            })
+          }
+          state.selectedKey = null
+          state.activeDraft = null
+          await refreshBootstrap()
+          renderSidebar()
+          renderMain()
+          layoutMobile()
+        } catch (e) {
+          showBanner(e instanceof Error ? e.message : String(e))
+        }
+      }
+
+      async function refreshBootstrap() {
+        showBanner('')
+        if (!hasSession()) {
+          state.drafts = []
+          state.threads = []
+          state.connection = null
+          return
+        }
+        const pr = preset()
+        const path =
+          '/mini-program/bootstrap?channel=' +
+          encodeURIComponent(pr.channel) +
+          '&accountId=' +
+          encodeURIComponent(pr.accountId)
+        try {
+          const data = await j(path)
+          state.drafts = Array.isArray(data.drafts) ? data.drafts : []
+          state.threads = Array.isArray(data.threads) ? data.threads : []
+          state.connection = data.connection ?? null
+        } catch (e) {
+          showBanner(e instanceof Error ? e.message : String(e))
+          state.drafts = []
+          state.threads = []
+          state.connection = null
+        }
+      }
+
+      async function doAssist() {
+        const text = $('assistText').value.trim()
+        if (!text) return
+        const draft = state.activeDraft
+        const threadOnly = state.selectedKey && state.selectedKey.startsWith('thread:')
+        const threadId = draft
+          ? draft.threadId
+          : threadOnly
+            ? state.selectedKey.slice('thread:'.length)
+            : null
+        if (!threadId) {
+          showBanner('Select a thread first.')
+          return
+        }
+        const pr = preset()
+        showBanner('')
+        $('assistOut').classList.remove('hidden')
+        $('assistOut').textContent = '…'
+        try {
+          const data = await j('/mini-program/assist', {
+            method: 'POST',
+            body: JSON.stringify({
+              channel: pr.channel,
+              accountId: pr.accountId,
+              threadId,
+              text,
+            }),
+          })
+          const parts = []
+          if (data.threadSummary) parts.push('Summary:\n' + data.threadSummary)
+          if (data.primaryDraft?.response) parts.push('Draft:\n' + String(data.primaryDraft.response))
+          $('assistOut').textContent = parts.join('\n\n') || JSON.stringify(data, null, 2)
+        } catch (e) {
+          $('assistOut').textContent = e instanceof Error ? e.message : String(e)
+        }
+      }
+
+      async function doDevLogin() {
+        showSettingsErr('')
+        saveSettings()
+        const userId = $('userId').value.trim() || 'demo-user'
+        try {
+          const data = await j('/mini-program/dev-login', {
+            method: 'POST',
+            body: JSON.stringify({ userId }),
+            skipAuth: true,
+          })
+          if (!data.sessionToken) throw new Error('No sessionToken in response')
+          sessionStorage.setItem(K.token, data.sessionToken)
+          closeDrawer()
+          await refreshBootstrap()
+          renderSidebar()
+          renderMain()
+          layoutMobile()
+        } catch (e) {
+          showSettingsErr(e instanceof Error ? e.message : String(e))
+        }
+      }
+
+      $('btnMenu').addEventListener('click', openDrawer)
+      $('btnCloseDrawer').addEventListener('click', closeDrawer)
+      $('overlay').addEventListener('click', closeDrawer)
+      $('btnSaveSettings').addEventListener('click', () => {
+        saveSettings()
+        showSettingsErr('')
+        closeDrawer()
+        if (hasSession()) void refreshBootstrap().then(() => {
+          renderSidebar()
+          renderMain()
+        })
+      })
+      $('btnLogout').addEventListener('click', () => {
+        sessionStorage.removeItem(K.token)
+        state.selectedKey = null
+        state.activeDraft = null
+        closeDrawer()
+        renderSidebar()
+        renderMain()
+        layoutMobile()
+      })
+      $('btnDevLogin').addEventListener('click', () => void doDevLogin())
+      $('btnRefresh').addEventListener('click', () =>
+        void refreshBootstrap().then(() => {
+          renderSidebar()
+          renderMain()
+        }),
+      )
+      $('btnBack').addEventListener('click', () => {
+        state.selectedKey = null
+        state.activeDraft = null
+        renderSidebar()
+        renderMain()
+        layoutMobile()
+      })
+      $('btnAssist').addEventListener('click', () => void doAssist())
+      $('threadSearch').addEventListener('input', () => renderSidebar())
+      $('channelPreset').addEventListener('change', saveSettings)
+
+      window.addEventListener('resize', layoutMobile)
+
+      loadSettings()
+      if (hasSession()) {
+        void refreshBootstrap().then(() => {
+          renderSidebar()
+          renderMain()
+        })
+      } else {
+        renderSidebar()
+        renderMain()
+      }
+      layoutMobile()
+    </script>
+  </body>
+</html>

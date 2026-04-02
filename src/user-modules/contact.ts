@@ -52,13 +52,6 @@ import type { MessageInterface }  from './message.js'
 import type { TagInterface }      from './tag.js'
 import type { ContactSelfImpl }   from './contact-self.js'
 
-/** @internal */
-const MixinBase = wechatifyMixin(
-  poolifyMixin(
-    ContactEventEmitter,
-  )<ContactImplInterface>(),
-)
-
 /**
  * All wechat contacts(friend) will be encapsulated as a Contact.
  * [Examples/Contact-Bot]{@link https://github.com/wechaty/wechaty/blob/1523c5e02be46ebe2cc172a744b2fbe53351540e/examples/contact-bot.ts}
@@ -66,7 +59,12 @@ const MixinBase = wechatifyMixin(
  * @property {string}  id               - Get Contact id.
  * This function is depending on the Puppet Implementation, see [puppet-compatible-table](https://github.com/wechaty/wechaty/wiki/Puppet#3-puppet-compatible-table)
  */
-class ContactMixin extends MixinBase implements SayableSayer {
+/** @internal */
+class ContactMixin extends wechatifyMixin(
+  poolifyMixin(
+    ContactEventEmitter,
+  )<ContactImplInterface>(),
+) implements SayableSayer {
 
   static Type   = PUPPET.types.Contact
   static Gender = PUPPET.types.ContactGender

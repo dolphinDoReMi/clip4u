@@ -27,6 +27,7 @@ import {
   listA2aEnvelopesForUser,
   listDelegationEvents,
   listDraftedOutboundTriage,
+  listDraftedOutboundTriageForUser,
   listPendingSend,
   listThreadSummariesForUser,
   markOutboundSendFailed,
@@ -83,12 +84,15 @@ export const readBody = async (request: IncomingMessage): Promise<string> => {
   return Buffer.concat(chunks).toString('utf8')
 }
 
+/** Browsers preflight requests with `Authorization` (web client, tools) — must list it explicitly. */
+const CORS_ALLOW_HEADERS = 'content-type, authorization'
+
 export const sendJson = (response: ServerResponse, statusCode: number, data: unknown) => {
   response.writeHead(statusCode, {
     'content-type': 'application/json',
     'access-control-allow-origin': '*',
     'access-control-allow-methods': 'GET,POST,PUT,PATCH,OPTIONS',
-    'access-control-allow-headers': 'content-type',
+    'access-control-allow-headers': CORS_ALLOW_HEADERS,
   })
   response.end(JSON.stringify(data, null, 2))
 }
@@ -294,7 +298,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         response.writeHead(204, {
           'access-control-allow-origin': '*',
           'access-control-allow-methods': 'GET,POST,PUT,PATCH,OPTIONS',
-          'access-control-allow-headers': 'content-type',
+          'access-control-allow-headers': CORS_ALLOW_HEADERS,
         })
         response.end()
         return
@@ -446,8 +450,50 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       return
     }
 
+    if (request.method === 'POST' && url.pathname === '/mini-program/dev-login') {
+      if (process.env.MINI_PROGRAM_DEV_LOGIN !== '1') {
+        sendJson(response, 403, { error: 'MINI_PROGRAM_DEV_LOGIN is not enabled' })
+        return
+      }
+      const body = parseJson(await readBody(request))
+      const userId = trimString(body.userId) ?? 'demo-user'
+      const expiresInSeconds = Number(process.env.MINI_PROGRAM_SESSION_TTL_SECONDS ?? 60 * 60 * 12)
+      const sessionToken = createMiniProgramSessionToken(resolveMiniProgramSecret(), {
+        openId: `dev:${userId}`,
+        unionId: null,
+        userId,
+        exp: Date.now() + expiresInSeconds * 1000,
+      })
+      sendJson(response, 200, {
+        ok: true,
+        openId: `dev:${userId}`,
+        unionId: null,
+        sessionToken,
+        expiresInSeconds,
+        userId,
+      })
+      return
+    }
+
     const { mirachat } = ctx
     if (!mirachat) {
+      const p = url.pathname
+      if (p.startsWith('/mini-program/')) {
+        sendJson(response, 503, {
+          error: 'mirachat_unavailable',
+          message:
+            'Mini program routes need PostgreSQL. Set DATABASE_URL in MiraChat/.env, run npm run mirachat:migrate, and restart the API.',
+        })
+        return
+      }
+      if (p.startsWith('/mirachat')) {
+        sendJson(response, 503, {
+          error: 'mirachat_unavailable',
+          message:
+            'MiraChat API routes need PostgreSQL. Set DATABASE_URL, run migrations, and restart the API.',
+        })
+        return
+      }
       sendJson(response, 404, { error: 'Not found' })
       return
     }
@@ -472,7 +518,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       if (!requireMiniProgramSession()) {
         return
       }
-      const drafts = await listDraftedOutboundTriage(pool, 30)
+      const drafts = await listDraftedOutboundTriageForUser(pool, miniProgramUserId, 30)
       const threads = await listThreadSummariesForUser(pool, miniProgramUserId, 20)
       const channel = trimString(url.searchParams.get('channel'))
       const accountId = trimString(url.searchParams.get('accountId'))

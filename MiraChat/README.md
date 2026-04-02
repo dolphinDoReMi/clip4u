@@ -8,7 +8,8 @@ Delegate AI is a product monorepo scaffold for a controlled delegation runtime.
 - `apps/gateway-wechaty`: WeChat adapter boundary
 - `apps/gateway-wecom`: WeCom adapter boundary
 - `apps/gateway-telegram`: Telegram adapter boundary
-- `apps/mini-program`: WeChat Mini Program client scaffold
+- `apps/mini-program`: WeChat Mini Program client scaffold (multi-gateway picker: WeChat / WhatsApp / Telegram / WeCom)
+- `apps/web-client`: browser client for the same `/mini-program/*` flows (requires `MINI_PROGRAM_DEV_LOGIN=1` for token mint)
 - `apps/ops-console`: lightweight approval console scaffold
 - `services/api`: approval and health API scaffold
 - `packages/*`: transport-neutral core packages

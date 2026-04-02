@@ -66,7 +66,7 @@ function getCachedBootstrap() {
   return wx.getStorageSync(storageKeys.bootstrap) || null
 }
 
-function assist({ text, threadId }) {
+function assist({ text, threadId, channel, accountId }) {
   return request({
     path: '/mini-program/assist',
     method: 'POST',
@@ -74,6 +74,8 @@ function assist({ text, threadId }) {
     data: {
       text,
       threadId,
+      ...(channel ? { channel } : {}),
+      ...(accountId ? { accountId } : {}),
     },
   })
 }

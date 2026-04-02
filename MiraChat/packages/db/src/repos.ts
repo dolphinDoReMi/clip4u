@@ -372,6 +372,26 @@ export const listDraftedOutboundTriage = async (pool: Pool, limit = 100): Promis
   return rows
 }
 
+export const listDraftedOutboundTriageForUser = async (
+  pool: Pool,
+  userId: string,
+  limit = 100,
+): Promise<OutboundDraftTriageRow[]> => {
+  const cap = Math.min(Math.max(1, limit), 200)
+  const { rows } = await pool.query<OutboundDraftTriageRow>(
+    `
+    SELECT d.*, i.raw_text AS inbound_raw_text
+    FROM outbound_drafts d
+    LEFT JOIN inbound_messages i ON i.id = d.inbound_message_id
+    WHERE d.status = 'DRAFTED' AND d.user_id = $1
+    ORDER BY d.created_at DESC
+    LIMIT $2
+    `,
+    [userId, cap],
+  )
+  return rows
+}
+
 export const getOutboundDraft = async (pool: Pool, id: string): Promise<OutboundDraftRow | null> => {
   const { rows } = await pool.query<OutboundDraftRow>(`SELECT * FROM outbound_drafts WHERE id = $1`, [id])
   return rows[0] ?? null

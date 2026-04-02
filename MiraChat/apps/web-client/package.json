@@ -1,0 +1,10 @@
+{
+  "name": "@delegate-ai/web-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs && npx --yes serve dist -l 4480"
+  }
+}

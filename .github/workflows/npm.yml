@@ -54,10 +54,16 @@ jobs:
           WECHATY_PUPPET_PADPLUS_TOKEN: ${{ secrets.WECHATY_PUPPET_PADPLUS_TOKEN }}
 
   publish:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/v'))
+    # Single GitHub Environment: production (configure secrets / protection rules there).
+    if: >-
+      github.event_name == 'push'
+      && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/v'))
+      && github.event.repository.fork == false
+      && secrets.NPM_TOKEN != ''
     name: Publish
     needs: [build, pack]
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: read
     steps:

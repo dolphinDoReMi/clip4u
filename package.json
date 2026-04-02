@@ -38,15 +38,16 @@
     "DEFAULT_APIHOST": "api.chatie.io"
   },
   "scripts": {
-    "build": "tsc && tsc -p tsconfig.cjs.json",
+    "build": "npm run build:emit",
     "build:emit": "tsc -p tsconfig.emit.json && tsc -p tsconfig.cjs.emit.json",
+    "build:declarations": "tsc && tsc -p tsconfig.cjs.json",
     "ci": "npm test && npm run build:emit",
     "changelog": "docker run -it --rm -e CHANGELOG_GITHUB_TOKEN -v \"$(pwd)\":/usr/local/src/your-app ferrarimarco/github-changelog-generator -u wechaty -p wechaty && sed -i'.bak' /greenkeeper/d CHANGELOG.md && sed -i'.bak' /Snyk/d CHANGELOG.md && sed -i'.bak' '/An in-range update of/d' CHANGELOG.md && node --no-warnings --loader=ts-node/esm scripts/sort-contributiveness.ts < CHANGELOG.md > CHANGELOG.new.md 2>/dev/null && cat CHANGELOG.md >> CHANGELOG.new.md && mv CHANGELOG.new.md CHANGELOG.md",
     "clean": "shx rm -fr dist/*",
     "coverage": "nyc report --reporter=lcov",
     "cli": "node --no-warnings --loader ts-node/esm bin/cli.ts",
     "demo": "cross-env NODE_OPTIONS=\"--no-warnings --loader=ts-node/esm\" node examples/ding-dong-bot.ts",
-    "dist": "npm-run-all clean build dist:commonjs",
+    "dist": "npm-run-all clean build:declarations dist:commonjs",
     "dist:commonjs": "jq -n \"{ type: \\\"commonjs\\\" }\" > dist/cjs/package.json",
     "docs": "bash -x scripts/generate-docs.sh",
     "doctor": "node --no-warnings --loader=ts-node/esm bin/doctor.ts",

@@ -3,5 +3,15 @@
   "compilerOptions": {
     "declaration": false,
     "declarationMap": false
-  }
+  },
+  "exclude": ["node_modules/", "dist/", "tests/fixtures/"],
+  "include": [
+    "app/**/*.ts",
+    "bin/*.ts",
+    "bot/**/*.ts",
+    "examples/**/*.ts",
+    "scripts/**/*.ts",
+    "src/**/*.ts",
+    "tests/**/*.spec.ts"
+  ]
 }

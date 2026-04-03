@@ -1,0 +1,30 @@
+# MiraChat: full test + build on main (duplicates npm.yml gate for visibility on MiraChat-only PRs).
+
+name: MiraChat CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'MiraChat/**'
+      - '.github/workflows/mirachat-ci.yml'
+      - '.github/workflows/mirachat-verify-reusable.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'MiraChat/**'
+      - '.github/workflows/mirachat-ci.yml'
+      - '.github/workflows/mirachat-verify-reusable.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirachat-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    uses: ./.github/workflows/mirachat-verify-reusable.yml
+    secrets: inherit

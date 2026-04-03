@@ -18,6 +18,9 @@ import { processInboundJob } from '../../services/api/src/mirachat-worker.ts'
 /** Set `E2E_DATABASE_URL` or `DATABASE_URL` to run (same DB as Playwright UI tests). */
 const conn = process.env.E2E_DATABASE_URL ?? process.env.DATABASE_URL
 
+/** Cold migrations + worker on GitHub-hosted runners can exceed 45s under load. */
+const pipelineItTimeoutMs = process.env.CI ? 120_000 : 45_000
+
 describe.skipIf(!conn)('E2E: MiraChat worker pipeline (real Postgres)', () => {
   let pool: pg.Pool
 
@@ -63,7 +66,7 @@ describe.skipIf(!conn)('E2E: MiraChat worker pipeline (real Postgres)', () => {
     )
     expect(rows.length).toBe(1)
     expect(['DRAFTED', 'APPROVED', 'REJECTED']).toContain(rows[0]!.status)
-  }, 45_000)
+  }, pipelineItTimeoutMs)
 
   it('DRAFTED path stores MVP reply option labels (direct / balanced / relationship-first or fallbacks)', async () => {
     const suffix = `${Date.now()}`
@@ -102,5 +105,5 @@ describe.skipIf(!conn)('E2E: MiraChat worker pipeline (real Postgres)', () => {
     expect(Array.isArray(raw)).toBe(true)
     const labels = (raw as { label: string }[]).map(o => String(o.label).toLowerCase()).sort()
     expect(labels).toEqual(['balanced', 'direct', 'relationship-first'])
-  }, 45_000)
+  }, pipelineItTimeoutMs)
 })

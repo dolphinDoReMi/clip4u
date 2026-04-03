@@ -1,0 +1,64 @@
+# Reusable: Vitest (with Postgres + pgvector for pipeline e2e) + full monorepo build.
+# Invoke from npm.yml, mirachat-ci.yml, or other workflows.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: MiraChat test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mirachat_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mirachat_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+          --health-start-period 15s
+
+    env:
+      CI: true
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mirachat_ci
+      E2E_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mirachat_ci
+      # Vitest loads MiraChat/.env when present locally; on GitHub, org/repo secrets could inject keys.
+      # Force deterministic tests (no live LLM) for this job.
+      OPENROUTER_API_KEY: ''
+      OPENAI_API_KEY: ''
+      ANTHROPIC_API_KEY: ''
+
+    defaults:
+      run:
+        working-directory: MiraChat
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: MiraChat/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test (Vitest + pipeline e2e against service Postgres)
+        run: npm test
+
+      - name: Build (packages, API, gateways, static apps)
+        run: npm run build

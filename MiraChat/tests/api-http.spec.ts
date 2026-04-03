@@ -676,6 +676,7 @@ describe('Delegate API HTTP (mocked SQL)', () => {
   })
 
   it('POST /simulate-message returns decision + draft without PostgreSQL', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', '')
     const listener = createDelegateApiListener({
       memoryRuntime: createInMemoryRuntime(),
       mirachat: null,

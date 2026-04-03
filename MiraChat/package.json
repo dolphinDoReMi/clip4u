@@ -23,6 +23,7 @@
     "dev:twilio": "npm run dev --workspace @delegate-ai/gateway-twilio",
     "dev:telegram": "npm run dev --workspace @delegate-ai/gateway-telegram",
     "mirachat:migrate": "npm run migrate --workspace @delegate-ai/db",
+    "ci": "npm test && npm run build",
     "test": "vitest run",
     "test:fast": "vitest run --exclude tests/e2e/mirachat-pipeline.e2e.spec.ts --exclude tests/e2e/wechat-desktop-nut.e2e.spec.ts",
     "test:prd:db": "vitest run tests/e2e/mirachat-pipeline.e2e.spec.ts",

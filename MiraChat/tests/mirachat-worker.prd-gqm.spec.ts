@@ -1,7 +1,7 @@
 /**
  * PRD pipeline: inbound job → policy → outbound draft + GQM delegation_events (mirachat-worker).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import type { Pool } from 'pg'
 import { DelegationEventType, POLICY_ENGINE_ID } from '@delegate-ai/db'
 import { InMemoryIdentityService } from '@delegate-ai/identity'
@@ -50,6 +50,10 @@ const baseInboundRow = (overrides: Record<string, unknown> = {}) => ({
 
 describe('mirachat-worker processInboundJob (PRD §5 / GQM instrumentation)', () => {
   const noopPool = {} as Pool
+
+  beforeAll(() => {
+    vi.stubEnv('OPENROUTER_API_KEY', '')
+  })
 
   beforeEach(() => {
     vi.resetAllMocks()

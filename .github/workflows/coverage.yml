@@ -2,25 +2,42 @@ name: Coverage
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  wechaty:
+    name: Wechaty (nyc + lcov)
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          echo See: https://github.com/wechaty/wechaty/issues/2242
-    # - uses: actions/checkout@v2
-    # - uses: actions/setup-node@v2
-    # - run: npm install
-    # - run: |
-    #     npm test
-    #     npm run coverage
-    #   env:
-    #     CI: true
-    # - name: Coveralls
-    #   uses: coverallsapp/github-action@master
-    #   with:
-    #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test with coverage
+        run: npm test
+        env:
+          CI: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          flags: wechaty
+          fail_ci_if_error: false

@@ -16,6 +16,8 @@ on:
       - 'docs/PRD-MiraForU.md'
       - 'docs/product-GQM-MiraForU.md'
       - 'docs/prd-gqm-e2e-test-suite.md'
+      - 'docs/FEATURE-phone-calls-openclaw-delegation.md'
+      - 'docs/twilio-voice-atnt-trust-setup.md'
       - '.github/workflows/mirachat-prd-gqm.yml'
   pull_request:
     branches: [main]
@@ -24,6 +26,8 @@ on:
       - 'docs/PRD-MiraForU.md'
       - 'docs/product-GQM-MiraForU.md'
       - 'docs/prd-gqm-e2e-test-suite.md'
+      - 'docs/FEATURE-phone-calls-openclaw-delegation.md'
+      - 'docs/twilio-voice-atnt-trust-setup.md'
       - '.github/workflows/mirachat-prd-gqm.yml'
 
 jobs:
@@ -48,7 +52,7 @@ jobs:
           cache-dependency-path: MiraChat/package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run fast Vitest suite
         run: npm run test:fast
@@ -79,7 +83,7 @@ jobs:
           cache-dependency-path: MiraChat/package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Check real database configuration
         id: db

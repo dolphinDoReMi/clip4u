@@ -597,6 +597,10 @@
       .bubble.memory-bubble.in {
         border-left: 3px solid rgba(125, 211, 252, 0.5);
       }
+      .draft-ref-bubble {
+        border: 1px dashed rgba(255, 79, 216, 0.4) !important;
+        background: rgba(255, 79, 216, 0.05) !important;
+      }
       .approval-panel {
         flex-shrink: 0;
         display: flex;
@@ -1595,7 +1599,7 @@
         </div>
         <p class="mission-strip" data-testid="prd-mission-strip">
           <strong class="mission-strip-kicker">Proxy Self</strong>
-          <span class="mission-strip-line">Bounded delegate for your DMs — not just faster typing. Protect intent · approve before send · relationship-aware tone.</span>
+          <span class="mission-strip-line">Bounded delegate for your DMs — not just faster typing. Protect intent · copy before send · relationship-aware tone.</span>
         </p>
         <div class="search-wrap">
           <label for="threadSearch" class="search-field-label" id="dmSearchFieldLabel">Search DM/Contact</label>
@@ -1630,7 +1634,7 @@
           </button>
           <div id="pendingInboundHint" style="font-size: 0.72rem; color: var(--ig-muted); margin-top: 0.35rem; line-height: 1.35"></div>
           <p class="trust-note" style="margin-top: 0.45rem">
-            <strong>Private to you on this device.</strong> Nothing is delivered to them until you approve or send.
+            <strong>Private to you on this device.</strong> Nothing is delivered to them until you copy or send.
           </p>
         </div>
         <div class="thread-list" id="threadList"></div>
@@ -1694,7 +1698,7 @@
             </button>
           </div>
           <p class="trust-note" style="margin: 0.45rem 0 0; font-size: 0.68rem; line-height: 1.4">
-            Same look as threads above: story ring + preview. Nothing here is sent to contacts until you approve.
+            Same look as threads above: story ring + preview. Nothing here is sent to contacts until you copy.
           </p>
         </div>
       </aside>
@@ -1887,12 +1891,12 @@
               "
             >
               <strong>Enter</strong> sends; <strong>Shift+Enter</strong> starts a new line. After <strong>Send</strong>, use
-              <strong>Reply in your tone</strong> below the chat — drafts mirror how you write; copy, edit, or approve to send. If nothing
+              <strong>Reply in your tone</strong> below the chat — drafts mirror how you write; copy to send. If nothing
               appears, wait or open
               <strong>+</strong> → <strong>Refresh</strong>. <strong>Upload</strong> adds private memory. Advanced import: menu
               (☰) → <strong>Desktop</strong>.
               <span class="trust-note" style="display: block; margin-top: 0.35rem"
-                ><strong>Nothing goes to them</strong> from this flow until you approve or send.</span
+                ><strong>Nothing goes to them</strong> from this flow until you copy or send.</span
               >
             </p>
           </div>
@@ -2203,7 +2207,7 @@
         <div class="mh">Find a time together</div>
         <div class="mb">
           <p class="trust-note" style="margin: 0 0 0.75rem">
-            <strong>Planning help, not automatic sends.</strong> Results stay on this device until you send or approve.
+            <strong>Planning help, not automatic sends.</strong> Results stay on this device until you send or copy.
           </p>
           <div class="field">
             <label for="negCounterpartyText">Their message</label>
@@ -2309,6 +2313,7 @@
         selectedThreadId: null,
         threads: [],
         drafts: [],
+        pendingDraftRequest: null,
         pending: [],
         /** draft id → expiry (ms); keeps Mark sent visible if /pending-send lags or gateway drains the row quickly */
         pendingStickyUntil: new Map(),
@@ -2880,7 +2885,52 @@
         applyHeadAvatar(tid, entry)
       }
 
-      const draftForThread = (tid) => state.drafts.find((d) => d.threadId === tid)
+      const draftSortTime = (draft) => {
+        const raw = draft?.updatedAt || draft?.createdAt || ''
+        const ts = Date.parse(String(raw || ''))
+        return Number.isFinite(ts) ? ts : 0
+      }
+
+      const draftForThread = (tid) => {
+        let newest = null
+        for (const draft of state.drafts) {
+          if (draft.threadId !== tid) continue
+          if (!newest) {
+            newest = draft
+            continue
+          }
+          const draftTs = draftSortTime(draft)
+          const newestTs = draftSortTime(newest)
+          if (draftTs > newestTs) {
+            newest = draft
+            continue
+          }
+          if (draftTs === newestTs && String(draft.id || '') > String(newest.id || '')) {
+            newest = draft
+          }
+        }
+        return newest
+      }
+
+      const pendingDraftForThread = (tid) =>
+        state.pendingDraftRequest && state.pendingDraftRequest.threadId === tid ? state.pendingDraftRequest : null
+
+      const draftSatisfiesPendingRequest = (draft, pendingRequest) => {
+        if (!pendingRequest) return true
+        if (!draft) return false
+        const expectedInboundMessageId = String(pendingRequest.inboundMessageId || '').trim()
+        if (expectedInboundMessageId) {
+          return String(draft?.inboundMessageId || '').trim() === expectedInboundMessageId
+        }
+        const expectedInboundText = String(pendingRequest.expectedInboundText || '').trim()
+        if (expectedInboundText) {
+          return String(draft?.inboundText || '').trim() === expectedInboundText
+        }
+        return Boolean(
+          pendingRequest.previousDraftId &&
+          String(draft.id || '') !== String(pendingRequest.previousDraftId || ''),
+        )
+      }
 
       const mergeThreads = () => {
         const byId = new Map()
@@ -3163,8 +3213,8 @@
           'draft.created': 'Draft created',
           'draft.auto_queued': 'Auto-send queued',
           'draft.auto_sent': 'Auto-sent',
-          'draft.approved_as_is': 'Approved as written',
-          'draft.approved_with_edit': 'Approved with edits',
+          'draft.approved_as_is': 'Copied as written',
+          'draft.approved_with_edit': 'Copied with edits',
           'draft.rejected': 'Draft rejected',
           'doer.started': 'OpenClaw run started',
           'doer.completed': 'OpenClaw run finished',
@@ -3234,12 +3284,38 @@
         el.appendChild(document.createElement('div')).className = 'day-label'
         el.lastChild.textContent = 'Today'
         for (const m of state.messages) {
-          if (m.channel === 'memory') continue
+          let isMem = false
+          let isDraftRef = false
+          let content = m.content
+          let direction = m.direction
+          
+          const activeDraft = draftForThread(state.selectedThreadId)
+          if (activeDraft && m.id === activeDraft.id) continue
+
+          if (direction === 'draft_reference') {
+            direction = 'outbound'
+            isDraftRef = true
+          }
+
+          if (m.channel === 'memory') {
+            if (content.startsWith('[mirachat:ingest_suggested_reply]')) {
+              isMem = true
+              direction = 'outbound'
+              content = content.split('\n\n').slice(1).join('\n\n').trim()
+            } else if (content.startsWith('[mirachat:ingest_extracted_message]')) {
+              isMem = true
+              const lines = content.split('\n')
+              const senderLine = lines[1] || ''
+              direction = senderLine.includes('sender=me') ? 'outbound' : 'inbound'
+              content = content.split('\n\n').slice(1).join('\n\n').trim()
+            } else {
+              continue
+            }
+          }
           const row = document.createElement('div')
-          const isMem = false
           row.className =
-            'bubble-row ' + (m.direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-row' : '')
-          if (m.direction !== 'outbound' && !isMem && tid && peerEntry) {
+            'bubble-row ' + (direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-row' : '')
+          if (direction !== 'outbound' && !isMem && tid && peerEntry) {
             const wrap = document.createElement('div')
             wrap.className = 'bubble-peer-avatar'
             const avi = document.createElement('img')
@@ -3252,9 +3328,12 @@
             row.appendChild(wrap)
           }
           const b = document.createElement('div')
-          b.className = 'bubble ' + (m.direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-bubble' : '')
-          const memLabel = isMem ? '<div class="memory-import-tag">Imported context</div>' : ''
-          b.innerHTML = `${memLabel}${escapeHtml(m.content)}<time>${formatTime(m.timestamp)}</time>`
+          b.className = 'bubble ' + (direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-bubble' : '') + (isDraftRef ? ' draft-ref-bubble' : '')
+          let memLabel = ''
+          if (isMem) memLabel = '<div class="memory-import-tag">Imported context</div>'
+          else if (isDraftRef) memLabel = '<div class="memory-import-tag" style="color: #ff8eea; border-color: rgba(255,79,216,0.3)">Previous Draft</div>'
+          
+          b.innerHTML = `${memLabel}${escapeHtml(content)}<time>${formatTime(m.timestamp)}</time>`
           row.appendChild(b)
           el.appendChild(row)
         }
@@ -3272,7 +3351,21 @@
 
       const renderApproval = () => {
         const panel = $('approvalPanel')
+        const pendingRequest = pendingDraftForThread(state.selectedThreadId)
         const d = draftForThread(state.selectedThreadId)
+        if (pendingRequest && !draftSatisfiesPendingRequest(d, pendingRequest)) {
+          panel.style.display = 'block'
+          panel.innerHTML = `
+          <div class="approval-panel-head">
+            <div style="display:flex;align-items:center;margin-bottom:0.5rem;">
+              <span style="background:var(--ig-primary);color:#fff;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-right:0.5rem;">DRAFTING</span>
+              <h3 style="margin:0;">Reply in your tone</h3>
+            </div>
+            <p class="trust-note" style="margin: 0 0 0.65rem"><strong>Generating a fresh reply</strong> for the newest message in this thread.</p>
+            <div class="policy-bar">Waiting for the latest inbound to draft. Old reply hidden so you do not approve stale content.</div>
+          </div>`
+          return
+        }
         if (!d) {
           panel.style.display = 'none'
           panel.innerHTML = ''
@@ -3345,7 +3438,7 @@
               ${badgeHtml}
               <h3 style="margin:0;">Reply in your tone</h3>
             </div>
-            <p class="trust-note" style="margin: 0 0 0.65rem"><strong>Private to you.</strong> One personalized reply in <strong>your tone</strong> (identity + style settings). Copy or edit, then approve to queue sending — nothing is delivered until you approve.</p>
+            <p class="trust-note" style="margin: 0 0 0.65rem"><strong>Private to you.</strong> One personalized reply in <strong>your tone</strong> (identity + style settings). Copy to queue sending — nothing is delivered until you copy.</p>
             <div class="policy-bar">Confidence ${conf}% · ${escapeHtml(d.intentSummary || '')}</div>
           </div>
           <div class="approval-panel-scroll">
@@ -3358,19 +3451,23 @@
             ${isBlocked ? `<div class="actions-row"><button type="button" class="btn btn-secondary btn-compact" id="apprEdit">Edit manually</button></div>` :
               isAutoSend ? `<div class="actions-row"><button type="button" class="btn btn-danger btn-compact" id="apprReject">Cancel auto-send</button></div>` :
               `<div class="actions-row">
-                <button type="button" class="btn btn-ok btn-compact" id="apprPrimary">Approve reply</button>
-                <button type="button" class="btn btn-primary btn-compact" id="apprPrimaryDoer" aria-label="Run reply with OpenClaw">Run with OpenClaw</button>
-                <button type="button" class="btn btn-danger btn-compact" id="apprReject">Reject</button>
-                <button type="button" class="btn btn-secondary btn-compact" id="apprEdit">Edit &amp; approve</button>
-                <button type="button" class="btn btn-secondary btn-compact" id="apprEditDoer">Edit &amp; OpenClaw</button>
+                <button type="button" class="btn btn-ok btn-compact" id="apprCopy">Copy to clipboard</button>
+              </div>
+              <div class="actions-row" style="margin-top: 8px; justify-content: flex-start; gap: 8px; border-top: 1px solid var(--ig-border); padding-top: 8px;">
+                <span style="color: var(--ig-soft); font-size: 12px; align-self: center;">Feedback:</span>
+                <button type="button" class="btn btn-secondary btn-compact" id="apprFeedbackSounds" title="Log that this draft nailed your tone">👍 Sounds like me</button>
+                <button type="button" class="btn btn-secondary btn-compact" id="apprFeedbackMemory" title="Log that the AI forgot a fact or rule">👎 Memory miss</button>
               </div>`}
           </div>`
         if (!isBlocked && !isAutoSend) {
-          panel.querySelector('#apprPrimary').addEventListener('click', () => doApprove(d.id))
-          panel.querySelector('#apprPrimaryDoer').addEventListener('click', () => doApprove(d.id, true, replyForActions))
-          panel.querySelector('#apprReject').addEventListener('click', () => doReject(d.id))
-          panel.querySelector('#apprEdit').addEventListener('click', () => doEdit(d.id, replyForActions))
-          panel.querySelector('#apprEditDoer').addEventListener('click', () => doEdit(d.id, replyForActions, true))
+          panel.querySelector('#apprCopy').addEventListener('click', () => {
+            navigator.clipboard.writeText(d.generatedText || '')
+            showToast('Copied to clipboard')
+            doApprove(d.id) // Log as accepted
+          })
+          
+          panel.querySelector('#apprFeedbackSounds').addEventListener('click', () => doFeedback(d.id, d.threadId, 'sounds_like_me', 5))
+          panel.querySelector('#apprFeedbackMemory').addEventListener('click', () => doFeedback(d.id, d.threadId, 'memory_miss'))
         } else if (isBlocked) {
           panel.querySelector('#apprEdit').addEventListener('click', () => doEdit(d.id, replyForActions))
         } else if (isAutoSend) {
@@ -3439,6 +3536,23 @@
           await j('/mirachat/drafts/' + id + '/reject', { method: 'POST', body: '{}' })
           showToast('Draft rejected')
           await refreshData()
+        } catch (e) {
+          showErr(String(e.message || e))
+          showToast(String(e.message || e), 'error')
+        }
+      }
+
+      const doFeedback = async (draftId, threadId, type, score = null) => {
+        try {
+          const body = {
+            userId: $('userId').value.trim(),
+            type,
+            draftId,
+            threadId,
+            score
+          }
+          await j('/mirachat/feedback', { method: 'POST', body: JSON.stringify(body) })
+          showToast('Feedback recorded')
         } catch (e) {
           showErr(String(e.message || e))
           showToast(String(e.message || e), 'error')
@@ -4868,12 +4982,18 @@
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
       /** Poll until triage draft exists for this thread (worker runs async after POST /mirachat/inbound). */
-      async function pollUntilDraftForThread(threadId, maxMs = 75_000) {
+      async function pollUntilDraftForThread(threadId, opts = {}) {
+        const { maxMs = 75_000, expectedInboundText = '', previousDraftId = '', inboundMessageId = '' } = opts
         const deadline = Date.now() + maxMs
         const started = Date.now()
         while (Date.now() < deadline) {
           await refreshData()
-          if (state.selectedThreadId === threadId && draftForThread(threadId)) {
+          const draft = draftForThread(threadId)
+          const ready = draft && draftSatisfiesPendingRequest(draft, { inboundMessageId, expectedInboundText, previousDraftId })
+          if (state.selectedThreadId === threadId && ready) {
+            if (state.pendingDraftRequest?.threadId === threadId) {
+              state.pendingDraftRequest = null
+            }
             renderMessages()
             renderApproval()
             const panel = $('approvalPanel')
@@ -4885,6 +5005,10 @@
             }
           }
           await sleep(600)
+        }
+        if (state.pendingDraftRequest?.threadId === threadId) {
+          state.pendingDraftRequest = null
+          renderApproval()
         }
         showToast(
           'No draft yet — click Refresh, or use sidebar “Generate replies for queue” if messages are stuck pending.',
@@ -4932,7 +5056,8 @@
           'demo-contact'
         if (!state.selectedThreadId) await selectThread(tid)
         const { userId: uid, channel: ch, accountId: acc } = await mirachatSessionParams()
-        await j('/mirachat/inbound', {
+        const previousDraftId = draftForThread(tid)?.id || ''
+        const inboundRes = await j('/mirachat/inbound', {
           method: 'POST',
           body: JSON.stringify({
             userId: uid,
@@ -4945,9 +5070,20 @@
             messageId: `ui-sim-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           }),
         })
+        state.pendingDraftRequest = {
+          threadId: tid,
+          previousDraftId,
+          expectedInboundText: text,
+          inboundMessageId: inboundRes?.inboundMessageId || '',
+        }
+        renderApproval()
         $('composer').value = ''
         await refreshData()
-        await pollUntilDraftForThread(tid)
+        await pollUntilDraftForThread(tid, {
+          expectedInboundText: text,
+          previousDraftId,
+          inboundMessageId: inboundRes?.inboundMessageId || '',
+        })
       }
 
       $('btnInbound').addEventListener('click', () => void sendInboundMessage())

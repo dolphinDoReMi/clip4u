@@ -123,11 +123,11 @@ export class PostgresMemoryService implements MemoryService {
           WHERE thread_id = $1${inboundUser}
           UNION ALL
           SELECT id::text, channel, user_id, user_id AS sender_id, thread_id,
-                 'outbound'::text AS direction,
+                 CASE WHEN status = 'SENT' THEN 'outbound' ELSE 'draft_reference' END AS direction,
                  COALESCE(NULLIF(trim(edited_text), ''), generated_text) AS content,
                  COALESCE(sent_at, updated_at) AS ts
           FROM outbound_drafts
-          WHERE thread_id = $1 AND status = 'SENT'${outboundUser}
+          WHERE thread_id = $1 AND status IN ('SENT', 'REJECTED', 'DRAFTED')${outboundUser}
           ${memoryUnion}
         ) t
         ORDER BY ts DESC

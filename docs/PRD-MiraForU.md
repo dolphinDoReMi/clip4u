@@ -8,7 +8,7 @@
 | Status | Draft |
 | Companion | [Product GQM — goals, questions, metrics](product-GQM-MiraForU.md) · [System design — plugins & layers](system-design-proxy-self.md) · [Design audit — WhatsApp function, IG look](design-audit-proxy-self-ig-ui.md) |
 
-Proxy Self is a **bounded delegate**, not merely a faster writer: it acts on the user’s behalf within explicit guardrails. This PRD is tuned for **early investor conversations** and **engineering alignment**—with explicit treatment of **defensibility**, **cold start**, and **GTM wedge**. **Messaging** is implemented as **pluggable channel plugins** (Wechaty, Telegram Bot API, whatsapp-web.js, Twilio CPaaS, future Gmail/Slack/email, …). **Approved execution** beyond a single chat send uses **pluggable doer plugins** (OpenClaw as the reference runtime). The **owned moat** is identity, policy, memory, and delegation control—not any one SDK.
+Proxy Self is a **bounded delegate**, not merely a faster writer: it acts on the user’s behalf within explicit guardrails. This PRD is tuned for **early investor conversations** and **engineering alignment**—with explicit treatment of **defensibility**, **cold start**, and **GTM wedge**. **Messaging** operates in an **Assist & Approve** paradigm: the system generates drafts that the user approves and manually transports to their chat app of choice. **Approved execution** beyond a single chat send uses **pluggable doer plugins** (OpenClaw as the reference runtime). The **owned moat** is identity, policy, memory, and delegation control—not any one SDK.
 
 ---
 
@@ -16,7 +16,7 @@ Proxy Self is a **bounded delegate**, not merely a faster writer: it acts on the
 
 - **Wedge (red ocean):** “Scheduling & coordination” alone competes with Motion, Calendly AI, Clara, Clockwise, etc. The differentiated story is **high-context coordination driven by the Identity Model**—negotiation and prioritization by **relationship weight** (e.g. board member now, vendor next week), not only calendar whitespace.
 - **Cold start:** The `UserModel` is only a moat if it **bootstraps without heavy manual setup**. The plan must include **data ingestion** (e.g. OAuth to Gmail / Slack—or comparable sources—with consent) to **pre-compute embeddings and initial tone/rules**, not 50-field forms on Day 1.
-- **Measurable trust:** North stars like “&lt;1% regret events” are hard to observe. **Proxy metrics** include **approval rate without edits**, **time-to-auto-mode** (trust velocity for bounded autonomy), and **time-to-first-good-draft** after ingestion.
+- **Measurable trust:** North stars like “&lt;1% regret events” are hard to observe. **Proxy metrics** include **copied rate without edits** and **time-to-first-good-draft** after ingestion.
 - **Long-term vision:** Lean into an **async coordination economy**—**agent-to-agent** negotiation where one user’s Proxy coordinates with another’s, over a future **protocol layer**.
 
 ---
@@ -41,7 +41,7 @@ The product should **behave like WhatsApp** and **look like Instagram DM**.
 
 | Layer | Role | Implementation |
 | --- | --- | --- |
-| **Channel plugins** | Messaging I/O only | Pluggable gateways: WeChat (Wechaty), WhatsApp (web.js or Twilio WA), Telegram (Bot API), Twilio SMS/Conversations, …; later Gmail, Slack, email as additional plugin ids |
+| **Channel plugins** | Messaging I/O only | Pluggable gateways for manual or semi-manual transport (e.g. Telegram Bot API, Twilio SMS/Conversations, …); direct integration to WhatsApp/WeChat is not supported in the current phase |
 | **Core (owned)** | Moat | Dispatcher, Agent Core, Policy Engine, Identity + Memory, approval + audit |
 | **Doer plugins** (optional) | Approved non-chat execution | Pluggable runtimes; **OpenClaw** is the reference **doer**—swappable without forking core |
 
@@ -86,7 +86,7 @@ High-output professionals suffer from **communication fragmentation** and **deci
 | --- | --- | --- |
 | **MVP (v1)** | **The contextual drafter** | Ingest historical data (with consent) to **bootstrap voice**. Multi-channel **thread summarization**, **multi-option replies** (e.g. concise vs relationship-preserving). **Draft → Approve → Send** only. |
 | **v1.5** | **Bounded delegation** | Structured rule-sets; **auto follow-ups**; **soft-negotiation scheduling** (multi-party constraints informed by **relationship priority**, not just free slots). |
-| **v2** | **The proxy agent** | **Partial auto-reply** inside hard guardrails. **Persistent, cross-platform relationship memory** and merged context. |
+| **v2** | **The proxy agent** | **Persistent, cross-platform relationship memory** and merged context. |
 
 ### Feature → implementation (v1 detail)
 
@@ -154,7 +154,7 @@ Canonical implementation sketch: [system-design-proxy-self.md §14](system-desig
 
 **Decoupled Policy Engine (Safety Firewall):** The system uses an "Actor-Critic" model. The Drafter (Actor) writes the message based on the Attended Ledger, but an independent Policy Engine (Critic) judges it against Hard Constraints to prevent people-pleasing and boundary violations.
 
-- **Graduated autonomy:** Assist (suggest) → Approve (draft) → Auto (execute only inside boundaries).
+- **Graduated autonomy:** Assist (suggest) → Approve (draft). Safe autonomy (Auto-send) is not possible as of now due to lack of direct integration.
 - **Hard constraints:** Immutable rules (e.g. **no financial commitments**, no irreversible decisions without explicit human approval).
 - **Transparency and reversibility:** Audit logs (“action taken because of rule X”); rollback/undo where the channel supports it.
 
@@ -162,14 +162,14 @@ Canonical implementation sketch: [system-design-proxy-self.md §14](system-desig
 
 ### E. Channel plugins (integration pattern)
 
-Each surface is a **channel plugin**: it maps native SDK/webhook payloads to a transport-neutral **`MessageEvent`**, and sends **`OutboundCommand`** back through a **channel registry** (core never imports Wechaty, Telegram, Twilio, or WhatsApp types).
+Each surface is a **channel plugin**: it maps native SDK/webhook payloads to a transport-neutral **`MessageEvent`**, and sends **`OutboundCommand`** back through a **channel registry** (core never imports Telegram or Twilio types).
 
 ```text
-[ wechat | whatsapp | telegram | twilio_* | … ]  ← channel plugin ids
+[ telegram | twilio_* | … ]  ← channel plugin ids
       ↓
 normalize → MessageEvent
       ↓
-Core: Dispatcher → Agent → Policy → (Approve | Auto-send)
+Core: Dispatcher → Agent → Policy → (Approve)
       ↓
 OutboundCommand → same or other channel plugin → user’s thread
 ```
@@ -191,7 +191,7 @@ To move from “delegate that drafts” to “delegate that gets work done,” a
 
 | Layer | What it controls | Typical JS stack | Proxy Self role |
 | --- | --- | --- | --- |
-| **Browser (lower risk)** | Web UIs only | **Playwright** (cross-browser, agent-friendly), **Puppeteer** (Chrome-first, fast MVP) | Safe path for WhatsApp Web, Slack web, internal tools—**not** native WeChat desktop |
+| **Browser (lower risk)** | Web UIs only | **Playwright** (cross-browser, agent-friendly), **Puppeteer** (Chrome-first, fast MVP) | Safe path for internal tools |
 | **Desktop (medium)** | Mouse, keyboard, native windows | **[nut.js](https://nutjs.dev/)** — npm: **`@nut-tree-fork/nut-js`** (maintained fork; move, type, image/screen matching)—RPA class with AutoHotkey / Sikuli. Linux arm64: MiraChat **postinstall** can compile [libnut-core](https://github.com/nut-tree/libnut-core) when the prebuilt x64 `.node` does not match the host. | **Approved** tasks only: e.g. typing into a **native desktop client** when no official API exists |
 | **Vision / screen understanding (hard)** | Semantic state of arbitrary UIs | OCR, screenshots + VLM, custom matchers | Optional; pairs with nut.js when coordinates or selectors are unstable |
 
@@ -267,13 +267,13 @@ To move from “delegate that drafts” to “delegate that gets work done,” a
 **Implementation rules**
 
 - **Brevity:** One short strip + one optional principle line; avoid paragraph marketing on every screen.
-- **Honesty:** Do not imply full **Auto** autonomy in v1; marketing copy must match **§4** scope (draft → approve → send default).
+- **Honesty:** Do not imply full autonomy in v1; marketing copy must match **§4** scope (draft → copy → manual send default).
 - **Consistency:** Same mission strip lexicon across **ops-console** and **web-client** (and future Mini Program) so multi-surface users get one story.
 - **Test contract:** The primary mission strip carries `data-testid="prd-mission-strip"`; the **real-stack Playwright** suite ([`prd-gqm-e2e-test-suite.md`](prd-gqm-e2e-test-suite.md)) asserts it is visible and contains **Proxy Self**, **bounded delegate**, and **Protect intent** so positioning cannot regress silently.
 
 **Future (optional):** Instrument strip impressions or time-in-view in product analytics; correlate with approval-without-edit rate (GQM) — not required for MVP.
 
-**Integration sequencing (risk)** (unchanged product strategy): Prefer **standard OAuth** (e.g. Gmail) where possible before the most **fragmented or unofficial channel plugins** (WhatsApp/WeChat); keep plugins isolated so compliant and unofficial paths can coexist behind the same core contracts.
+**Integration sequencing (risk)** (unchanged product strategy): Prefer **standard OAuth** (e.g. Gmail) where possible; keep plugins isolated so compliant and unofficial paths can coexist behind the same core contracts.
 
 ---
 
@@ -285,7 +285,7 @@ Full **Goal–Question–Metric** breakdown, targets, experiments, and cross-sys
 | --- | --- | --- |
 | **Time-to-value** | Historical ingestion → first **accurate** draft | Target: **&lt; 5 minutes** |
 | **Trust (proxy)** | **% of drafts approved without edits** | Target: **&gt; 70%** |
-| **Delegation velocity** | Time for user to move a recurring contact **Approve → Auto** | Decrease over cohorts |
+| **Delegation velocity** | Time for user to move a recurring contact to highly trusted **Approve** | Decrease over cohorts |
 | **Efficiency** | **≥ 30%** reduction in average thread resolution time | Increase |
 | **Regret (aspirational)** | User-reported “should not have sent” / serious harm | Drive toward **&lt; 1%**; instrument with surveys and support tags |
 
@@ -297,7 +297,7 @@ Full **Goal–Question–Metric** breakdown, targets, experiments, and cross-sys
 
 The system shifts from a "chat interface" to an "autonomous proxy" model. The user interacts with MiraChat by simply forwarding context (text, photos, voice notes), and the system handles the cognitive load of figuring out the next step.
 
-1. **Ingest & Contextualize:** The user sends a message or photo to MiraChat (e.g., via SMS, WhatsApp, or the iOS app) and tags the intended recipient.
+1. **Ingest & Contextualize:** The user sends a message or photo to MiraChat (e.g., via SMS or the iOS app) and tags the intended recipient.
 2. **Ledger Attention (The "Aha!" Moment):** The system does not just look at the photo. It scans the user's entire **Commitment Ledger** and uses an Attention LLM to extract only the facts relevant to this specific photo and recipient.
 3. **Draft & Policy Evaluation:** 
    - The **Drafter** writes a message using the extracted facts and the recipient's preferred tone.
@@ -335,7 +335,7 @@ To build trust, the Ops Console must expose the AI's reasoning. The UI for each 
 *   **Ops Console UI:**
     *   **Badge:** 🔴 `[BLOCKED: Sensitive Medical Context]`
     *   **Draft:** *(Draft is hidden or grayed out)*
-    *   **Policy Engine Banner:** *"⚠️ Blocked: The Policy Engine detected highly sensitive medical context. Auto-drafting is disabled for this topic to protect your privacy. Please reply manually."*
+    *   **Policy Engine Banner:** *"⚠️ Blocked: The Policy Engine detected highly sensitive medical context. Drafting is disabled for this topic to protect your privacy. Please reply manually."*
 
 **Scenario C: The Indoor Tennis Practice (Continuity)**
 *   **User Action:** User sends a photo of themselves hitting a tennis ball to "Coach Dave".
@@ -355,7 +355,7 @@ To build trust, the Ops Console must expose the AI's reasoning. The UI for each 
 | **Cross-platform integration friction** | OAuth-first where stable; **channel plugin** isolation; unofficial clients in dedicated gateway processes; session restart/backoff. |
 | **Over-automation** | Default **APPROVE**; AUTO is explicit per rule/contact. |
 | **Latency** | Fast paths where safe; async approval queue for outbound. |
-| **Platform instability (unofficial APIs)** | Wechaty/WhatsApp confined to **channel plugins**; never entangle with core policy/memory. |
+| **Platform instability** | Confined to **channel plugins**; never entangle with core policy/memory. |
 | **Desktop RPA / nut.js fragility** | **Doer-only** deployment; explicit user consent; stricter **APPROVE** defaults; audit steps; disclose breakage from UI updates, focus, and multi-monitor/DPI. |
 
 ---
@@ -374,7 +374,7 @@ To build trust, the Ops Console must expose the AI's reasoning. The UI for each 
 | --- | --- |
 | Identity | Explicit user + relationship model; **ingestion-backed** cold start |
 | Memory | Cross-channel, durable; **entity-first** specificity, **sequential** temporal reasoning, **user narrative** layer—plus trajectory, not one-thread only |
-| Delegation | Policy engine + graduated autonomy + audit |
+| Delegation | Policy engine + audit |
 | Coordination | **Relationship-priority** negotiation vs generic schedulers |
 | Future | **Agent-to-agent** protocol and negotiation engine |
 

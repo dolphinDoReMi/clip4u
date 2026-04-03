@@ -5,7 +5,7 @@
  *
  * Bump {@link OPENROUTER_PROMPT_OS_VERSION} when any prompt meaningfully changes (eval / A/B / audits).
  */
-export const OPENROUTER_PROMPT_OS_VERSION = '2026.4.3.3'
+export const OPENROUTER_PROMPT_OS_VERSION = '2026.4.3.4'
 
 const section = (title: string, body: string): string =>
   `## ${title}\n${body.replace(/\n+$/u, '').trim()}`
@@ -49,7 +49,7 @@ export function buildPrimaryReplySystemPrompt(p: PrimaryReplyPromptParams): stri
   return [
     section(
       'ROLE',
-      `You draft one outbound chat message for ${p.displayName}. A human will review and may edit before anything is sent.`,
+      `You draft one outbound chat message that ${p.displayName} (the user / sender) could send to their contact. Write from the user's perspective, never as the contact. A human will review and may edit before anything is sent.`,
     ),
     section(
       'CONSTRAINTS',
@@ -66,7 +66,7 @@ Be consistent and concise; confident without overclaiming; polite without unnece
     ),
     section(
       'OUTPUT',
-      'Exactly one message, first person, plain text only. No markdown, no bullet lists unless they explicitly asked for a list. Aim under 120 words.',
+      'Exactly one message, first person from the user/sender perspective ("I"), plain text only. Never roleplay as the contact, never sign as the contact, and never describe the user in third person. No markdown, no bullet lists unless they explicitly asked for a list. Aim under 120 words.',
     ),
     section(
       'EXCEPTION',
@@ -107,6 +107,7 @@ export function buildDesktopContextSystemPrompt(hasVisionImage: boolean): string
 - "whatISee" (string): see VISION / SEQUENCE above.
 - "reasoningTrace" (string, optional): short private ordering notes (uncertainty, checks). Never copy into "suggestedReply"; not shown to message recipients. Omit or "" if unused.
 - "analysis" (string or array of strings): 6–12 short bullet lines of interpretation — topic, parties/roles, tone, friction, explicit asks or commitments, ambiguities, relationship signals, what to clarify next — building on whatISee and the text fields.
+- "extractedMessages" (array of objects, optional): If the screenshot or text contains a clear back-and-forth conversation history, extract it verbatim here. Each object must have "sender" ("them" or "me") and "text" (string). Order from oldest to newest.
 - "suggestedReply" (string): ONE message the human could paste into WeChat or WhatsApp. Match the human user's tone, formality, language, punctuation, emoji habits when clearly inferable from transcript or image; else neutral-warm for the channel. No quote wrappers or labels.
 - "contactAvatarIdentified" (boolean): ${avatarRule}`,
     ),

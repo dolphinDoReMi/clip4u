@@ -1,6 +1,6 @@
 import type { ContextBundle } from '@delegate-ai/adapter-types'
 import { inferImageMimeFromBase64, isOpenRouterVisionImageMime } from './image-mime-sniff.js'
-import { isLowSignalInboundText } from './message-signals.js'
+import { isLowSignalInboundText, isReferentialFollowUpText } from './message-signals.js'
 import {
   buildDataUrlForOpenRouterVision,
   buildOpenRouterMultimodalUserContent,
@@ -17,6 +17,7 @@ import {
 } from './openrouter-prompt-os.js'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_TIMEOUT_MS_DEFAULT = 15_000
 
 /** First line of a `memory_chunks` row: paste-ready reply from vision+text ingest (primary draft reads this). */
 export const MIRACHAT_INGEST_SUGGESTED_REPLY_MARKER = '[mirachat:ingest_suggested_reply]'
@@ -52,6 +53,36 @@ const truncate = (s: string, max: number): string => {
     return s
   }
   return `${s.slice(0, max)}\n…`
+}
+
+const openRouterTimeoutMs = (): number => {
+  const raw = Number(process.env.OPENROUTER_TIMEOUT_MS ?? process.env.OPENROUTER_PRD_TIMEOUT_MS ?? OPENROUTER_TIMEOUT_MS_DEFAULT)
+  return Number.isFinite(raw) && raw >= 100 ? raw : OPENROUTER_TIMEOUT_MS_DEFAULT
+}
+
+async function openRouterFetch(
+  title: string,
+  body: Record<string, unknown>,
+  headers: Record<string, string>,
+): Promise<Response | null> {
+  const controller = new AbortController()
+  const timeoutMs = openRouterTimeoutMs()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const prefix = message.toLowerCase().includes('abort') ? 'timed out' : 'failed'
+    console.warn(`OpenRouter ${title} ${prefix}; using fallback`, { timeoutMs, message })
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 const formatMessages = (label: string, messages: { threadId: string; direction: string; content: string }[]): string => {
@@ -106,17 +137,15 @@ export async function openRouterAnalysisAssist(input: OpenRouterAnalysisInput): 
     12000,
   )
 
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      ...(process.env.OPENROUTER_HTTP_REFERER
-        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
-        : {}),
-      'X-Title': 'MiraChat analysis assist',
-    },
-    body: JSON.stringify({
+  const headers = {
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    ...(process.env.OPENROUTER_HTTP_REFERER
+      ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+      : {}),
+    'X-Title': 'MiraChat analysis assist',
+  }
+  const res = await openRouterFetch('analysis assist', {
       model,
       messages: [
         {
@@ -130,8 +159,11 @@ export async function openRouterAnalysisAssist(input: OpenRouterAnalysisInput): 
       ],
       max_tokens: 500,
       temperature: 0.2,
-    }),
-  })
+    }, headers)
+
+  if (!res) {
+    return null
+  }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
@@ -195,17 +227,15 @@ ${threadExcerpt}
 Full Memory Ledger:
 ${truncate(ledgerText, 16000)}`
 
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      ...(process.env.OPENROUTER_HTTP_REFERER
-        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
-        : {}),
-      'X-Title': 'MiraChat memory attention',
-    },
-    body: JSON.stringify({
+  const headers = {
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    ...(process.env.OPENROUTER_HTTP_REFERER
+      ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+      : {}),
+    'X-Title': 'MiraChat memory attention',
+  }
+  const res = await openRouterFetch('memory attention', {
       model,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -213,8 +243,11 @@ ${truncate(ledgerText, 16000)}`
       ],
       max_tokens: 400,
       temperature: 0.1,
-    }),
-  })
+    }, headers)
+
+  if (!res) {
+    return null
+  }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
@@ -263,17 +296,15 @@ ${input.attendedRecall}
 Proposed Draft:
 ${input.draft}`
 
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      ...(process.env.OPENROUTER_HTTP_REFERER
-        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
-        : {}),
-      'X-Title': 'MiraChat policy evaluation',
-    },
-    body: JSON.stringify({
+  const headers = {
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    ...(process.env.OPENROUTER_HTTP_REFERER
+      ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+      : {}),
+    'X-Title': 'MiraChat policy evaluation',
+  }
+  const res = await openRouterFetch('policy evaluation', {
       model,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -281,8 +312,11 @@ ${input.draft}`
       ],
       max_tokens: 100,
       temperature: 0.0,
-    }),
-  })
+    }, headers)
+
+  if (!res) {
+    return { safe: true }
+  }
 
   if (!res.ok) {
     return { safe: true }
@@ -354,22 +388,23 @@ export async function openRouterPrimaryReplyDraft(
     8000,
   )
   const thinInbound = isLowSignalInboundText(context.event.text)
+  const referentialFollowUp = isReferentialFollowUpText(context.event.text)
   const memoryLead = importedMemory.length > 0 ? `${importedMemory}\n\n` : ''
-  const continuityHint = thinInbound
-    ? 'Their latest line is short or ambiguous: treat it as a follow-up in this same conversation (imported memory + prior messages), not as a brand-new unrelated topic unless the thread clearly supports that.\n\n'
-    : ''
+  const continuityHint = referentialFollowUp
+    ? 'Their latest line is referential and ambiguous (for example: "how about this"). Do not answer an older screenshot, attachment, or earlier question as if it were the new item. If the latest message does not itself contain the new content to evaluate, reply with one brief clarifying question asking them to send or restate what they want reviewed.\n\n'
+    : thinInbound
+      ? 'Their latest line is short or ambiguous: treat it as a follow-up in this same conversation (imported memory + prior messages), not as a brand-new unrelated topic unless the thread clearly supports that.\n\n'
+      : ''
 
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      ...(process.env.OPENROUTER_HTTP_REFERER
-        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
-        : {}),
-      'X-Title': 'MiraChat primary reply draft',
-    },
-    body: JSON.stringify({
+  const headers = {
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    ...(process.env.OPENROUTER_HTTP_REFERER
+      ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+      : {}),
+    'X-Title': 'MiraChat primary reply draft',
+  }
+  const res = await openRouterFetch('primary reply draft', {
       model,
       messages: [
         {
@@ -384,13 +419,16 @@ export async function openRouterPrimaryReplyDraft(
         },
         {
           role: 'user',
-          content: `Context for drafting (analysis + instructions, not verbatim):\n${truncate(planInstruction, 6000)}\n\n${ingestReplyLead}${memoryLead}${continuityHint}Latest message from them:\n${truncate(context.event.text, 4000)}\n\n${threadExcerpt}\n\n${searchExcerpt}\n\nWrite exactly one reply message, first person. Aim under 120 words.`,
+          content: `Context for drafting (analysis + instructions, not verbatim):\n${truncate(planInstruction, 6000)}\n\nSpeaker roles:\n- You / the sender: ${context.identity.displayName || 'the user'}\n- Them / the contact: ${context.relationship.contactId || context.event.senderId}\n\n${ingestReplyLead}${memoryLead}${continuityHint}Latest message from them:\n${truncate(context.event.text, 4000)}\n\n${threadExcerpt}\n\n${searchExcerpt}\n\nWrite exactly one reply message from the sender's perspective ("I"). Aim under 120 words.`,
         },
       ],
       max_tokens: 500,
       temperature: 0.35,
-    }),
-  })
+    }, headers)
+
+  if (!res) {
+    return null
+  }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
@@ -446,6 +484,7 @@ export interface OpenRouterDesktopContextResult {
   reasoningTrace?: string
   /** True when a screenshot was included as an image_url part in the OpenRouter request. */
   visionAttached?: boolean
+  extractedMessages?: { sender: 'them' | 'me'; text: string }[]
 }
 
 const stripJsonFence = (raw: string): string => {
@@ -582,10 +621,11 @@ export function parseOpenRouterDesktopContextJson(raw: string): OpenRouterDeskto
     const contactAvatarIdentified = parseContactAvatarIdentified(o)
     const reasoningRaw = normalizeReasoningTrace(o.reasoningTrace ?? o.reasoning_trace)
     const reasoningTrace = reasoningRaw || undefined
-    if (analysis || suggestedReply) {
-      return { whatISee, analysis, suggestedReply, contactAvatarIdentified, reasoningTrace }
+    const extractedMessages = Array.isArray(o.extractedMessages) ? o.extractedMessages as any : undefined
+    if (analysis || suggestedReply || extractedMessages) {
+      return { whatISee, analysis, suggestedReply, contactAvatarIdentified, reasoningTrace, extractedMessages }
     }
-    return { whatISee, analysis: '', suggestedReply: null, contactAvatarIdentified, reasoningTrace }
+    return { whatISee, analysis: '', suggestedReply: null, contactAvatarIdentified, reasoningTrace, extractedMessages }
   }
   return { whatISee: '', analysis: trimmed, suggestedReply: null, contactAvatarIdentified: false }
 }
@@ -719,14 +759,14 @@ export async function openRouterDesktopContextAnalysis(
     temperature: 0.25,
   }
 
-  let res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      ...basePayload,
-      response_format: { type: 'json_object' },
-    }),
-  })
+  let res = await openRouterFetch('desktop context analysis', {
+    ...basePayload,
+    response_format: { type: 'json_object' },
+  }, headers)
+
+  if (!res) {
+    return null
+  }
 
   if (!res.ok && (res.status === 400 || res.status === 422)) {
     const errPeek = await res.text().catch(() => '')
@@ -735,11 +775,10 @@ export async function openRouterDesktopContextAnalysis(
       res.status,
       errPeek.slice(0, 400),
     )
-    res = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(basePayload),
-    })
+    res = await openRouterFetch('desktop context analysis retry', basePayload, headers)
+    if (!res) {
+      return null
+    }
   }
 
   if (!res.ok) {

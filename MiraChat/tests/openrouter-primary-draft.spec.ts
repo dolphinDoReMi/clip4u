@@ -30,6 +30,7 @@ describe('openRouterPrimaryReplyDraft (via runCognitivePipeline)', () => {
   const origKey = process.env.OPENROUTER_API_KEY
   const origPrimary = process.env.OPENROUTER_PRIMARY_DRAFT
   const origForceAnalysis = process.env.OPENROUTER_FORCE_ANALYSIS_ASSIST
+  const origTimeout = process.env.OPENROUTER_TIMEOUT_MS
 
   beforeEach(() => {
     process.env.OPENROUTER_API_KEY = 'sk-test-primary-draft'
@@ -72,6 +73,11 @@ describe('openRouterPrimaryReplyDraft (via runCognitivePipeline)', () => {
       delete process.env.OPENROUTER_FORCE_ANALYSIS_ASSIST
     } else {
       process.env.OPENROUTER_FORCE_ANALYSIS_ASSIST = origForceAnalysis
+    }
+    if (origTimeout === undefined) {
+      delete process.env.OPENROUTER_TIMEOUT_MS
+    } else {
+      process.env.OPENROUTER_TIMEOUT_MS = origTimeout
     }
   })
 
@@ -272,6 +278,80 @@ describe('openRouterPrimaryReplyDraft (via runCognitivePipeline)', () => {
     const ctx = await buildContextBundle({ identityService: identity, memoryService: memory }, event)
     const draft = await runCognitivePipeline(ctx)
     expect(draft.response).toMatch(/4|calls|busy/i)
+    expect(vi.mocked(fetch).mock.calls.length).toBe(1)
+  })
+
+  it('referential follow-up asks for new content instead of reusing old context and keeps sender/contact roles explicit', async () => {
+    let n = 0
+    vi.mocked(fetch).mockImplementation(async (_url, init) => {
+      n++
+      return {
+        ok: true,
+        text: async () => '',
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: '- intent: ambiguous follow-up\n- ask for the new screenshot or details',
+              },
+            },
+          ],
+        }),
+      } as Response
+    })
+
+    const identity = new InMemoryIdentityService()
+    await identity.upsertIdentity({
+      userId: 'user-1',
+      displayName: 'Mira User',
+      tone: 'warm, direct',
+      styleGuide: [],
+      hardBoundaries: ['no promises'],
+    })
+    const memory = new InMemoryMemoryService()
+    vi.spyOn(memory, 'getRecentMessages').mockResolvedValue([
+      {
+        id: 'mem-old',
+        channel: 'memory',
+        userId: 'user-1',
+        senderId: 'user-1',
+        threadId: 'thread-1',
+        direction: 'inbound',
+        content: 'Previous screenshot summary: Apache Spark worker status page.',
+        timestamp: 1,
+      },
+      {
+        id: 'm-prev',
+        channel: 'whatsapp',
+        userId: 'user-1',
+        senderId: 'contact-1',
+        threadId: 'thread-1',
+        direction: 'inbound',
+        content: 'What does the attached screenshot say?',
+        timestamp: 2,
+      },
+    ])
+    const event = baseEvent({ text: 'How about this', messageId: 'm-next', timestamp: 3 })
+    const ctx = await buildContextBundle({ identityService: identity, memoryService: memory }, event)
+    expect(ctx.memory.analysisAssist).toBeTruthy()
+    const draft = await runCognitivePipeline(ctx)
+    expect(draft.response).toMatch(/send the screenshot|paste the details|take a look/i)
+    expect(n).toBe(1)
+  })
+
+  it('times out low-signal OpenRouter calls and falls back instead of hanging', async () => {
+    process.env.OPENROUTER_TIMEOUT_MS = '100'
+    vi.mocked(fetch).mockImplementation((_, init?: RequestInit) => new Promise((_, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new Error('AbortError')), { once: true })
+    }))
+
+    const identity = new InMemoryIdentityService()
+    const memory = new InMemoryMemoryService()
+    const event = baseEvent({ text: 'How about this', messageId: 'm-timeout', timestamp: 3 })
+    await memory.recordIncoming(event)
+    const ctx = await buildContextBundle({ identityService: identity, memoryService: memory }, event)
+    const draft = await runCognitivePipeline(ctx)
+    expect(draft.response.length).toBeGreaterThan(10)
     expect(vi.mocked(fetch).mock.calls.length).toBe(1)
   })
 })

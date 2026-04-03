@@ -973,6 +973,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       let openRouterAnalysisSkippedReason: 'disabled' | 'no_api_key' | 'openrouter_failed' | null = 'disabled'
       let contactAvatarIdentified = false
       let openRouterBundle: OpenRouterDesktopContextResult | null = null
+      let extractedMessages: { sender: 'them' | 'me'; text: string }[] = []
       if (input.openRouterAnalysis) {
         if (!process.env.OPENROUTER_API_KEY?.trim()) {
           openRouterAnalysisSkippedReason = 'no_api_key'
@@ -1006,10 +1007,19 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
           if (openRouterBundle?.visionAttached && openRouterBundle.contactAvatarIdentified === true) {
             contactAvatarIdentified = true
           }
+          if (openRouterBundle?.extractedMessages) {
+            extractedMessages = openRouterBundle.extractedMessages
+          }
         }
       }
 
       const memoryContents = [...buildDesktopContextMemoryChunks(input)]
+      if (extractedMessages.length > 0) {
+        for (const msg of extractedMessages) {
+          memoryContents.push(`[mirachat:ingest_extracted_message]\nsender=${msg.sender}\n\n${msg.text}`)
+        }
+      }
+
       const trimmedAnalysis = openRouterAnalysisText?.trim()
       if (trimmedAnalysis) {
         memoryContents.push(
@@ -1911,6 +1921,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         drafts.map(d => ({
           id: d.id,
           threadId: d.thread_id,
+          inboundMessageId: d.inbound_message_id,
           inboundText: d.inbound_raw_text,
           generatedText: d.generated_text,
           confidenceScore: d.confidence_score,

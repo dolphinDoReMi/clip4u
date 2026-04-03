@@ -693,7 +693,7 @@
         </div>
         <p class="mission-strip" data-testid="prd-mission-strip">
           <strong class="mission-strip-kicker">Proxy Self</strong>
-          <span class="mission-strip-line">Bounded delegate for your DMs — not just faster typing. Protect intent · approve before send · relationship-aware tone.</span>
+          <span class="mission-strip-line">Bounded delegate for your DMs — not just faster typing. Protect intent · copy before send · relationship-aware tone.</span>
         </p>
         <div class="search-wrap">
           <input type="search" id="threadSearch" placeholder="Search threads…" autocomplete="off" />
@@ -704,7 +704,7 @@
           </button>
           <p class="pending-hint" id="pendingHint"></p>
           <p class="trust-note" style="margin-top: 0.45rem">
-            <strong>Private to you in this app.</strong> Replies are not sent until you approve.
+            <strong>Private to you in this app.</strong> Replies are not sent until you copy or send.
           </p>
         </div>
         <div class="thread-list" id="threadList"></div>
@@ -719,7 +719,7 @@
               then pick a conversation with a draft badge.
             </p>
             <p class="trust-note" style="margin-top: 0.75rem">
-              <strong>Visible only to you here.</strong> Nothing reaches them until you tap approve or send.
+              <strong>Visible only to you here.</strong> Nothing reaches them until you copy or send.
             </p>
             <p class="trust-note" style="margin-top: 0.55rem; font-style: italic; color: var(--ig-muted)">
               Mission: protect your intent; delegate the execution — always inside your guardrails.
@@ -1594,8 +1594,8 @@
               : ''
           ap.innerHTML =
             '<h3>Reply in your tone</h3>' +
-            '<p class="trust-note" style="margin:0 0 0.5rem"><strong>Private to you.</strong> They only see text after you approve or send.</p>' +
-            '<p class="pending-hint" style="margin:0 0 0.65rem">Drafts mirror your style — read the snapshot, adjust the text if you want, then approve when it sounds like you.</p>' +
+            '<p class="trust-note" style="margin:0 0 0.5rem"><strong>Private to you.</strong> They only see text after you copy or send.</p>' +
+            '<p class="pending-hint" style="margin:0 0 0.65rem">Drafts mirror your style — read the snapshot, adjust the text if you want, then copy when it sounds like you.</p>' +
             (draft.threadSummary
               ? '<div class="summary-box"><strong>Thread snapshot</strong><br/>' + escapeHtml(draft.threadSummary) + '</div>'
               : '') +
@@ -1606,9 +1606,12 @@
             escapeHtml(draft.generatedText || '') +
             '</textarea></div>' +
             '<div class="actions-row">' +
-            '<button type="button" class="btn btn-ok" data-draft-action="approve">Approve</button>' +
-            '<button type="button" class="btn btn-primary" data-draft-action="edit">Save edit &amp; send</button>' +
-            '<button type="button" class="btn btn-danger" data-draft-action="reject">Reject</button>' +
+            '<button type="button" class="btn btn-ok" data-draft-action="copy">Copy to clipboard</button>' +
+            '</div>' +
+            '<div class="actions-row" style="margin-top: 0.75rem; justify-content: flex-start; gap: 8px; border-top: 1px solid var(--ig-border); padding-top: 0.75rem;">' +
+            '<span style="color: var(--ig-soft); font-size: 12px; align-self: center;">Feedback:</span>' +
+            '<button type="button" class="btn btn-secondary" data-draft-action="feedback-sounds" title="Log that this draft nailed your tone">👍 Sounds like me</button>' +
+            '<button type="button" class="btn btn-secondary" data-draft-action="feedback-memory" title="Log that the AI forgot a fact or rule">👎 Memory miss</button>' +
             '</div>' +
             optRow
         } else {
@@ -1628,22 +1631,29 @@
         const id = d.id
         showBanner('')
         try {
-          if (kind === 'approve') {
+          if (kind === 'copy') {
+            await navigator.clipboard.writeText(d.generatedText || '')
+            showToast('Copied to clipboard')
             await j('/mini-program/drafts/' + encodeURIComponent(id) + '/approve', { method: 'POST', body: '{}' })
-          } else if (kind === 'reject') {
-            await j('/mini-program/drafts/' + encodeURIComponent(id) + '/reject', { method: 'POST', body: '{}' })
-          } else if (kind === 'edit') {
-            const ta = $('editDraftText')
-            const text = ta ? ta.value : d.generatedText
-            await j('/mini-program/drafts/' + encodeURIComponent(id) + '/edit', {
-              method: 'POST',
-              body: JSON.stringify({ editedText: text }),
-            })
           } else if (kind === 'select') {
             await j('/mini-program/drafts/' + encodeURIComponent(id) + '/select-option', {
               method: 'POST',
               body: JSON.stringify({ index: optionIndex }),
             })
+          } else if (kind === 'feedback-sounds') {
+            await j('/mirachat/feedback', {
+              method: 'POST',
+              body: JSON.stringify({ userId: $('userId').value.trim(), type: 'sounds_like_me', draftId: id, threadId: d.threadId, score: 5 })
+            })
+            showToast('Feedback recorded')
+            return
+          } else if (kind === 'feedback-memory') {
+            await j('/mirachat/feedback', {
+              method: 'POST',
+              body: JSON.stringify({ userId: $('userId').value.trim(), type: 'memory_miss', draftId: id, threadId: d.threadId })
+            })
+            showToast('Feedback recorded')
+            return
           }
 
           const threadId = d.threadId
@@ -1656,12 +1666,8 @@
             (kind === 'select' && Number.isFinite(optionIndex) ? 'option ' + (optionIndex + 1) : '')
 
           let note = ''
-          if (kind === 'approve') {
-            note = 'You approved the draft as written. It is queued to send to them.'
-          } else if (kind === 'reject') {
-            note = 'You rejected this draft. Nothing will be sent to them from it.'
-          } else if (kind === 'edit') {
-            note = 'You approved with edits. The updated text is queued to send to them.'
+          if (kind === 'copy') {
+            note = 'You copied the draft as written.'
           } else if (kind === 'select') {
             note =
               'You approved reply style "' +
@@ -1800,9 +1806,9 @@
         if (!btn || !$('approvalPanel').contains(btn)) return
         e.preventDefault()
         const act = btn.getAttribute('data-draft-action')
-        if (act === 'approve') void draftAction('approve')
-        else if (act === 'reject') void draftAction('reject')
-        else if (act === 'edit') void draftAction('edit')
+        if (act === 'copy') void draftAction('copy')
+        else if (act === 'feedback-sounds') void draftAction('feedback-sounds')
+        else if (act === 'feedback-memory') void draftAction('feedback-memory')
         else if (act === 'select') {
           const idx = Number(btn.getAttribute('data-opt-index'))
           if (Number.isFinite(idx)) void draftAction('select', idx)

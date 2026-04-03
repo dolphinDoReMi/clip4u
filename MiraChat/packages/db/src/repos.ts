@@ -147,6 +147,12 @@ export interface GqmRollup {
     doerCompleted: number
     doerFailed: number
   }
+  memory: {
+    editsDueToForgottenFactsRate: number | null
+    oopsRateFromBadMemory: number | null
+    fastLearningFromUploadsRate: number | null
+    recognizingPeopleEverywhereCount: number
+  }
   dailySeries: Array<{
     day: string
     inboundEnqueued: number
@@ -1082,6 +1088,17 @@ export const queryGqmRollup = async (
   const oauthConnections = eventCounts['oauth.connected'] ?? 0
   const ingestsCompleted = eventCounts['ingest.completed'] ?? 0
 
+  const memoryMissCount = eventCounts['feedback.memory_miss'] ?? 0
+  const memorySyncSuccessCount = eventCounts['memory.sync_success'] ?? 0
+  const memorySyncFailedCount = eventCounts['memory.sync_failed'] ?? 0
+  const identityLinkedCount = eventCounts['identity.linked'] ?? 0
+
+  const editsDueToForgottenFactsRate = edited > 0 ? memoryMissCount / edited : null
+  const oopsRateFromBadMemory = sent > 0 ? memoryMissCount / sent : null
+  const totalSyncs = memorySyncSuccessCount + memorySyncFailedCount
+  const fastLearningFromUploadsRate = totalSyncs > 0 ? memorySyncSuccessCount / totalSyncs : null
+  const recognizingPeopleEverywhereCount = identityLinkedCount
+
   return {
     since: toIso(since),
     until: toIso(until),
@@ -1143,6 +1160,12 @@ export const queryGqmRollup = async (
       doerStarted: eventCounts['doer.started'] ?? 0,
       doerCompleted: eventCounts['doer.completed'] ?? 0,
       doerFailed: eventCounts['doer.failed'] ?? 0,
+    },
+    memory: {
+      editsDueToForgottenFactsRate,
+      oopsRateFromBadMemory,
+      fastLearningFromUploadsRate,
+      recognizingPeopleEverywhereCount,
     },
     dailySeries,
   }

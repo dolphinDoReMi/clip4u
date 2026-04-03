@@ -11,7 +11,7 @@ import {
   openRouterAnalysisAssist,
   openRouterPrimaryReplyDraft,
 } from './openrouter-assist.js'
-import { isLowSignalInboundText, isSimpleAcknowledgement } from './message-signals.js'
+import { isLowSignalInboundText, isReferentialFollowUpText, isSimpleAcknowledgement } from './message-signals.js'
 
 export interface IntentSignal {
   domain: string
@@ -190,6 +190,15 @@ const draftDeliveryReply = (context: ContextBundle): string => {
 const draftFollowUpReply = (): string =>
   'Thanks for the reminder. I have this on my list and will follow up with a concrete update shortly.'
 
+const draftReferentialClarifier = (context: ContextBundle): string => {
+  const opener = context.relationship.tone.includes('warm')
+    ? 'Happy to take a look.'
+    : 'I can review it.'
+  return compact(
+    `${opener} Please send the new screenshot, file, or details you want me to review so I can respond to the right item.`,
+  )
+}
+
 const draftGeneralReply = (context: ContextBundle, signals: string[]): string => {
   const opener = context.relationship.tone.includes('warm')
     ? 'Thanks for the message.'
@@ -213,8 +222,11 @@ const executor = async (input: {
   plan: { instruction: string; intent: IntentSignal }
 }): Promise<{ response: string }> => {
   const contextSignals = summarizePriorContext(input.context)
+  const referentialFollowUp = isReferentialFollowUpText(input.context.event.text)
   const body =
-    input.plan.intent.domain === 'finance'
+    referentialFollowUp
+      ? draftReferentialClarifier(input.context)
+      : input.plan.intent.domain === 'finance'
       ? draftFinanceBoundaryReply(input.context)
       : input.plan.intent.domain === 'scheduling'
         ? draftSchedulingReply(input.context)

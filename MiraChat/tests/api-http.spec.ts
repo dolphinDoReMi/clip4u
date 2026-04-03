@@ -640,6 +640,7 @@ describe('Delegate API HTTP (mocked SQL)', () => {
     expect(JSON.parse(res.body)).toEqual([
       {
         id: 'draft-1',
+        inboundMessageId: 'in-1',
         threadId: 'scoped-thread',
         inboundText: 'Need a scoped follow-up',
         generatedText: 'Scoped draft',

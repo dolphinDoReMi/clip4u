@@ -22,7 +22,6 @@
 | **G1** | Achieve trustworthy delegation | Users allow the agent to act on their behalf without undue fear of mistakes, social harm, or policy violations (hard constraints honored). |
 | **G2** | Deliver measurable productivity gains | Reduce communication overhead, context switching, and thread resolution time in a quantifiable way. |
 | **G3** | Preserve user identity and intent (moat) | Outputs reflect tone, boundaries, and goals across channels; **relationship-aware** behavior (not generic assistant voice). |
-| **G4** | Enable safe expansion toward autonomy | Move **Assist → Approve → Auto** (graduated autonomy) without increasing churn; **Auto** only inside explicit policy. |
 
 ---
 
@@ -41,8 +40,7 @@
 | Metric | Definition / notes |
 | --- | --- |
 | Approve vs manual mix | % of sends via **Approve** path vs fully manual compose/send. |
-| **Drafts approved without edits** | **Trust proxy (PRD):** % of drafts sent as-is after user approval. Target direction: **> 70%**. |
-| Auto adoption (bounded) | % of users with **Auto** enabled for at least one scoped rule/contact/channel (never “open loop”). |
+| **Copied without edits** | **Trust proxy (implicit):** % of drafts copied as-is. Target direction: **> 70%**. |
 | Embarrassment / quick-recall rate | (# messages materially edited or undone within ~60s of send) ÷ total sent. |
 | **Regret rate (aspirational)** | User-reported “should not have sent” / serious harm (surveys, support tags). PRD direction: **< 1%** (hard to observe—treat as north star, not only operational metric). |
 | Critical error / constraint violations | % violating **hard constraints** (e.g. **no financial commitments**, no irreversible decisions without explicit human approval). |
@@ -57,10 +55,9 @@
 
 **Targets (reconciled with PRD + GQM)**
 
-- **Drafts approved without edits > 70%** (primary trust proxy).
+- **Copied without edits > 70%** (primary implicit trust proxy).
 - **Regret / serious harm < 1%** (aspirational; supplement with embarrassment rate and constraint violations).
 - Embarrassment / quick-recall rate **< 1–2%** (operational proxy where regret is sparse).
-- **Auto** adoption **> 30%** only within **safe, explicit** scopes (contact/rule/domain).
 
 ---
 
@@ -80,7 +77,7 @@
 | **Time-to-first-good-draft** | After ingestion or first session—trust velocity companion metric. |
 | Thread resolution time | Average time to “done” per thread; PRD efficiency target: **≥ 30%** reduction vs baseline. |
 | Time-to-zero-inbox | Or equivalent backlog-cleared proxy. |
-| Assisted / delegated send rate | % of messages via **Assist** suggestions or **Approve** (and scoped **Auto**) vs fully manual. |
+| Assisted / delegated send rate | % of messages via **Assist** suggestions or **Approve** vs fully manual. |
 
 **Metrics — cognitive load (proxies)**
 
@@ -104,7 +101,7 @@
 **Targets**
 
 - **≥ 30%** reduction in average **thread resolution time** (PRD).
-- **≥ 60%** of messages **assisted or delegated** (Assist + Approve + bounded Auto).
+- **≥ 60%** of messages **assisted or delegated** (Assist + Approve).
 - **Time-to-value < 5 minutes** where ingestion is in scope.
 
 ---
@@ -161,49 +158,8 @@ UserModel = {
 
 **Targets**
 
-- “Sounds like me” **≥ 4.2 / 5** (GQM) / **> 4 / 5** (dashboard shorthand).
+- “Sounds like me” **≥ 4.2 / 5** (explicit feedback, watch for response fatigue).
 - Boundary and **hard-constraint** violations **≈ 0** operationally.
-
----
-
-### G4 — Safe autonomy expansion
-
-**Key questions**
-
-- **Q4.1:** Can users move **Assist → Approve → Auto** without losing trust?
-- **Q4.2:** Which **domains** and **rules** are safe for **Auto** (default remains **Approve**; **Auto** explicit per policy)?
-- **Q4.3:** Does autonomy improve retention or correlate with churn / trust regression?
-
-**Metrics — adoption funnel**
-
-| Metric | Definition / notes |
-| --- | --- |
-| Mode conversion | **Assist → Approve → Auto** funnel rates. |
-| **Delegation velocity** | Time for a user to move a recurring contact/thread from **Approve → Auto** (PRD). Decrease over cohorts = good. |
-| **Time-to-auto-mode** | Trust velocity for bounded autonomy (PRD proxy family). |
-
-**Metrics — domain safety**
-
-| Metric | Definition / notes |
-| --- | --- |
-| Error rate by domain | Scheduling (**relationship-weighted**), work comms, negotiation, personal/emotional. |
-| Policy surface coverage | % of outbound actions with logged `policyRuleId` / mode (dispatcher + policy branches). |
-
-**Metrics — retention impact**
-
-| Metric | Definition / notes |
-| --- | --- |
-| Retention by delegation level | 7d / 30d by mode. |
-| Churn vs Auto usage | Correlation/regression; watch **trust regression** (user disables Auto after failure). |
-
-**Targets**
-
-- Positive retention delta for strong **Approve**-path engagement vs appropriate control.
-- **Controlled rollout:** **Auto** only in **low-risk** domains and explicit rules; **default Approve** in early versions.
-
-**Long-term (PRD vision, optional leading indicators)**
-
-- Proxy ↔ Proxy coordination: early metrics might include multi-party scheduling completion without user, or iteration count when counterparty is also on-platform (future protocol layer).
 
 ---
 
@@ -221,11 +177,14 @@ Tied to **Identity + Memory**, **Policy Engine**, **Agent Core**, and coordinati
 
 ### Memory / context engine
 
+*Shift from abstract LLM benchmarks to observable user friction and trust signals.*
+
 | Metric | Definition / notes |
 | --- | --- |
-| Retrieval accuracy | Relevant context used when required (`buildContext` / semantic recall). |
-| Hallucinated context rate | Assertions not grounded in stored facts. |
-| Cross-channel coherence | Same **contact/relationship** consistent across adapters (**normalized `MessageEvent`**). |
+| **Edits due to forgotten facts** | % of manual draft edits where the user had to fix a memory mistake (measured via `feedback.memory_miss` or edit reasons). |
+| **Oops rate from bad memory** | Frequency of `feedback.memory_miss` or quick-recalls specifically caused by the agent forgetting a rule or fact. |
+| **Fast learning from uploads** | How well the AI instantly remembers things from newly uploaded screenshots or files before replying. |
+| **Recognizing people everywhere** | Successful linkage of the same person across different apps (e.g., WhatsApp + Telegram). |
 
 ### Negotiation / coordination layer
 
@@ -245,14 +204,12 @@ If you track nothing else, track this—**merged from PRD §7 and GQM**.
 | Metric | Why it matters | Threshold / direction |
 | --- | --- | --- |
 | **Time-to-value** | Cold start / onboarding | **< 5 min** to first accurate draft after ingestion |
-| **Drafts approved without edits** | Trust proxy | **> 70%** |
-| **Delegation velocity** | Trust → Auto | Decrease time **Approve → Auto** per recurring contact |
+| **Copied without edits** | Implicit trust proxy | **> 70%** |
 | **Thread resolution time** | Efficiency | **≥ 30%** reduction vs baseline |
 | % messages assisted / delegated | Usage | **> 60%** |
 | Embarrassment / quick-recall rate | Operational trust | **< 2%** |
 | **Regret / serious harm** | Ultimate harm | **< 1%** (aspirational; surveys + support) |
-| “Sounds like me” | Identity moat | **> 4 / 5** |
-| Auto (bounded) adoption | Scalable autonomy | **> 30%** in safe scopes only |
+| “Sounds like me” | Explicit identity moat | **> 4 / 5** |
 | Retention (30-day) | PMF | **> 25–35%** (segment-dependent) |
 
 **Instrumentation (PRD):** Log at **dispatcher**, **policy branches**, and **approval outcomes** (e.g. `logEvent({ type: 'AUTO_SEND' \| 'APPROVE_SEND', confidence, userId, policyRuleId, … })`).
@@ -287,25 +244,24 @@ If you track nothing else, track this—**merged from PRD §7 and GQM**.
 
 ## 6. Critical insight (from GQM)
 
-The system succeeds only if **trust grows faster than autonomy**.
+The system succeeds only if **trust is consistently proven via implicit approval**.
 
 \[
 \text{Adoption} \propto \frac{\text{Time saved} \times \text{Outcome improvement}}{\text{Trust risk}}
 \]
 
-PRD emphasis: **regret and harm are sparse signals**—use **approval without edits**, **time-to-auto-mode**, and **time-to-first-good-draft** as operational trust proxies alongside embarrassment and constraint violations.
+PRD emphasis: **regret and harm are sparse signals, and explicit feedback suffers from fatigue**—use **copied without edits** and **time-to-first-good-draft** as operational trust proxies alongside embarrassment and constraint violations.
 
 ---
 
 ## 7. Build implications (aligned with PRD scope)
 
-Map optimization to **MVP (v1) → v1.5 → v2** in [PRD — MiraForU](PRD-MiraForU.md).
+Map optimization to **MVP (v1) → v1.5** in [PRD — MiraForU](PRD-MiraForU.md).
 
 | Phase | Product stage (PRD) | Optimize |
 | --- | --- | --- |
-| **1** | **v1** contextual drafter: **Assist**, **Draft → Approve → Send** only | Time-to-value, **approval without edits**, embarrassment/regret proxies, thread resolution time |
+| **1** | **v1** contextual drafter: **Assist**, **Draft → Copy → Manual Transport** | Time-to-value, **copied without edits**, embarrassment/regret proxies, thread resolution time |
 | **2** | **v1.5** bounded delegation: rules, auto follow-ups, **soft-negotiation scheduling** | Identity fidelity, relationship-priority coordination success, policy intervention rates |
-| **3** | **v2** partial **Auto** inside guardrails | Delegation velocity, domain-safe Auto, retention vs trust regression |
 
 **Deprioritize as primary north stars**
 

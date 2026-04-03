@@ -41,6 +41,8 @@ describe('OpenRouter Prompt OS', () => {
       displayName: 'Alex',
     })
     expect(p).toMatch(/Alex/)
+    expect(p).toMatch(/user \/ sender/i)
+    expect(p).toMatch(/never as the contact/i)
     expect(p).toMatch(/no promises/)
     expect(p).toMatch(/## VOICE/i)
   })

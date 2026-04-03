@@ -140,12 +140,12 @@
         </section>
         <section class="panel chart">
           <h2>Daily series</h2>
-          <div class="sub">Messages received, drafts, approvals, auto-queue, and sends over time.</div>
+          <div class="sub">Messages received, drafts, copies, auto-queue, and sends over time.</div>
           <svg class="chart-svg" id="seriesSvg" viewBox="0 0 900 220" preserveAspectRatio="none"></svg>
           <div class="legend">
             <span><span class="dot" style="background:#c7b2ff"></span> received</span>
             <span><span class="dot" style="background:#ff7be3"></span> drafts</span>
-            <span><span class="dot" style="background:#ffb224"></span> approvals</span>
+            <span><span class="dot" style="background:#ffb224"></span> copies</span>
             <span><span class="dot" style="background:#ff8a9d"></span> auto queued</span>
             <span><span class="dot" style="background:#4ade80"></span> sent</span>
           </div>
@@ -169,40 +169,17 @@
           <div class="section-grid" id="identityGrid"></div>
         </section>
         <section class="panel pad">
+          <h2>Memory &amp; Context</h2>
+          <div class="sub">Observable friction from forgotten facts and fast learning.</div>
+          <div class="section-grid" id="memoryGrid"></div>
+        </section>
+        <section class="panel pad">
           <h2>G4 Safe autonomy</h2>
           <div class="sub">Policy action mix, coordination activity, and autonomy readiness.</div>
           <div class="section-grid" id="autonomyGrid"></div>
         </section>
       </div>
 
-      <div class="feedback-grid" style="margin-top:16px;">
-        <section class="panel pad">
-          <h2>Research feedback</h2>
-          <div class="sub">Record subjective GQM signals so the dashboard tracks more than proxy events.</div>
-          <p class="trust-note" style="margin-top: 10px">
-            <strong>Private to operators.</strong> Scores and notes are stored with your measurement API for product quality — not shown in chat threads.
-          </p>
-          <div class="stack" style="margin-top:14px;">
-            <div class="field"><label>Selected draft ID</label><input id="fbDraftId" placeholder="Optional draft id" /></div>
-            <div class="field"><label>Selected thread ID</label><input id="fbThreadId" placeholder="Optional thread id" /></div>
-            <div>
-              <div class="sub" style="margin-bottom:8px;">Sounds like me (1–5)</div>
-              <div class="score-row" id="scoreRow"></div>
-            </div>
-            <div class="field"><label>Research note</label><textarea id="fbNote" placeholder="Optional note for tone mismatch, regret reason, or context."></textarea></div>
-            <div class="actions">
-              <button class="btn primary" id="submitScore" type="button">Save score</button>
-              <button class="btn" id="submitRegret" type="button">Log regret</button>
-              <button class="btn" id="submitBoundary" type="button">Log boundary violation</button>
-            </div>
-          </div>
-        </section>
-        <section class="panel pad">
-          <h2>Recent measurable events</h2>
-          <div class="sub">Pick a recent approval/send to prefill feedback and review instrumentation quality.</div>
-          <div class="events" id="recentEvents"></div>
-        </section>
-      </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -334,7 +311,7 @@
 
       const fillCore = (m) => {
         $('coreMetrics').innerHTML = [
-          metricCard('Approval without edit', m.approvalWithoutEditRate, { kind: 'pct', text: 'G1 trust proxy target > 70%' }, 'approval'),
+          metricCard('Copied without edit', m.approvalWithoutEditRate, { kind: 'pct', text: 'G1 trust proxy target > 70%' }, 'approval'),
           metricCard('Assisted or delegated rate', m.overview.assistedOrDelegatedRate, { kind: 'pct', text: 'G2 usage target > 60%' }, 'assist'),
           metricCard('Sounds like me', m.avgSoundsLikeMeScore, { kind: 'num2', text: 'G3 identity target > 4.0' }, 'sounds'),
           metricCard('Regret rate', m.regretRate, { kind: 'pct', text: 'G1 harm target < 1%' }, 'regret'),
@@ -347,8 +324,8 @@
 
       const fillSections = (m) => {
         $('trustGrid').innerHTML = [
-          mini('As-is approvals', String(m.asIsApprovals), 'Drafts sent without edits'),
-          mini('Edited approvals', String(m.editedApprovals), 'User-changed approvals'),
+          mini('Copied as-is', String(m.asIsApprovals), 'Drafts copied without edits'),
+          mini('Edited before copy', String(m.editedApprovals), 'User-changed drafts'),
           mini('Review rate', pct(m.trust.reviewRate), 'policy.evaluated → REVIEW'),
           mini('Block rate', pct(m.trust.blockRate), 'policy.evaluated → BLOCK'),
           mini('Boundary violation rate', pct(m.boundaryViolationRate), 'Manual research signal'),
@@ -360,7 +337,7 @@
           mini('Drafts created', String(m.overview.draftsCreated), 'Delegated responses produced'),
           mini('Avg draft latency', secs(m.productivity.avgDraftLatencySeconds), 'Received → draft ready'),
           mini('Avg resolution time', secs(m.productivity.avgResolutionSeconds), 'Received → reply sent'),
-          mini('Avg approval latency', secs(m.productivity.avgApprovalLatencySeconds), 'Draft → approval'),
+          mini('Avg copy latency', secs(m.productivity.avgApprovalLatencySeconds), 'Draft → copied'),
           mini('Avg send latency', secs(m.productivity.avgSendLatencySeconds), 'Approval → sent'),
         ].join('')
 
@@ -373,13 +350,20 @@
           mini('Ingests completed', String(m.identity.ingestsCompleted), 'Cold-start acceleration'),
         ].join('')
 
+        $('memoryGrid').innerHTML = [
+          mini('Edits due to forgotten facts', pct(m.memory.editsDueToForgottenFactsRate), 'Draft edits caused by memory miss'),
+          mini('Oops rate from bad memory', pct(m.memory.oopsRateFromBadMemory), 'Sends causing memory regret'),
+          mini('Fast learning from uploads', pct(m.memory.fastLearningFromUploadsRate), 'Sync extraction success rate'),
+          mini('Recognizing people everywhere', String(m.memory.recognizingPeopleEverywhereCount), 'Cross-channel identity links'),
+        ].join('')
+
         $('autonomyGrid').innerHTML = [
           mini('Active users', String(m.overview.activeUsers), 'Users with measured activity'),
           mini('Active threads', String(m.overview.activeThreads), 'thread_id seen in window'),
           mini('Time to value', secs(m.productivity.timeToValueSeconds), 'OAuth/ingest → first draft'),
           mini('Auto queued', String(m.overview.autoQueued), 'Policy-approved without human checkpoint'),
           mini('Auto sent', String(m.overview.autoSent), 'Queued auto drafts actually sent'),
-          mini('Human sent', String(m.overview.humanSent), 'Human-approved sends'),
+          mini('Human sent', String(m.overview.humanSent), 'Human-copied sends'),
           mini('Mode changes', String(m.overview.modeChanges), 'assist / approve / auto transitions'),
           mini('Trust regressions', String(m.overview.trustRegressions), 'Autonomy dialed back'),
           mini('Negotiation turns', String(m.coordination.negotiationTurns), 'Scheduling/coordination'),
@@ -388,66 +372,15 @@
         ].join('')
       }
 
-      const eventTypeFriendly = (t) =>
-        ({
-          'outbound.sent': 'Reply sent',
-          'outbound.send_failed': 'Send failed',
-          'draft.approved_as_is': 'Approved as written',
-          'draft.approved_with_edit': 'Approved with edits',
-        })[t] || t
-
-      const fillEvents = (events) => {
-        const interesting = (events || []).filter((e) => ['outbound.sent','draft.approved_as_is','draft.approved_with_edit'].includes(e.event_type)).slice(0, 20)
-        $('recentEvents').innerHTML = interesting.length ? interesting.map((e) => `
-          <div class="event-row">
-            <div class="event-meta"><span class="event-type">${esc(eventTypeFriendly(e.event_type))}</span><span>${esc((e.created_at || '').replace('T', ' ').slice(0, 16))}</span></div>
-            <div class="mono">thread=${esc(e.thread_id || '')} · draft=${esc(e.draft_id || '')}</div>
-            <div><button class="pick" data-draft="${esc(e.draft_id || '')}" data-thread="${esc(e.thread_id || '')}">Use for feedback</button></div>
-          </div>`).join('') : '<div class="sub" style="padding:14px 0;">No recent approval/send events yet.</div>'
-        $('recentEvents').querySelectorAll('.pick').forEach((btn) => btn.addEventListener('click', () => {
-          $('fbDraftId').value = btn.dataset.draft || ''
-          $('fbThreadId').value = btn.dataset.thread || ''
-          showToast('Feedback target selected')
-        }))
-      }
-
-      const setScore = (next) => {
-        score = next
-        document.querySelectorAll('.score-btn').forEach((btn) => btn.classList.toggle('active', Number(btn.dataset.score) === next))
-      }
-
-      const buildScoreButtons = () => {
-        $('scoreRow').innerHTML = [1,2,3,4,5].map((n) => `<button class="score-btn" data-score="${n}" type="button">${n}</button>`).join('')
-        document.querySelectorAll('.score-btn').forEach((btn) => btn.addEventListener('click', () => setScore(Number(btn.dataset.score))))
-      }
-
-      const submitFeedback = async (type) => {
-        const userId = $('userId').value.trim()
-        const body = { userId, type, draftId: $('fbDraftId').value.trim() || null, threadId: $('fbThreadId').value.trim() || null, note: $('fbNote').value.trim() || null }
-        if (type === 'sounds_like_me') {
-          if (!score) {
-            showError('Pick a 1–5 score before saving “sounds like me” feedback.')
-            return
-          }
-          body.score = score
-        }
-        await j('/mirachat/feedback', { method: 'POST', body: JSON.stringify(body) })
-        $('fbNote').value = ''
-        showError('')
-        showToast('Feedback recorded')
-        await refresh()
-      }
-
       const refresh = async () => {
         showError('')
         saveSettings()
         localStorage.setItem('mirachatMeasurementDays', $('days').value)
         try {
           const q = `/mirachat/metrics?days=${encodeURIComponent($('days').value)}&userId=${encodeURIComponent($('userId').value.trim())}`
-          const [metrics, events] = await Promise.all([j(q), j('/mirachat/delegation-events?limit=80').catch(() => [])])
+          const [metrics] = await Promise.all([j(q)])
           fillCore(metrics)
           fillSections(metrics)
-          fillEvents(events)
           drawSeries(metrics.dailySeries || [])
         } catch (err) {
           showError(String(err.message || err))
@@ -456,15 +389,11 @@
 
       $('saveBtn').addEventListener('click', () => { saveSettings(); showToast('Saved') })
       $('refreshBtn').addEventListener('click', refresh)
-      $('submitScore').addEventListener('click', () => submitFeedback('sounds_like_me'))
-      $('submitRegret').addEventListener('click', () => submitFeedback('regret'))
-      $('submitBoundary').addEventListener('click', () => submitFeedback('boundary_violation'))
       $('apiBase').addEventListener('change', saveSettings)
       $('userId').addEventListener('change', saveSettings)
       $('days').addEventListener('change', refresh)
 
       loadSettings()
-      buildScoreButtons()
       refresh()
     </script>
   </body>

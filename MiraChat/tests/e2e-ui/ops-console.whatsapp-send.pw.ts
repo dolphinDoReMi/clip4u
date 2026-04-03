@@ -14,7 +14,7 @@ import {
 } from './ops-console-helpers'
 
 test.describe('Ops console — WhatsApp simulate inbound (UI)', () => {
-  test('sim thread id + Send → draft → Approve primary → pending queue', async ({
+  test('sim thread id + Send → draft → Approve reply → pending queue', async ({
     page,
     request,
   }) => {
@@ -53,9 +53,9 @@ test.describe('Ops console — WhatsApp simulate inbound (UI)', () => {
     await waitForDraftInUi(page, threadId)
 
     await expect(page.locator('#approvalPanel')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Approve primary' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Approve reply' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Approve primary' }).click()
+    await page.getByRole('button', { name: 'Approve reply' }).click()
     await expect(page.locator('#toast')).toContainText(/Approved/i, { timeout: 12_000 })
     await expect(page.locator('#pendingQueue .btn-mark').first()).toBeVisible({ timeout: 30_000 })
   })

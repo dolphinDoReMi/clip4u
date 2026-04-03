@@ -51,6 +51,9 @@ export interface RelationshipProfile {
   notes: string[]
 }
 
+/** Optional metadata when a row is returned from cross-thread / full-text search. */
+export type StoredMessageSearchSource = 'inbound' | 'outbound' | 'memory'
+
 export interface StoredMessage {
   id: string
   channel: Channel
@@ -60,6 +63,18 @@ export interface StoredMessage {
   direction: 'inbound' | 'outbound'
   content: string
   timestamp: number
+  /** Short excerpt centered on a query term (search API / memory recall). */
+  searchSnippet?: string
+  /** Which backing store matched (DM text, sent reply, or memory chunk e.g. desktop OCR / vision summary). */
+  searchSource?: StoredMessageSearchSource
+  /** Higher is more relevant (Postgres `ts_rank_cd` when FTS is used). */
+  searchRank?: number
+}
+
+/** Options for `MemoryService.searchMessages` (full-text across stored bodies + memory chunks). */
+export interface MemorySearchOptions {
+  /** Restrict hits to one thread (sidebar “this chat only”). */
+  threadId?: string
 }
 
 export interface MemoryContext {
@@ -128,8 +143,16 @@ export interface MemoryService {
   recordOutgoing(command: OutboundCommand): Promise<void>
   /** Thread transcript: returns up to `limit` newest rows in chronological order (messages + optional same-thread memory chunks when `userId` is set). */
   getRecentMessages(threadId: string, limit?: number, userId?: string): Promise<StoredMessage[]>
-  /** Full-history message search for `userId` (text match on stored bodies, not vectors). */
-  searchMessages(userId: string, query: string, limit?: number): Promise<StoredMessage[]>
+  /**
+   * Full-history search for `userId`: inbound + sent outbound + `memory_chunks` (desktop ingest, OCR, vision summaries).
+   * Postgres: `tsvector` + `plainto_tsquery` ranking; optional `threadId` scopes to one conversation.
+   */
+  searchMessages(
+    userId: string,
+    query: string,
+    limit?: number,
+    options?: MemorySearchOptions,
+  ): Promise<StoredMessage[]>
 }
 
 export interface ApprovalStore {

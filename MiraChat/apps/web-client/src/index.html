@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>MiraChat — Web</title>
+    <title>MiraChat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -648,6 +648,39 @@
         font-weight: 600;
         min-height: 1em;
       }
+      .trust-note {
+        font-size: 0.68rem;
+        line-height: 1.45;
+        color: var(--ig-soft);
+        letter-spacing: 0.02em;
+        margin: 0;
+      }
+      .trust-note strong {
+        color: var(--ig-muted);
+        font-weight: 600;
+      }
+      .mission-strip {
+        margin: 0;
+        padding: 0.55rem 0.85rem 0.6rem;
+        border-bottom: 1px solid var(--ig-border);
+        background: linear-gradient(105deg, rgba(255, 79, 216, 0.1), rgba(124, 77, 255, 0.06), transparent 55%);
+        font-size: 0.7rem;
+        line-height: 1.45;
+        color: var(--ig-soft);
+        letter-spacing: 0.02em;
+      }
+      .mission-strip-kicker {
+        display: block;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #ff8eea;
+        margin-bottom: 0.2rem;
+      }
+      .mission-strip-line {
+        color: var(--ig-muted);
+      }
     </style>
   </head>
   <body>
@@ -658,6 +691,10 @@
           <h1>MiraChat</h1>
           <button type="button" class="icon-btn" id="btnMenu" title="Connection &amp; login">☰</button>
         </div>
+        <p class="mission-strip" data-testid="prd-mission-strip">
+          <strong class="mission-strip-kicker">Proxy Self</strong>
+          <span class="mission-strip-line">Bounded delegate for your DMs — not just faster typing. Protect intent · approve before send · relationship-aware tone.</span>
+        </p>
         <div class="search-wrap">
           <input type="search" id="threadSearch" placeholder="Search threads…" autocomplete="off" />
         </div>
@@ -666,6 +703,9 @@
             Generate replies for everything in queue
           </button>
           <p class="pending-hint" id="pendingHint"></p>
+          <p class="trust-note" style="margin-top: 0.45rem">
+            <strong>Private to you in this app.</strong> Replies are not sent until you approve.
+          </p>
         </div>
         <div class="thread-list" id="threadList"></div>
       </aside>
@@ -674,9 +714,15 @@
           <div>
             <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Decide faster, not type faster</p>
             <p style="margin: 0; font-size: 0.85rem">
-              Each thread can show a short summary, what they want, and <strong>three ready-to-send replies</strong> (direct,
-              balanced, relationship-first). Open <strong>☰</strong> for API URL, gateway, and <strong>Dev login</strong>, then
-              pick a conversation with a draft badge.
+              Each thread can show a short summary, what they want, and <strong>three reply options</strong> in your style
+              (direct, balanced, relationship-first). Open <strong>☰</strong> for API URL, account, and <strong>Dev login</strong>,
+              then pick a conversation with a draft badge.
+            </p>
+            <p class="trust-note" style="margin-top: 0.75rem">
+              <strong>Visible only to you here.</strong> Nothing reaches them until you tap approve or send.
+            </p>
+            <p class="trust-note" style="margin-top: 0.55rem; font-style: italic; color: var(--ig-muted)">
+              Mission: protect your intent; delegate the execution — always inside your guardrails.
             </p>
           </div>
         </div>
@@ -701,6 +747,9 @@
             <div class="assist-out hidden" id="assistOut"></div>
             <div id="pasteReplyCard" class="paste-reply-card hidden" aria-live="polite">
               <div class="paste-reply-label">WeChat / WhatsApp — your tone (tap to copy)</div>
+              <p class="trust-note" style="margin: 0 0 0.35rem">
+                <strong>Stays on this device</strong> until you paste — nothing sends by itself.
+              </p>
               <div
                 class="paste-reply-body"
                 id="pasteReplyBody"
@@ -730,7 +779,8 @@
                 />
               </label>
               <span style="font-size: 0.75rem; opacity: 0.85">
-                Upload conversation or screenshot → memory ingest (OpenRouter analysis on by default).
+                Upload chat export or screenshot for your private memory. Optional analysis runs on your server — not shared with
+                your contact until you send.
               </span>
             </div>
           </div>
@@ -771,7 +821,10 @@
         <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem" id="btnLogout">
           Clear session
         </button>
-        <div class="drawer-note">Settings are stored in localStorage. Session token in sessionStorage.</div>
+        <div class="drawer-note">
+          <strong style="color: var(--ig-muted)">On this device only.</strong> Settings live in localStorage; your session token
+          stays in sessionStorage until you clear it.
+        </div>
       </div>
     </aside>
 
@@ -860,14 +913,68 @@
         return g + ' ' + f
       }
 
-      /** Soft gradient “contact” placeholder (no network), stable per thread. */
-      function syntheticAvatarDataUrl(seed) {
-        const h = hash32('av:' + seed)
-        const hue1 = h % 360
-        const hue2 = (Math.imul(h, 17) >>> 0) % 360
-        const gid = 'gr' + (h % 999983)
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs><linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="hsl(${hue1},52%,44%)"/><stop offset="100%" stop-color="hsl(${hue2},46%,30%)"/></linearGradient></defs><circle cx="64" cy="64" r="64" fill="url(#${gid})"/><ellipse cx="64" cy="54" rx="30" ry="26" fill="rgba(255,255,255,0.2)"/><ellipse cx="64" cy="96" rx="44" ry="34" fill="rgba(0,0,0,0.14)"/></svg>`
-        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+      function socialAvatarRandomUserUrl(threadId) {
+        const n = hash32(threadId) % 100
+        return 'https://randomuser.me/api/portraits/med/women/' + n + '.jpg'
+      }
+
+      function socialAvatarPravatarUrl(threadId) {
+        return 'https://i.pravatar.cc/128?u=' + encodeURIComponent(threadId)
+      }
+
+      function socialAvatarUiFallbackUrl(entry, threadId) {
+        const raw = String(entry?.displayName || threadId || 'User')
+          .replace(/\s+/g, ' ')
+          .trim() || 'User'
+        const parts = raw.split(/\s+/)
+        const ini =
+          ((parts[0]?.[0] || '') + (parts[1]?.[0] || parts[0]?.[1] || '')).toUpperCase().slice(0, 2) || 'U'
+        const bg = (((hash32(threadId + 'ui') >>> 0) % 0xb0b0b0) + 0x404060).toString(16).padStart(6, '0')
+        return (
+          'https://ui-avatars.com/api/?name=' +
+          encodeURIComponent(ini) +
+          '&size=128&background=' +
+          bg +
+          '&color=f2f2f7&bold=true&length=2&format=png'
+        )
+      }
+
+      function bindSocialAvatarImg(img, threadId, entry) {
+        const fallbackFinal = () => {
+          img.onerror = null
+          img.onload = null
+          img.src = socialAvatarUiFallbackUrl(entry, threadId)
+        }
+        const tryStockPhotos = () => {
+          const primary = socialAvatarRandomUserUrl(threadId)
+          const secondary = socialAvatarPravatarUrl(threadId)
+          img.onload = () => {
+            img.onload = null
+            img.onerror = null
+          }
+          img.onerror = () => {
+            img.onload = () => {
+              img.onload = null
+              img.onerror = null
+            }
+            img.onerror = () => fallbackFinal()
+            img.src = secondary
+          }
+          img.src = primary
+        }
+        if (entry?.avatarDataUrl) {
+          img.onload = () => {
+            img.onload = null
+            img.onerror = null
+          }
+          img.onerror = () => {
+            img.onload = null
+            tryStockPhotos()
+          }
+          img.src = entry.avatarDataUrl
+          return
+        }
+        tryStockPhotos()
       }
 
       function loadPersonaMap() {
@@ -910,11 +1017,6 @@
         return { entry: e, created: false }
       }
 
-      function avatarUrlForPersona(threadId, entry) {
-        if (entry?.avatarDataUrl && typeof entry.avatarDataUrl === 'string') return entry.avatarDataUrl
-        return syntheticAvatarDataUrl(threadId)
-      }
-
       function setPersonaScreenshotAvatar(userId, threadId, dataUrl) {
         const map = loadPersonaMap()
         const { entry } = getOrCreatePersonaEntry(map, userId, threadId)
@@ -939,19 +1041,18 @@
         }
       }
 
-      function renderAvatarInnerHtml(threadId, entry) {
-        const url = avatarUrlForPersona(threadId, entry)
-        return (
-          '<img src="' +
-          escapeHtml(url) +
-          '" alt="" width="52" height="52" decoding="async" loading="lazy" />'
-        )
-      }
-
       function applyAvatarElement(el, threadId, entry) {
         if (!el) return
         el.classList.add('has-photo')
-        el.innerHTML = renderAvatarInnerHtml(threadId, entry)
+        el.innerHTML = ''
+        const img = document.createElement('img')
+        img.alt = ''
+        img.width = 52
+        img.height = 52
+        img.decoding = 'async'
+        img.loading = 'lazy'
+        bindSocialAvatarImg(img, threadId, entry)
+        el.appendChild(img)
       }
       const $ = (id) => document.getElementById(id)
       const state = {
@@ -1314,8 +1415,8 @@
         const n = Number(state.pendingInboundCount) || 0
         hint.textContent =
           n > 0
-            ? `${n} inbound message${n === 1 ? '' : 's'} waiting to become drafts. Tap to run the queue.`
-            : 'Queue is clear — new messages from your gateway appear here as drafts after processing.'
+            ? `${n} new message${n === 1 ? '' : 's'} waiting. Tap below to turn them into reply drafts.`
+            : 'All caught up — when someone messages you, drafts will show up here after processing.'
         btn.disabled = n === 0
       }
 
@@ -1339,19 +1440,22 @@
           div.className = 'thread-item' + (state.selectedKey === r.key ? ' active' : '')
           div.dataset.key = r.key
           const badge = r.hasDraft ? '<span class="badge">Draft</span>' : ''
-          div.innerHTML =
-            '<div class="avatar">' +
-            renderAvatarInnerHtml(r.threadId, r.persona) +
-            '</div><div class="thread-body"><div class="thread-row1"><span class="thread-title">' +
+          const av = document.createElement('div')
+          av.className = 'avatar has-photo'
+          applyAvatarElement(av, r.threadId, r.persona)
+          const body = document.createElement('div')
+          body.className = 'thread-body'
+          body.innerHTML =
+            '<div class="thread-row1"><span class="thread-title">' +
             escapeHtml(r.title) +
             badge +
             '</span><span class="thread-time">' +
             escapeHtml(formatTime(r.timeIso)) +
             '</span></div><div class="thread-preview">' +
             escapeHtml(r.preview) +
-            '</div></div>'
-          const av = div.querySelector('.avatar')
-          if (av) av.classList.add('has-photo')
+            '</div>'
+          div.appendChild(av)
+          div.appendChild(body)
           div.addEventListener('click', () => {
             const prevTid = state.selectedKey?.startsWith('thread:') ? state.selectedKey.slice('thread:'.length) : null
             const newTid = r.key.slice('thread:'.length)
@@ -1442,13 +1546,20 @@
           if (draft.inboundText) {
             const row = document.createElement('div')
             row.className = 'bubble-row in'
-            const peerSrc = avatarUrlForPersona(threadId, pFinal)
-            row.innerHTML =
-              '<div class="bubble-peer-avatar"><img src="' +
-              escapeHtml(peerSrc) +
-              '" alt="" width="38" height="38" decoding="async" loading="lazy"/></div><div class="bubble in">' +
-              escapeHtml(draft.inboundText) +
-              '</div>'
+            const wrap = document.createElement('div')
+            wrap.className = 'bubble-peer-avatar'
+            const pimg = document.createElement('img')
+            pimg.alt = ''
+            pimg.width = 38
+            pimg.height = 38
+            pimg.decoding = 'async'
+            bindSocialAvatarImg(pimg, threadId, pFinal)
+            wrap.appendChild(pimg)
+            row.appendChild(wrap)
+            const bubble = document.createElement('div')
+            bubble.className = 'bubble in'
+            bubble.innerHTML = escapeHtml(draft.inboundText)
+            row.appendChild(bubble)
             msgs.appendChild(row)
           }
           const out = document.createElement('div')
@@ -1482,8 +1593,9 @@
               ? '<div class="actions-row" style="margin-top:0.75rem">' + optBtns + '</div>'
               : ''
           ap.innerHTML =
-            '<h3>Pick a reply</h3>' +
-            '<p class="pending-hint" style="margin:0 0 0.65rem">Scan the summary, then choose a tone — tweak if needed and send.</p>' +
+            '<h3>Reply in your tone</h3>' +
+            '<p class="trust-note" style="margin:0 0 0.5rem"><strong>Private to you.</strong> They only see text after you approve or send.</p>' +
+            '<p class="pending-hint" style="margin:0 0 0.65rem">Drafts mirror your style — read the snapshot, adjust the text if you want, then approve when it sounds like you.</p>' +
             (draft.threadSummary
               ? '<div class="summary-box"><strong>Thread snapshot</strong><br/>' + escapeHtml(draft.threadSummary) + '</div>'
               : '') +
@@ -1545,16 +1657,16 @@
 
           let note = ''
           if (kind === 'approve') {
-            note = 'You approved the draft as written. It is queued to send on your gateway.'
+            note = 'You approved the draft as written. It is queued to send to them.'
           } else if (kind === 'reject') {
-            note = 'You rejected this draft. No outbound send will use it.'
+            note = 'You rejected this draft. Nothing will be sent to them from it.'
           } else if (kind === 'edit') {
-            note = 'You approved with edits. The updated text is queued to send on your gateway.'
+            note = 'You approved with edits. The updated text is queued to send to them.'
           } else if (kind === 'select') {
             note =
               'You approved reply style "' +
               optLabel +
-              '". That option is queued to send on your gateway.'
+              '". That option is queued to send to them.'
           }
 
           state.threadActionNote = { threadId, message: note }
@@ -1755,6 +1867,7 @@
         let extracted = ''
         let screenshotPath
         let screenshotMimeType
+        let screenshotImageBase64
         if (isText) {
           extracted = (await file.text()).slice(0, 120000)
           summary = `Conversation import from «${name}»`
@@ -1762,6 +1875,22 @@
           summary = `Screenshot / image: «${name}» (${mime || 'image'}). Add what it shows if needed.`
           screenshotPath = `upload:${name}`
           screenshotMimeType = mime || undefined
+          const maxB64 = 9_000_000
+          const dataUrl = await new Promise((resolve, reject) => {
+            const r = new FileReader()
+            r.onload = () => resolve(String(r.result || ''))
+            r.onerror = () => reject(new Error('Failed to read image'))
+            r.readAsDataURL(file)
+          })
+          if (dataUrl.length > maxB64) {
+            showBanner('Image too large for vision — try a smaller screenshot (~6 MB).')
+            return
+          }
+          const dm = String(dataUrl).match(/^data:([\w/+.-]+);base64,(.*)$/i)
+          if (dm) {
+            screenshotImageBase64 = dm[2]
+            screenshotMimeType = dm[1] || screenshotMimeType
+          }
         } else {
           showBanner('Use a text file or an image.')
           return
@@ -1776,6 +1905,7 @@
           extractedText: extracted || undefined,
           screenshotPath,
           screenshotMimeType,
+          screenshotImageBase64,
           captureTool: 'browser_upload',
           openRouterAnalysis: true,
         }

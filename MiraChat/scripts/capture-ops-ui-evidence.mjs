@@ -76,7 +76,7 @@ await page.locator('#approvalPanel').waitFor({ state: 'visible', timeout: 30_000
 await page.screenshot({ path: path.join(outDir, '02-approval-panel.png'), fullPage: true })
 await page.locator('#approvalPanel').screenshot({ path: path.join(outDir, '02b-approval-panel-crop.png') })
 
-await page.getByRole('button', { name: 'Approve primary' }).click()
+await page.getByRole('button', { name: 'Approve reply' }).click()
 await page.locator('#toast').waitFor({ state: 'visible', timeout: 15_000 })
 await page.waitForTimeout(300)
 await page.screenshot({ path: path.join(outDir, '03-toast-approved-and-queue.png'), fullPage: true })

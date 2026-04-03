@@ -4,8 +4,14 @@ import type {
   IdentityService,
   MemoryService,
   MessageEvent,
+  StoredMessage,
 } from '@delegate-ai/adapter-types'
-import { openRouterAnalysisAssist } from './openrouter-assist.js'
+import {
+  isOpenRouterPrimaryDraftEnabled,
+  openRouterAnalysisAssist,
+  openRouterPrimaryReplyDraft,
+} from './openrouter-assist.js'
+import { isLowSignalInboundText, isSimpleAcknowledgement } from './message-signals.js'
 
 export interface IntentSignal {
   domain: string
@@ -20,6 +26,11 @@ const clamp = (value: number, min: number, max: number): number =>
 
 const unique = <T>(items: T[]): T[] => [...new Set(items)]
 
+const envTruthy = (name: string): boolean => {
+  const v = process.env[name]?.trim().toLowerCase()
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on'
+}
+
 const latestSentence = (text: string): string => {
   const normalized = compact(text)
   if (!normalized) {
@@ -29,29 +40,25 @@ const latestSentence = (text: string): string => {
   return compact(match?.[0] ?? normalized)
 }
 
-const isSimpleAcknowledgement = (text: string): boolean =>
-  /^\s*(thanks|thank you|got it|sounds good|ok|okay|noted)[.!]?\s*$/i.test(text)
+const isLowSignalContext = (text: string): boolean => isLowSignalInboundText(text)
 
-const isLowSignalContext = (text: string): boolean => {
-  const normalized = compact(text)
-  if (!normalized) {
-    return true
+const searchQueryForInbound = (
+  eventText: string,
+  recentMessages: StoredMessage[],
+  relationshipNotes: string[],
+): string => {
+  const t = compact(eventText)
+  if (!isLowSignalInboundText(t)) {
+    return t
   }
-  if (normalized.startsWith('/')) {
-    return true
-  }
-  if (
-    /^(thanks for the message|thanks for reaching out|got it|happy to coordinate this|thanks for the note)\b/i.test(
-      normalized,
-    )
-  ) {
-    return true
-  }
-  if (isSimpleAcknowledgement(normalized)) {
-    return true
-  }
-  const wordCount = normalized.split(/\s+/).length
-  return wordCount < 3 && normalized.length < 18
+  const mem = recentMessages
+    .filter(m => m.channel === 'memory')
+    .map(m => m.content.trim())
+    .filter(Boolean)
+    .join('\n')
+  const notes = relationshipNotes.map(n => n.trim()).filter(Boolean).join('\n')
+  const merged = compact([mem, notes, t].filter(Boolean).join('\n'))
+  return merged.slice(0, 2000) || t
 }
 
 export const classifyIntent = (event: MessageEvent): IntentSignal => {
@@ -191,7 +198,8 @@ const executor = async (input: {
           ? draftDeliveryReply(input.context)
           : input.plan.intent.domain === 'follow_up'
             ? draftFollowUpReply()
-            : draftGeneralReply(input.context, contextSignals)
+            : (await openRouterPrimaryReplyDraft(input.context, input.plan.instruction)) ??
+              draftGeneralReply(input.context, contextSignals)
   return {
     response: compact(body),
   }
@@ -246,18 +254,32 @@ export const buildContextBundle = async (
   services: { identityService: IdentityService; memoryService: MemoryService },
   event: MessageEvent,
 ): Promise<ContextBundle> => {
-  const [identity, relationship, recentMessages, searchMatches] = await Promise.all([
+  const [identity, relationship, recentMessages] = await Promise.all([
     services.identityService.getIdentity(event.userId),
     services.identityService.getRelationship(event.userId, event.senderId),
     services.memoryService.getRecentMessages(event.threadId, undefined, event.userId),
-    services.memoryService.searchMessages(event.userId, event.text),
   ])
 
-  const analysisAssist = await openRouterAnalysisAssist({
-    latestUserText: event.text,
-    recentMessages,
-    searchMatches,
+  const q = searchQueryForInbound(event.text, recentMessages, relationship.notes)
+  const searchMatches = await services.memoryService.searchMessages(event.userId, q, undefined, {
+    threadId: event.threadId,
   })
+
+  const intent = classifyIntent(event)
+  const skipAnalysisAssist =
+    envTruthy('OPENROUTER_SKIP_ANALYSIS_ASSIST') ||
+    (!envTruthy('OPENROUTER_FORCE_ANALYSIS_ASSIST') &&
+      intent.domain === 'general' &&
+      isOpenRouterPrimaryDraftEnabled() &&
+      !isLowSignalInboundText(event.text))
+
+  const analysisAssist = skipAnalysisAssist
+    ? null
+    : await openRouterAnalysisAssist({
+        latestUserText: event.text,
+        recentMessages,
+        searchMatches,
+      })
 
   return {
     event,

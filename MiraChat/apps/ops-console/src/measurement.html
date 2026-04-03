@@ -84,6 +84,8 @@
       .toast.show { opacity: 1; transform: translateY(0); }
       .error { color: #ffd5dc; background: rgba(255,93,115,0.12); border: 1px solid rgba(255,93,115,0.25); padding: 12px 14px; border-radius: 18px; margin-bottom: 16px; display: none; }
       .error.show { display: block; }
+      .trust-note { font-size: 12px; line-height: 1.45; color: var(--soft); margin: 10px 0 0; max-width: 720px; }
+      .trust-note strong { color: var(--muted); font-weight: 600; }
       @media (max-width: 1120px) {
         .hero-grid, .sections, .feedback-grid { grid-template-columns: 1fr; }
         .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -101,6 +103,9 @@
           <div class="eyebrow">Measurement System</div>
           <h1>GQM Dashboard</h1>
           <p class="lede">Track trust, productivity, identity, and autonomy for MiraForU with live rollups from <span class="mono">delegation_events</span>, draft lifecycle data, onboarding/ingestion events, and explicit user feedback.</p>
+          <p class="trust-note" style="margin-top: 12px">
+            <strong>For your team only.</strong> This dashboard reads your backend metrics and feedback — the same data is not surfaced to people you message.
+          </p>
         </div>
         <div class="actions">
           <a class="btn" id="openConsole" href="../">Open console</a>
@@ -118,6 +123,9 @@
         <a class="btn" id="oauthGoogle" href="#">Connect Gmail</a>
         <a class="btn" id="oauthSlack" href="#">Connect Slack</a>
       </div>
+      <p class="trust-note" style="margin: 0 0 18px">
+        <strong>API access is yours.</strong> The URL and user you enter scope what loads here; save only on trusted devices.
+      </p>
 
       <div class="hero-grid">
         <section class="panel pad">
@@ -132,10 +140,10 @@
         </section>
         <section class="panel chart">
           <h2>Daily series</h2>
-          <div class="sub">Inbound, drafts, approvals, auto-queue, and sends over time.</div>
+          <div class="sub">Messages received, drafts, approvals, auto-queue, and sends over time.</div>
           <svg class="chart-svg" id="seriesSvg" viewBox="0 0 900 220" preserveAspectRatio="none"></svg>
           <div class="legend">
-            <span><span class="dot" style="background:#c7b2ff"></span> inbound</span>
+            <span><span class="dot" style="background:#c7b2ff"></span> received</span>
             <span><span class="dot" style="background:#ff7be3"></span> drafts</span>
             <span><span class="dot" style="background:#ffb224"></span> approvals</span>
             <span><span class="dot" style="background:#ff8a9d"></span> auto queued</span>
@@ -171,6 +179,9 @@
         <section class="panel pad">
           <h2>Research feedback</h2>
           <div class="sub">Record subjective GQM signals so the dashboard tracks more than proxy events.</div>
+          <p class="trust-note" style="margin-top: 10px">
+            <strong>Private to operators.</strong> Scores and notes are stored with your measurement API for product quality — not shown in chat threads.
+          </p>
           <div class="stack" style="margin-top:14px;">
             <div class="field"><label>Selected draft ID</label><input id="fbDraftId" placeholder="Optional draft id" /></div>
             <div class="field"><label>Selected thread ID</label><input id="fbThreadId" placeholder="Optional thread id" /></div>
@@ -345,10 +356,10 @@
         ].join('')
 
         $('productivityGrid').innerHTML = [
-          mini('Inbound enqueued', String(m.overview.inboundEnqueued), 'Demand entering the system'),
+          mini('Messages received', String(m.overview.inboundEnqueued), 'New messages entering the system'),
           mini('Drafts created', String(m.overview.draftsCreated), 'Delegated responses produced'),
-          mini('Avg draft latency', secs(m.productivity.avgDraftLatencySeconds), 'Inbound → draft'),
-          mini('Avg resolution time', secs(m.productivity.avgResolutionSeconds), 'Inbound → sent'),
+          mini('Avg draft latency', secs(m.productivity.avgDraftLatencySeconds), 'Received → draft ready'),
+          mini('Avg resolution time', secs(m.productivity.avgResolutionSeconds), 'Received → reply sent'),
           mini('Avg approval latency', secs(m.productivity.avgApprovalLatencySeconds), 'Draft → approval'),
           mini('Avg send latency', secs(m.productivity.avgSendLatencySeconds), 'Approval → sent'),
         ].join('')
@@ -377,11 +388,19 @@
         ].join('')
       }
 
+      const eventTypeFriendly = (t) =>
+        ({
+          'outbound.sent': 'Reply sent',
+          'outbound.send_failed': 'Send failed',
+          'draft.approved_as_is': 'Approved as written',
+          'draft.approved_with_edit': 'Approved with edits',
+        })[t] || t
+
       const fillEvents = (events) => {
         const interesting = (events || []).filter((e) => ['outbound.sent','draft.approved_as_is','draft.approved_with_edit'].includes(e.event_type)).slice(0, 20)
         $('recentEvents').innerHTML = interesting.length ? interesting.map((e) => `
           <div class="event-row">
-            <div class="event-meta"><span class="event-type">${esc(e.event_type)}</span><span>${esc((e.created_at || '').replace('T', ' ').slice(0, 16))}</span></div>
+            <div class="event-meta"><span class="event-type">${esc(eventTypeFriendly(e.event_type))}</span><span>${esc((e.created_at || '').replace('T', ' ').slice(0, 16))}</span></div>
             <div class="mono">thread=${esc(e.thread_id || '')} · draft=${esc(e.draft_id || '')}</div>
             <div><button class="pick" data-draft="${esc(e.draft_id || '')}" data-thread="${esc(e.thread_id || '')}">Use for feedback</button></div>
           </div>`).join('') : '<div class="sub" style="padding:14px 0;">No recent approval/send events yet.</div>'

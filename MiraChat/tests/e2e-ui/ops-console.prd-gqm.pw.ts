@@ -22,11 +22,92 @@ import {
   runApproveAndMarkSentFlow,
   seedInboundViaApi,
   seedPendingInboundWithoutWorker,
+  sendInboundViaUi,
   setSessionSettings,
   waitForDraftInUi,
 } from './ops-console-helpers'
 
 test.describe('Ops console — PRD draft → approve (real stack)', () => {
+  test('in-product mission strip surfaces PRD positioning (Proxy Self / bounded delegate)', async ({ page, request }) => {
+    const api = await assertRealStack(request)
+    await setSessionSettings(page, `${Date.now()}`)
+    await openOpsConsole(page, api)
+    const strip = page.getByTestId('prd-mission-strip')
+    await expect(strip).toBeVisible()
+    await expect(strip).toContainText(/Proxy Self/i)
+    await expect(strip).toContainText(/bounded delegate/i)
+    await expect(strip).toContainText(/Protect intent/i)
+  })
+
+  test('sidebar and header use photo avatars (img loads)', async ({ page, request }) => {
+    const api = await assertRealStack(request)
+    const suffix = `${Date.now()}`
+    const session = await setSessionSettings(page, suffix)
+    await openOpsConsole(page, api)
+
+    const threadId = `pw-avatar-ui-${suffix}`
+    await seedInboundViaApi(request, {
+      ...session,
+      threadId,
+      text: `Avatar UI check for ${threadId}`,
+    })
+    await waitForDraftInUi(page, threadId)
+
+    const rowImg = page.locator('.thread-item.active .avatar img').first()
+    await expect(rowImg).toBeVisible()
+    const headImg = page.locator('#headAvatar img').first()
+    await expect(headImg).toBeVisible()
+
+    await expect
+      .poll(
+        async () => rowImg.evaluate((el: HTMLImageElement) => el.naturalWidth > 0),
+        { timeout: 20_000 },
+      )
+      .toBe(true)
+    await expect
+      .poll(
+        async () => headImg.evaluate((el: HTMLImageElement) => el.naturalWidth > 0),
+        { timeout: 20_000 },
+      )
+      .toBe(true)
+  })
+
+  test('UI Send (simulate message from contact) → Reply in your tone panel (end-to-end)', async ({ page, request }) => {
+    const api = await assertRealStack(request)
+    const suffix = `${Date.now()}`
+    await setSessionSettings(page, suffix)
+    await openOpsConsole(page, api)
+
+    const threadId = `cursor-ui-sim-${suffix}`
+    await sendInboundViaUi(page, threadId, `What is next for ${threadId}?`)
+    await expect(page.getByRole('button', { name: 'Approve reply' })).toBeVisible({ timeout: 90_000 })
+    await expect(page.locator('#approvalPanel')).toContainText(/reply in your tone/i)
+    await dismissChromeOverlays(page)
+  })
+
+  test('UI Send with blank stored accountId still surfaces draft (mirachatSessionParams before inbound)', async ({
+    page,
+    request,
+  }) => {
+    const api = await assertRealStack(request)
+    const suffix = `${Date.now()}`
+    await page.addInitScript(
+      ({ userId, channel }) => {
+        localStorage.setItem('mirachatUserId', userId)
+        localStorage.setItem('mirachatAccountId', '')
+        localStorage.setItem('mirachatChannel', channel)
+      },
+      { userId: `pw-blank-acc-${suffix}`, channel: 'wechat' },
+    )
+    await openOpsConsole(page, api)
+
+    const threadId = `cursor-blank-acc-${suffix}`
+    await sendInboundViaUi(page, threadId, `what's there to do for ${threadId}`)
+    await expect(page.getByRole('button', { name: 'Approve reply' })).toBeVisible({ timeout: 90_000 })
+    await expect(page.locator('#approvalPanel')).toContainText(/reply in your tone/i)
+    await dismissChromeOverlays(page)
+  })
+
   test('draft → approve → mark sent is visible in the UI', async ({ page, request }) => {
     const api = await assertRealStack(request)
     const suffix = `${Date.now()}`
@@ -43,19 +124,22 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
 
     const panel = page.locator('#approvalPanel')
     await expect(panel).toBeVisible()
-    await expect(panel.locator('h3')).toContainText(/pick a reply/i)
-    await expect(page.getByRole('button', { name: 'Approve primary' })).toBeVisible()
+    await expect(panel.locator('h3')).toContainText(/reply in your tone/i)
+    await expect(page.getByRole('button', { name: 'Approve reply' })).toBeVisible()
 
     await runApproveAndMarkSentFlow(page)
   })
 
-  test('assist modal shows real thread summary and multi-option replies', async ({ page, request }) => {
+  test('Send flow: single personalized reply is copyable in Reply in your tone panel', async ({
+    page,
+    request,
+  }) => {
     const api = await assertRealStack(request)
     const suffix = `${Date.now()}`
     const session = await setSessionSettings(page, suffix)
     await openOpsConsole(page, api)
 
-    const threadId = `assist-e2e-${suffix}`
+    const threadId = `thread-draft-copy-${suffix}`
     await seedInboundViaApi(request, {
       ...session,
       threadId,
@@ -63,18 +147,18 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     })
     await waitForDraftInUi(page, threadId)
 
-    await page.locator('#btnAssist').click()
-    await expect(page.locator('#assistModal')).toHaveClass(/show/)
-    await expect(page.locator('#assistBody')).toContainText('Thread summary')
-    await expect(page.locator('#assistBody')).toContainText('Primary draft')
-    await expect(page.locator('#assistBody')).toContainText(
-      /direct|balanced|relationship-first|concise|warm|assertive/i,
-    )
-    await page.locator('#assistClose').click()
-    await expect(page.locator('#assistModal')).not.toHaveClass(/show/)
+    const panel = page.locator('#chatThread #approvalPanel')
+    await expect(panel).toBeVisible()
+    await expect(panel.locator('.appr-suggest-card')).toBeVisible()
+    await expect(page.locator('#messages .bubble.thread-draft')).toHaveCount(0)
+    const draftTexts = panel.locator('.appr-suggest-text')
+    await expect(draftTexts).toHaveCount(1)
+    await expect(draftTexts.first()).not.toBeEmpty()
+    await expect(draftTexts.first()).toContainText(/\w/)
+    await expect(panel).toContainText(/your tone/i)
   })
 
-  test('summarize thread returns a real summary dialog', async ({ page, request }) => {
+  test('summarize thread shows in-app summary modal', async ({ page, request }) => {
     const api = await assertRealStack(request)
     const suffix = `${Date.now()}`
     const session = await setSessionSettings(page, suffix)
@@ -88,19 +172,18 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     })
     await waitForDraftInUi(page, threadId)
 
-    let dialogMessage = ''
-    page.once('dialog', (dialog) => {
-      dialogMessage = dialog.message()
-      void dialog.accept()
-    })
     await page.locator('#btnSummarize').click()
-    await expect
-      .poll(() => dialogMessage, { timeout: 15_000 })
-      .not.toEqual('')
-    expect(dialogMessage).not.toMatch(/No prior messages/i)
+    const modal = page.locator('#summarizeModal')
+    await expect(modal).toHaveClass(/show/)
+    await expect(page.locator('#summarizeBody')).toBeVisible()
+    const body = await page.locator('#summarizeBody').textContent()
+    expect((body || '').trim().length).toBeGreaterThan(0)
+    expect(body).not.toMatch(/No prior messages/i)
+    await page.locator('#summarizeClose').click()
+    await expect(modal).toBeHidden()
   })
 
-  test('triage panel shows thread snapshot and tone option picks (MVP)', async ({ page, request }) => {
+  test('triage panel shows thread snapshot and single reply (MVP)', async ({ page, request }) => {
     const api = await assertRealStack(request)
     const suffix = `${Date.now()}`
     const session = await setSessionSettings(page, suffix)
@@ -115,16 +198,14 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     await waitForDraftInUi(page, threadId)
 
     const panel = page.locator('#approvalPanel')
-    await expect(panel).toContainText('Pick a reply')
-    await expect(panel).toContainText('Thread snapshot')
-    await expect(panel.getByRole('button', { name: 'Approve this option' }).first()).toBeVisible()
-    const toneLabel = panel.locator('.opt-block .opt-label').first()
-    await expect(toneLabel).toContainText(
-      /Direct|Balanced|Relationship-first|Concise|Warm|Assertive|Option/i,
-    )
+    await expect(panel).toContainText('Reply in your tone')
+    await expect(panel.locator('.snapshot-details summary')).toContainText(/Thread snapshot/i)
+    await expect(panel.locator('.approval-panel-scroll')).toBeVisible()
+    await expect(panel.locator('.appr-suggest-text')).toHaveCount(1)
+    await expect(panel.getByRole('button', { name: 'Approve reply' })).toBeVisible()
   })
 
-  test('process pending queue drains PENDING inbounds into drafts (MVP)', async ({ page, request }) => {
+  test('process pending queue turns waiting messages into drafts (MVP)', async ({ page, request }) => {
     test.setTimeout(240_000)
     const api = await assertRealStack(request)
     const suffix = `${Date.now()}`
@@ -155,7 +236,7 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
       )
       .toBe(2)
 
-    await expect(page.locator('#pendingInboundHint')).toContainText(/2 inbound messages/i, { timeout: 15_000 })
+    await expect(page.locator('#pendingInboundHint')).toContainText(/2 new messages/i, { timeout: 15_000 })
     await expect(page.locator('#btnProcessPending')).toBeEnabled()
 
     await page.locator('#btnProcessPending').click()
@@ -178,12 +259,12 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
 
     await page.locator('#btnRefresh').click()
     await dismissChromeOverlays(page)
-    await expect(page.locator('#pendingInboundHint')).toContainText(/Inbound queue clear/i, {
+    await expect(page.locator('#pendingInboundHint')).toContainText(/All caught up/i, {
       timeout: 45_000,
     })
   })
 
-  test('relationship-aware scheduling tool returns suggested reply and slots', async ({ page, request }) => {
+  test('find-a-time flow returns suggested reply and slots', async ({ page, request }) => {
     const api = await assertRealStack(request)
     const suffix = `${Date.now()}`
     const session = await setSessionSettings(page, suffix)
@@ -208,7 +289,7 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     await expect(result).toBeVisible()
     await expect(result).toContainText('Suggested reply')
     await expect(result).toContainText(/Tue|Wed|Thu/)
-    await expect(result).toContainText(/Priority: high|relationship weight=high/i)
+    await expect(result).toContainText(/high priority|priority:\s*high/i)
     await expect(page.locator('#toast')).toContainText('Negotiation suggestion ready')
   })
 
@@ -227,7 +308,7 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     await waitForDraftInUi(page, threadId)
 
     await page.getByRole('button', { name: 'Reject', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Approve primary' })).toBeHidden({ timeout: 30_000 })
+    await expect(page.getByRole('button', { name: 'Approve reply' })).toBeHidden({ timeout: 30_000 })
 
     await page.locator('#btnMenu').click()
     await page.getByRole('button', { name: 'Relationship', exact: true }).click()
@@ -244,7 +325,7 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
       text: `Second message after relationship update for ${threadId}`,
     })
     await waitForDraftInUi(page, threadId)
-    await expect(page.locator('#approvalPanel')).toContainText(/high_risk_relationship/i)
+    await expect(page.locator('#approvalPanel')).toContainText(/high-priority/i)
   })
 
   test('drawer Metrics and Audit load real delegation data after user actions', async ({ page, request }) => {
@@ -260,7 +341,7 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
       text: `Metrics and audit seed for ${threadId}`,
     })
     await waitForDraftInUi(page, threadId)
-    await page.getByRole('button', { name: 'Approve primary' }).click()
+    await page.getByRole('button', { name: 'Approve reply' }).click()
 
     await page.locator('#btnMenu').click()
     await page.getByRole('button', { name: 'Metrics', exact: true }).click()
@@ -270,7 +351,7 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     await page.getByRole('button', { name: 'Audit', exact: true }).click()
     await expect(page.locator('#panel-audit')).toBeVisible()
     await expect(page.locator('#panel-audit .log-line').first()).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator('#panel-audit')).toContainText(/draft\.created|policy\.evaluated|draft\.approved_as_is/i)
+    await expect(page.locator('#panel-audit')).toContainText(/Draft created|Policy checked|Approved as written/i)
   })
 
   test('approve via OpenClaw doer executes and records audit events', async ({ page, request }) => {
@@ -289,14 +370,47 @@ test.describe('Ops console — PRD draft → approve (real stack)', () => {
     })
     await waitForDraftInUi(page, threadId)
 
-    await page.getByRole('button', { name: 'Run primary with OpenClaw' }).click()
-    await expect(page.getByRole('button', { name: 'Approve primary' })).toBeHidden({ timeout: 45_000 })
+    await page.getByRole('button', { name: /Run with OpenClaw/ }).click()
+    await expect(page.getByRole('button', { name: 'Approve reply' })).toBeHidden({ timeout: 45_000 })
     await expect(page.locator('#pendingQueue')).toBeHidden()
 
     await page.locator('#btnMenu').click()
     await page.getByRole('button', { name: 'Audit', exact: true }).click()
-    await expect(page.locator('#panel-audit')).toContainText(/doer\.started/i, { timeout: 20_000 })
-    await expect(page.locator('#panel-audit')).toContainText(/doer\.completed/i, { timeout: 20_000 })
-    await expect(page.locator('#panel-audit')).toContainText(/outbound\.sent/i, { timeout: 20_000 })
+    await expect(page.locator('#panel-audit')).toContainText(/OpenClaw run started/i, { timeout: 20_000 })
+    await expect(page.locator('#panel-audit')).toContainText(/OpenClaw run finished/i, { timeout: 20_000 })
+    await expect(page.locator('#panel-audit')).toContainText(/Reply sent/i, { timeout: 20_000 })
+  })
+
+  test('main chrome: refresh, menu drawer, negotiate modal escape, measurement opens', async ({ page, request }) => {
+    const api = await assertRealStack(request)
+    const suffix = `${Date.now()}`
+    const session = await setSessionSettings(page, suffix)
+    await openOpsConsole(page, api)
+
+    const threadId = `chrome-ui-${suffix}`
+    await sendInboundViaUi(page, threadId, `Chrome UI smoke for ${threadId}`)
+    await expect(page.getByRole('button', { name: 'Approve reply' })).toBeVisible({ timeout: 90_000 })
+
+    await page.locator('#btnRefresh').click()
+    await dismissChromeOverlays(page)
+
+    await page.locator('#btnNegotiate').click()
+    await expect(page.locator('#negotiateModal')).toHaveClass(/show/)
+    await page.keyboard.press('Escape')
+    await expect(page.locator('#negotiateModal')).toBeHidden()
+
+    await page.locator('#btnMenu').click()
+    await expect(page.locator('#overlay')).toHaveClass(/open/)
+    await page.locator('#btnCloseDrawer').click()
+    await expect(page.locator('#overlay')).not.toHaveClass(/open/)
+
+    const popupPromise = page.waitForEvent('popup')
+    await page.locator('#btnMeasurement').click()
+    const meas = await popupPromise
+    try {
+      await expect(meas).toHaveURL(/measurement/i)
+    } finally {
+      await meas.close()
+    }
   })
 })

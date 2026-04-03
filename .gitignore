@@ -77,3 +77,6 @@ examples/.pki
 .config/
 log
 /*.jpg
+
+# Cursor IDE (local agent state)
+.cursor/

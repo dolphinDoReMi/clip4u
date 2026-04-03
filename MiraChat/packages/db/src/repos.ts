@@ -594,7 +594,11 @@ export const listPendingSend = async (
   channel: string,
   accountId: string,
   limit = 20,
+  userId?: string | null,
 ): Promise<PendingSendRow[]> => {
+  const uid = userId?.trim()
+  const userClause = uid ? ' AND d.user_id = $4 ' : ''
+  const params: unknown[] = uid ? [channel, accountId, limit, uid] : [channel, accountId, limit]
   const { rows } = await pool.query<PendingSendRow>(
     `
     SELECT d.*, i.contact_id, i.room_id
@@ -605,10 +609,11 @@ export const listPendingSend = async (
       AND (d.next_send_after IS NULL OR d.next_send_after <= now())
       AND d.channel = $1
       AND d.account_id = $2
+      ${userClause}
     ORDER BY approved_at ASC NULLS LAST, created_at ASC
     LIMIT $3
     `,
-    [channel, accountId, limit],
+    params,
   )
   return rows
 }
@@ -756,6 +761,27 @@ export const listDelegationEvents = async (pool: Pool, limit = 100): Promise<Del
     LIMIT $1
     `,
     [limit],
+  )
+  return rows.map(r => mapDelegationRow(r as Parameters<typeof mapDelegationRow>[0]))
+}
+
+/** Tenant-scoped audit stream (omit rows with null user_id). */
+export const listDelegationEventsForUser = async (
+  pool: Pool,
+  userId: string,
+  limit = 100,
+): Promise<DelegationEventRow[]> => {
+  const cap = Math.min(500, Math.max(1, limit))
+  const { rows } = await pool.query(
+    `
+    SELECT id, event_type, user_id, channel, account_id, thread_id, policy_action, confidence,
+           policy_rule_id, draft_id, inbound_message_id, metadata, created_at
+    FROM delegation_events
+    WHERE user_id = $2
+    ORDER BY created_at DESC
+    LIMIT $1
+    `,
+    [cap, userId],
   )
   return rows.map(r => mapDelegationRow(r as Parameters<typeof mapDelegationRow>[0]))
 }
@@ -1268,6 +1294,49 @@ export const insertMemoryChunks = async (
     n++
   }
   return n
+}
+
+export type MemoryChunkRow = {
+  id: string
+  thread_id: string | null
+  content: string
+  created_at: Date
+}
+
+/**
+ * PRD: durable chunked memory (desktop ingest, OCR, summaries). Listed for operator review;
+ * same rows feed FTS (`GET /mirachat/search`) and thread transcript union in PostgresMemoryService.
+ */
+export const listMemoryChunksForUser = async (
+  pool: Pool,
+  input: { userId: string; threadId?: string | null; limit?: number },
+): Promise<MemoryChunkRow[]> => {
+  const cap = Math.min(200, Math.max(1, input.limit ?? 80))
+  const tid = input.threadId?.trim()
+  if (tid) {
+    const { rows } = await pool.query<MemoryChunkRow>(
+      `
+      SELECT id, thread_id, content, created_at
+      FROM memory_chunks
+      WHERE user_id = $1 AND thread_id = $2
+      ORDER BY created_at DESC
+      LIMIT $3
+      `,
+      [input.userId, tid, cap],
+    )
+    return rows
+  }
+  const { rows } = await pool.query<MemoryChunkRow>(
+    `
+    SELECT id, thread_id, content, created_at
+    FROM memory_chunks
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+    LIMIT $2
+    `,
+    [input.userId, cap],
+  )
+  return rows
 }
 
 export interface A2aEnvelopeRow {

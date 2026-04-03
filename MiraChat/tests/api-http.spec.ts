@@ -236,6 +236,45 @@ describe('Delegate API HTTP (mocked SQL)', () => {
     await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
   })
 
+  it('GET /mirachat/identity returns 401 when MIRACHAT_TENANT_ENFORCE without bearer', async () => {
+    const prevE = process.env.MIRACHAT_TENANT_ENFORCE
+    const prevM = process.env.MIRACHAT_TENANT_TOKEN_MAP
+    const prevH = process.env.MIRACHAT_TENANT_HMAC_SECRET
+    process.env.MIRACHAT_TENANT_ENFORCE = '1'
+    delete process.env.MIRACHAT_TENANT_TOKEN_MAP
+    delete process.env.MIRACHAT_TENANT_HMAC_SECRET
+    try {
+      const mirachat = createInboundRouteMockMirachat()
+      const server = createServer(
+        createDelegateApiListener({ memoryRuntime: createInMemoryRuntime(), mirachat }),
+      )
+      await new Promise<void>(r => server.listen(0, r))
+      const addr = server.address()
+      const port = typeof addr === 'object' && addr ? addr.port : 0
+      const res = await request(port, { method: 'GET', path: '/mirachat/identity?userId=demo-user' })
+      expect(res.status).toBe(401)
+      const j = JSON.parse(res.body) as { error?: string }
+      expect(j.error).toMatch(/Tenant authentication required/i)
+      await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+    } finally {
+      if (prevE === undefined) {
+        delete process.env.MIRACHAT_TENANT_ENFORCE
+      } else {
+        process.env.MIRACHAT_TENANT_ENFORCE = prevE
+      }
+      if (prevM === undefined) {
+        delete process.env.MIRACHAT_TENANT_TOKEN_MAP
+      } else {
+        process.env.MIRACHAT_TENANT_TOKEN_MAP = prevM
+      }
+      if (prevH === undefined) {
+        delete process.env.MIRACHAT_TENANT_HMAC_SECRET
+      } else {
+        process.env.MIRACHAT_TENANT_HMAC_SECRET = prevH
+      }
+    }
+  })
+
   it('POST /mirachat/ingest/desktop-context stores memory and enriches identity + relationship', async () => {
     const memoryChunkInserts: Array<unknown[]> = []
     const delegationInserts: Array<unknown[]> = []

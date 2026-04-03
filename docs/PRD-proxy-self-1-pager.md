@@ -27,7 +27,7 @@ The product should **function like WhatsApp** and **look like Instagram DM**.
 
 | Axis | Product requirement |
 | --- | --- |
-| **Interaction model** | Use a **WhatsApp-like inbox mental model**: conversation list first, active thread second, fast search, recency ordering, unread state, persistent composer, clear inbound/outbound bubbles, and thread-centric approval flow. |
+| **Interaction model** | Use a **WhatsApp-like inbox mental model**: conversation list first, active thread second, **fast search** (thread filter + **full-text message search** across DMs, sent replies, and **imported desktop/context memory**), recency ordering, unread state, persistent composer, clear inbound/outbound bubbles, and thread-centric approval flow. |
 | **Visual system** | Use an **Instagram-style visual language**: dark editorial surfaces, warm pink-orange-purple gradients, story-ring avatar treatment, pill controls, soft glass elevation, and cleaner typography than utility/admin tooling. |
 | **Trust UX** | Approval, policy, and automation controls must feel like **extensions of the thread**, not a separate ops console bolted onto chat. |
 | **Cross-surface consistency** | Web console, measurement dashboard, and mini-program should share the same color tokens, shape language, spacing rhythm, and status semantics. |
@@ -139,6 +139,10 @@ For execution beyond drafting, MiraForU can hand approved tasks to **OpenClaw** 
 | **1** | **High-context coordination** | Not “find a slot”—**negotiate using UserModel**; relationship-weighted scheduling. |
 | **2** | **Unified inbox proxy** | Email and Slack: routine approvals, status updates, polite declines—same identity and policy layer. |
 | **3** | **Agent-to-agent protocol** | Proxies negotiate with other Proxies—**async coordination layer**; long-term structural moat. |
+
+### 6.1 Embedded marketing (in-product)
+
+GTM is not only outbound: the **inbox and draft flows** must repeatedly teach **Proxy Self** = **bounded delegate** (guardrails, approve-before-send, relationship-aware tone), with the **core principle** echoed in empty states. See [PRD-MiraForU.md §6.1](PRD-MiraForU.md#61-embedded-product-marketing-in-flow-narrative) for the touchpoint map and Playwright **`prd-mission-strip`** contract.
 
 ---
 

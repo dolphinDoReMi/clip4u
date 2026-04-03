@@ -112,6 +112,24 @@ export const seedInboundViaApi = async (
 
 /** Close connection drawer / overlays so thread list is visible (mobile + desktop). */
 export async function dismissChromeOverlays(page: Page) {
+  const ingestDismiss = page.locator('#ingestFlowInlineDismiss')
+  try {
+    if (await ingestDismiss.isVisible()) {
+      await ingestDismiss.click()
+      await page.waitForTimeout(120)
+    }
+  } catch {
+    /* ignore */
+  }
+  const ingestClose = page.locator('#ingestFlowClose')
+  try {
+    if (await ingestClose.isVisible()) {
+      await ingestClose.click()
+      await page.waitForTimeout(120)
+    }
+  } catch {
+    /* ignore */
+  }
   await page.keyboard.press('Escape')
   await page.waitForTimeout(150)
 }
@@ -135,7 +153,22 @@ export async function openOpsConsole(page: Page, api: string) {
   }
   expect(opened).toBe(true)
   await dismissChromeOverlays(page)
-  await expect(page.locator('#healthPill')).toContainText(/DB online/i, { timeout: 45_000 })
+  /** Pill shows History on (current) or DB online (older builds); refresh if still on initial “API …”. */
+  await expect
+    .poll(
+      async () => {
+        const pill = page.locator('#healthPill')
+        const t = ((await pill.textContent()) || '').trim()
+        if (/History on|DB online/i.test(t)) {
+          return t
+        }
+        await page.locator('#btnRefresh').click()
+        await page.waitForTimeout(600)
+        return ((await pill.textContent()) || '').trim()
+      },
+      { timeout: 90_000, intervals: [400, 800, 1200, 2000, 3000] },
+    )
+    .toMatch(/History on|DB online/i)
 }
 
 export const setSessionSettings = async (
@@ -173,17 +206,18 @@ export const setSessionSettings = async (
 
 export const waitForDraftInUi = async (page: Page, threadId: string, options?: { timeoutMs?: number }) => {
   const timeoutMs = options?.timeoutMs ?? 90_000
+  /** Row title is a generated persona name; `data-tid` is the real thread id. */
+  const threadRow = page.locator(`.thread-item[data-tid="${threadId}"]`).first()
   await expect
     .poll(
       async () => {
         await page.locator('#btnRefresh').click()
         await dismissChromeOverlays(page)
-        const thread = page.locator('.thread-item').filter({ hasText: threadId }).first()
-        if ((await thread.count()) === 0) {
+        if ((await threadRow.count()) === 0) {
           return false
         }
-        await thread.click()
-        return await page.getByRole('button', { name: 'Approve primary' }).isVisible()
+        await threadRow.click()
+        return await page.getByRole('button', { name: 'Approve reply' }).isVisible()
       },
       { timeout: timeoutMs, intervals: [500, 1000, 2000, 3000] },
     )
@@ -204,16 +238,16 @@ export const sendInboundViaUi = async (page: Page, threadId: string, text: strin
 }
 
 /**
- * Full human-in-the-loop strip: Approve primary → pending queue → Mark sent.
+ * Full human-in-the-loop strip: Approve reply → pending queue → Mark sent.
  * Asserts success toasts ("Approved…", "Marked sent") and that the approval panel clears.
  */
 export async function runApproveAndMarkSentFlow(page: Page) {
   await expect(page.locator('#approvalPanel')).toBeVisible()
-  await page.getByRole('button', { name: 'Approve primary' }).click()
+  await page.getByRole('button', { name: 'Approve reply' }).click()
   await expect(page.locator('#toast')).toContainText(/Approved/i, { timeout: 12_000 })
   await expect(page.locator('#pendingQueue .btn-mark').first()).toBeVisible({ timeout: 30_000 })
   await page.locator('#pendingQueue .btn-mark').first().click()
   await expect(page.locator('#toast')).toContainText(/Marked sent/i, { timeout: 12_000 })
   await expect(page.locator('#pendingQueue')).toBeHidden({ timeout: 30_000 })
-  await expect(page.getByRole('button', { name: 'Approve primary' })).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Approve reply' })).toBeHidden()
 }

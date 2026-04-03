@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Playwright: Ops — headed (Chromium window)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test:e2e:ops:headed", "--", "--grep", "mission strip|main chrome"],
+      "cwd": "${workspaceFolder}/MiraChat",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "PW_REUSE_SERVERS": "1",
+        "PW_HEADED": "1"
+      }
+    },
+    {
+      "name": "Playwright: Ops — UI mode (Playwright window)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test:e2e:ops:ui"],
+      "cwd": "${workspaceFolder}/MiraChat",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "PW_REUSE_SERVERS": "1"
+      }
+    },
+    {
+      "name": "Playwright: Ops — Inspector (step through)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test:e2e:ops:debug", "--", "--grep", "mission strip|main chrome"],
+      "cwd": "${workspaceFolder}/MiraChat",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "PW_REUSE_SERVERS": "1"
+      }
+    }
+  ]
+}

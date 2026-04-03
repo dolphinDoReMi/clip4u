@@ -1,6 +1,8 @@
 import type { ContextBundle, DelegateDraft } from '@delegate-ai/adapter-types'
 import { AssistService } from '@delegate-ai/assist-core'
 
+import { buildPrdReplyOptionsSystemPrompt, buildThreadSummarySystemPrompt } from './openrouter-prompt-os.js'
+
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 export type PrdReplyOption = { label: string; text: string }
@@ -21,30 +23,70 @@ const contextExcerpt = (context: ContextBundle): string => {
   )
 }
 
+/** Short “direct” variant: never identical to full draft when avoidable (fixes Main suggestion === Direct in UI). */
+export const shorterDirectFromPrimary = (full: string): string => {
+  const t = full.trim()
+  if (!t) {
+    return ''
+  }
+  const sentenceSplit = t.split(/(?<=[.!?？。！])\s+/)
+  const firstSentence = sentenceSplit[0]?.trim() ?? ''
+  if (firstSentence.length >= 24 && firstSentence.length + 24 < t.length) {
+    return firstSentence
+  }
+  const firstPara = t.split(/\n\n|\r\n\r\n/)[0]?.trim() ?? ''
+  if (firstPara.length >= 28 && firstPara.length + 24 < t.length) {
+    return firstPara
+  }
+  const words = t.split(/\s+/)
+  if (words.length > 22) {
+    return `${words.slice(0, 20).join(' ')}…`
+  }
+  const target = Math.min(160, Math.max(48, Math.floor(t.length * 0.38)))
+  if (target + 35 < t.length) {
+    let slice = t.slice(0, target)
+    const sp = slice.lastIndexOf(' ')
+    if (sp > 28) {
+      slice = slice.slice(0, sp)
+    }
+    return `${slice.trim()}…`
+  }
+  return t.length > 72 ? `${t.slice(0, 68).trim()}…` : t
+}
+
 export const fallbackReplyOptions = (primaryDraft: string): PrdReplyOption[] => {
   const t = primaryDraft.trim()
   const empty = '(empty draft — refine in console)'
-  const firstSentence = t ? t.split(/(?<=[.!?])\s+/)[0]?.trim() : ''
-  const useTight =
-    firstSentence &&
-    firstSentence.length >= 12 &&
-    firstSentence.length + 8 < t.length
-  const direct = t
-    ? useTight
-      ? firstSentence
-      : t.length > 220
-        ? `${t.slice(0, 200).trim()}…`
-        : t
-    : empty
-  const balanced = t || empty
-  const relationshipFirst = t
-    ? `${balanced}\n\nThanks again — happy to adjust if anything changes on your side.`
-    : empty
-  return [
-    { label: 'direct', text: direct },
+  if (!t) {
+    return [
+      { label: 'direct', text: empty },
+      { label: 'balanced', text: empty },
+      { label: 'relationship-first', text: empty },
+    ]
+  }
+  const balanced = t
+  let direct = shorterDirectFromPrimary(t)
+  if (direct.trim().toLowerCase() === balanced.trim().toLowerCase()) {
+    const w = t.split(/\s+/)
+    direct = w.length > 14 ? `${w.slice(0, 12).join(' ')}…` : `${t.slice(0, Math.min(56, t.length)).trim()}…`
+  }
+  if (direct.trim().toLowerCase() === balanced.trim().toLowerCase()) {
+    direct = `Got it — ${balanced.slice(0, 1).toLowerCase()}${balanced.slice(1, Math.min(200, balanced.length)).trim()}${balanced.length > 200 ? '…' : ''}`
+  }
+  const relationshipFirst = `${balanced}${/[.!?？。！]\s*$/.test(balanced) ? '' : '.'}\n\nThanks for your patience — happy to adjust if anything shifts on your side.`
+  return sortOptionsMvpOrder([
+    { label: 'direct', text: direct.trim() || balanced },
     { label: 'balanced', text: balanced },
     { label: 'relationship-first', text: relationshipFirst },
-  ]
+  ])
+}
+
+const replyOptionsDistinctEnough = (opts: PrdReplyOption[]): boolean => {
+  const texts = opts.map(o => o.text.replace(/\s+/g, ' ').trim().toLowerCase())
+  if (texts.length < 3) {
+    return false
+  }
+  return new Set(texts).size === 3
 }
 
 const normalizeReplyOptionLabel = (label: string): string => {
@@ -72,24 +114,89 @@ export const fallbackThreadSummary = (transcript: string): string => {
   return truncate(t.replace(/\s+/g, ' '), 1200)
 }
 
-async function openRouterJson<T>(body: Record<string, unknown>): Promise<T | null> {
+/** Build transcript lines for summarization — use chat-app labels so models (and fallbacks) avoid inbound/outbound jargon. */
+export function linesForSummaryTranscript(messages: { direction: string; content: string }[]): string {
+  return messages
+    .map((m) => {
+      const d = String(m.direction || '').toLowerCase()
+      if (d === 'inbound') return `Them: ${m.content}`
+      if (d === 'outbound') return `You: ${m.content}`
+      if (d === 'memory') return `Saved note: ${m.content}`
+      return `${m.direction}: ${m.content}`
+    })
+    .join('\n')
+}
+
+function parseJsonObjectLoose<T extends Record<string, unknown>>(raw: string): T | null {
+  const trimmed = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim()
+  try {
+    const o = JSON.parse(trimmed) as unknown
+    if (o && typeof o === 'object' && !Array.isArray(o)) {
+      return o as T
+    }
+  } catch {
+    /* try brace slice */
+  }
+  const idx = trimmed.indexOf('{')
+  if (idx === -1) {
+    return null
+  }
+  let depth = 0
+  for (let i = idx; i < trimmed.length; i++) {
+    const ch = trimmed[i]
+    if (ch === '{') {
+      depth++
+    } else if (ch === '}') {
+      depth--
+      if (depth === 0) {
+        try {
+          const o = JSON.parse(trimmed.slice(idx, i + 1)) as unknown
+          if (o && typeof o === 'object' && !Array.isArray(o)) {
+            return o as T
+          }
+        } catch {
+          return null
+        }
+      }
+    }
+  }
+  return null
+}
+
+async function openRouterJson<T extends Record<string, unknown>>(body: Record<string, unknown>): Promise<T | null> {
   const key = process.env.OPENROUTER_API_KEY?.trim()
   if (!key) {
     return null
   }
-  const model = process.env.OPENROUTER_MODEL?.trim() || 'openai/gpt-4o-mini'
-  const res = await fetch(OPENROUTER_URL, {
+  const headers = {
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    ...(process.env.OPENROUTER_HTTP_REFERER ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER } : {}),
+    'X-Title': 'MiraChat PRD delegate',
+  }
+  const withFormat = { ...body, response_format: { type: 'json_object' as const } }
+  let res = await fetch(OPENROUTER_URL, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      ...(process.env.OPENROUTER_HTTP_REFERER
-        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
-        : {}),
-      'X-Title': 'MiraChat PRD delegate',
-    },
-    body: JSON.stringify(body),
+    headers,
+    body: JSON.stringify(withFormat),
   })
+  if (!res.ok && (res.status === 400 || res.status === 422)) {
+    const errPeek = await res.text().catch(() => '')
+    console.warn(
+      'OpenRouter PRD: response_format json_object rejected; retrying without it',
+      res.status,
+      errPeek.slice(0, 240),
+    )
+    res = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    })
+  }
   if (!res.ok) {
     console.error('OpenRouter PRD call failed', res.status, await res.text().catch(() => ''))
     return null
@@ -99,12 +206,7 @@ async function openRouterJson<T>(body: Record<string, unknown>): Promise<T | nul
   if (!raw) {
     return null
   }
-  try {
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
-    return JSON.parse(cleaned) as T
-  } catch {
-    return null
-  }
+  return parseJsonObjectLoose<T>(raw)
 }
 
 /** MVP: three ready-to-send replies — direct, balanced, relationship-first (OpenRouter JSON or templates). */
@@ -117,12 +219,11 @@ export async function buildReplyOptions(
     messages: [
       {
         role: 'system',
-        content:
-          'You output JSON only: {"options":[{"label":"direct","text":"..."},{"label":"balanced","text":"..."},{"label":"relationship-first","text":"..."}]} — three distinct outbound replies the human can send as-is. Same facts and intent; direct = shortest clear next step; balanced = primary tone; relationship-first = warm, acknowledges the relationship, minimal risk of sounding cold or escalatory. No new commitments beyond the primary draft. Labels must be exactly direct, balanced, relationship-first.',
+        content: buildPrdReplyOptionsSystemPrompt(),
       },
       {
         role: 'user',
-        content: `${contextExcerpt(context)}\n\nPrimary draft to vary:\n${truncate(primaryDraftText, 6000)}`,
+        content: `${contextExcerpt(context)}\n\nMain suggested reply to vary:\n${truncate(primaryDraftText, 6000)}`,
       },
     ],
     max_tokens: 900,
@@ -130,11 +231,15 @@ export async function buildReplyOptions(
   })
   const raw = parsed?.options?.filter(o => o?.label && o?.text && String(o.text).trim())
   if (raw && raw.length >= 3) {
-    const normalized = raw.slice(0, 3).map(o => ({
-      label: normalizeReplyOptionLabel(String(o.label)),
-      text: String(o.text).trim(),
-    }))
-    return sortOptionsMvpOrder(normalized)
+    const normalized = sortOptionsMvpOrder(
+      raw.slice(0, 3).map(o => ({
+        label: normalizeReplyOptionLabel(String(o.label)),
+        text: String(o.text).trim(),
+      })),
+    )
+    if (replyOptionsDistinctEnough(normalized)) {
+      return normalized
+    }
   }
   return fallbackReplyOptions(primaryDraftText)
 }
@@ -176,7 +281,7 @@ async function openRouterPlainText(system: string, userContent: string): Promise
 /** Thread snapshot for triage: bullets + scannable context (control plane / web). */
 export async function buildThreadSummary(transcript: string): Promise<string> {
   const text = await openRouterPlainText(
-    'Summarize this conversation for someone about to reply. Use 5–10 short bullet points: what was asked, what was promised, open threads, and tone. Neutral and factual. If something looks like an implicit commitment or date, call it out. Plain text only.',
+    buildThreadSummarySystemPrompt(),
     truncate(transcript, 12000),
   )
   return text || fallbackThreadSummary(transcript)
@@ -189,10 +294,7 @@ export async function buildAssistSuggestions(context: ContextBundle): Promise<De
     `Latest: ${context.event.text}`,
     `Relationship tone: ${context.relationship.tone} (${context.relationship.riskLevel})`,
     context.memory.recentMessages.length
-      ? `Thread excerpt:\n${context.memory.recentMessages
-          .slice(-6)
-          .map(m => `${m.direction}: ${m.content}`)
-          .join('\n')}`
+      ? `Thread excerpt:\n${linesForSummaryTranscript(context.memory.recentMessages.slice(-6))}`
       : '',
   ]
     .filter(Boolean)

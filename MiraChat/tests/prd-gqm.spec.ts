@@ -340,7 +340,7 @@ describe('PRD §4 — multi-option replies & thread summary (MVP)', () => {
     const opts = fallbackReplyOptions('Please review the doc by EOD.')
     expect(opts).toHaveLength(3)
     expect(opts.map(o => o.label).sort()).toEqual(['balanced', 'direct', 'relationship-first'].sort())
-    expect(opts.find(o => o.label === 'relationship-first')?.text).toContain('Thanks again')
+    expect(opts.find(o => o.label === 'relationship-first')?.text).toMatch(/Thanks for your patience/i)
   })
 
   it('fallbackThreadSummary handles empty transcript', () => {

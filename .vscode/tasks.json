@@ -1,0 +1,99 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Playwright: Ops console — UI mode",
+      "type": "shell",
+      "command": "npm run test:e2e:ops:ui",
+      "options": {
+        "cwd": "${workspaceFolder}/MiraChat",
+        "env": {
+          "PW_REUSE_SERVERS": "1"
+        }
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Playwright: All E2E — UI mode",
+      "type": "shell",
+      "command": "npm run test:e2e:ui",
+      "options": {
+        "cwd": "${workspaceFolder}/MiraChat",
+        "env": {
+          "PW_REUSE_SERVERS": "1"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Playwright: Ops console — headed Chromium",
+      "type": "shell",
+      "command": "npm run test:e2e:ops:headed",
+      "options": {
+        "cwd": "${workspaceFolder}/MiraChat",
+        "env": {
+          "PW_HEADED": "1",
+          "PW_REUSE_SERVERS": "1"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Playwright: Ops — Inspector (pause each step)",
+      "type": "shell",
+      "command": "npm run test:e2e:ops:debug",
+      "options": {
+        "cwd": "${workspaceFolder}/MiraChat",
+        "env": {
+          "PW_REUSE_SERVERS": "1"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Playwright: Ops — headed + slow motion (see each action)",
+      "type": "shell",
+      "command": "npm run test:e2e:ops:headed:slow",
+      "options": {
+        "cwd": "${workspaceFolder}/MiraChat",
+        "env": {
+          "PW_REUSE_SERVERS": "1"
+        }
+      },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

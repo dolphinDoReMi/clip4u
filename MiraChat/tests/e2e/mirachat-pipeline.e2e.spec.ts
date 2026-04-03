@@ -8,6 +8,7 @@ import pg from 'pg'
 import {
   runMigrations,
   insertInboundMessage,
+  insertMemoryChunks,
   upsertUserConnection,
   getUserConnection,
   PostgresIdentityService,
@@ -105,5 +106,85 @@ describe.skipIf(!conn)('E2E: MiraChat worker pipeline (real Postgres)', () => {
     expect(Array.isArray(raw)).toBe(true)
     const labels = (raw as { label: string }[]).map(o => String(o.label).toLowerCase()).sort()
     expect(labels).toEqual(['balanced', 'direct', 'relationship-first'])
+  }, pipelineItTimeoutMs)
+
+  it('searchMessages finds inbound text (FTS) with snippet metadata', async () => {
+    const suffix = `${Date.now()}`
+    const userId = `e2e-search-${suffix}`
+    const accountId = `ACsrc${suffix.slice(-8)}`
+    const channel = 'twilio_sms'
+    const threadId = `+1888${suffix.slice(-7)}`
+    const needle = `e2efts ${suffix} unique`
+
+    await upsertUserConnection(pool, { channel, accountId, userId, status: 'ONLINE' })
+    const connRow = await getUserConnection(pool, channel, accountId)
+    await insertInboundMessage(pool, {
+      userConnectionId: connRow?.id ?? null,
+      contactId: threadId,
+      roomId: null,
+      threadId,
+      rawText: `Please review: ${needle} for the budget.`,
+      channel,
+      accountId,
+      userId,
+      senderId: threadId,
+      messageId: `SMfts${suffix}`,
+    })
+
+    const memory = new PostgresMemoryService(pool)
+    const hits = await memory.searchMessages(userId, needle, 20)
+    expect(hits.length).toBeGreaterThan(0)
+    const top = hits.find(h => h.threadId === threadId)
+    expect(top).toBeDefined()
+    expect(top!.searchSnippet?.length).toBeGreaterThan(0)
+    expect(top!.searchSource).toBe('inbound')
+  }, pipelineItTimeoutMs)
+
+  it('searchMessages finds memory_chunks (multimodal context text)', async () => {
+    const suffix = `${Date.now()}`
+    const userId = `e2e-mem-${suffix}`
+    const threadId = `thread-mem-${suffix}`
+    const needle = `ocrline ${suffix}`
+
+    await insertMemoryChunks(pool, {
+      userId,
+      threadId,
+      contents: [`Desktop chat context from wechat | thread=${threadId}\nSummary: screenshot showed ${needle} on screen`],
+    })
+
+    const memory = new PostgresMemoryService(pool)
+    const hits = await memory.searchMessages(userId, needle, 20)
+    expect(hits.some(h => h.searchSource === 'memory' && h.threadId === threadId)).toBe(true)
+  }, pipelineItTimeoutMs)
+
+  it('searchMessages threadId option scopes results', async () => {
+    const suffix = `${Date.now()}`
+    const userId = `e2e-scope-${suffix}`
+    const accountId = `ACscp${suffix.slice(-8)}`
+    const channel = 'twilio_sms'
+    const tA = `+1999${suffix.slice(-7)}`
+    const tB = `+1998${suffix.slice(-7)}`
+    const needle = `scopedog ${suffix}`
+
+    await upsertUserConnection(pool, { channel, accountId, userId, status: 'ONLINE' })
+    const connRow = await getUserConnection(pool, channel, accountId)
+    for (const threadId of [tA, tB]) {
+      await insertInboundMessage(pool, {
+        userConnectionId: connRow?.id ?? null,
+        contactId: threadId,
+        roomId: null,
+        threadId,
+        rawText: `${needle} in ${threadId}`,
+        channel,
+        accountId,
+        userId,
+        senderId: threadId,
+        messageId: `SMsc${threadId}${suffix}`,
+      })
+    }
+
+    const memory = new PostgresMemoryService(pool)
+    const scoped = await memory.searchMessages(userId, needle, 20, { threadId: tA })
+    expect(scoped.every(h => h.threadId === tA)).toBe(true)
   }, pipelineItTimeoutMs)
 })

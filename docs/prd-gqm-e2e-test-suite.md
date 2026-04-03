@@ -66,7 +66,7 @@ Implementation under PRD acceptance: `services/api` (`api-listener.ts`, `miracha
 | File | Focus |
 | --- | --- |
 | `tests/e2e/mirachat-pipeline.e2e.spec.ts` | **Real DB pipeline**: inbound row → worker → outbound_drafts row |
-| `tests/e2e-ui/ops-console.prd-gqm.pw.ts` | **Real UI + real Postgres + real API + real worker**: draft/approve/send, assist/options modal, summarize-thread dialog, relationship-driven policy outcome, metrics/audit drawer |
+| `tests/e2e-ui/ops-console.prd-gqm.pw.ts` | **Real UI + real Postgres + real API + real worker**: draft/approve/send, assist/options modal, summarize-thread dialog, relationship-driven policy outcome, metrics/audit drawer, **[PRD §6.1](PRD-MiraForU.md#61-embedded-product-marketing-in-flow-narrative)** in-product mission strip (`data-testid="prd-mission-strip"`) |
 
 Other specs in `tests/` (including mocked/unit tests) are supporting coverage and are **not** the PRD acceptance gate.
 
@@ -75,6 +75,12 @@ Other specs in `tests/` (including mocked/unit tests) are supporting coverage an
 Fast tests such as `tests/prd-gqm.spec.ts`, `tests/gqm-rollup.spec.ts`, `tests/mirachat-worker.prd-gqm.spec.ts`, and `tests/api-http.spec.ts` remain useful for rapid feedback, but they are not counted as the real PRD sign-off path because some use mocks or isolated in-memory services.
 
 ## Traceability matrix (PRD / GQM → test)
+
+### PRD §6.1 — Embedded product marketing (in-flow)
+
+| Source | Requirement | Test |
+| --- | --- | --- |
+| PRD §6.1 | Persistent **mission strip** teaches *Proxy Self* / **bounded delegate** / **Protect intent** + approve-before-send + relationship-aware wedge | Playwright — `getByTestId('prd-mission-strip')` visible and contains required lexicon (`ops-console.prd-gqm.pw.ts`) |
 
 ### G1 — Trustworthy delegation
 

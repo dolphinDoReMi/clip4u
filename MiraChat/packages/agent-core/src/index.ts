@@ -8,17 +8,48 @@ import { buildContextBundle, runCognitivePipeline } from './cognitive.js'
 
 export { buildContextBundle, classifyIntent, runCognitivePipeline } from './cognitive.js'
 export {
+  MIRACHAT_INGEST_SUGGESTED_REPLY_MARKER,
+  buildIngestSuggestedReplyMemoryChunk,
+  extractLatestIngestSuggestedReply,
+  isOpenRouterPrimaryDraftEnabled,
   openRouterAnalysisAssist,
   openRouterDesktopContextAnalysis,
+  openRouterPrimaryReplyDraft,
   parseOpenRouterDesktopContextJson,
 } from './openrouter-assist.js'
 export type { OpenRouterDesktopContextInput, OpenRouterDesktopContextResult } from './openrouter-assist.js'
+export { inferImageMimeFromBase64, isOpenRouterVisionImageMime } from './image-mime-sniff.js'
+export {
+  OPENROUTER_VISION_MAX_BASE64_CHARS_DEFAULT,
+  buildDataUrlForOpenRouterVision,
+  buildOpenRouterMultimodalUserContent,
+  isOpenRouterVisionModelAllowed,
+  parseOpenRouterChatCompletionContent,
+  validateOpenRouterImageUrl,
+  validateVisionBase64PayloadLength,
+} from './openrouter-vision-schema.js'
+export type {
+  OpenRouterImageUrlContentPart,
+  OpenRouterMultimodalUserContentPart,
+  OpenRouterTextContentPart,
+} from './openrouter-vision-schema.js'
+export {
+  OPENROUTER_PROMPT_OS_VERSION,
+  buildAnalysisAssistSystemPrompt,
+  buildDesktopContextSystemPrompt,
+  buildPrimaryReplySystemPrompt,
+  buildPrdReplyOptionsSystemPrompt,
+  buildThreadSummarySystemPrompt,
+} from './openrouter-prompt-os.js'
+export type { PrimaryReplyPromptParams } from './openrouter-prompt-os.js'
 export {
   buildAssistSuggestions,
   buildReplyOptions,
   buildThreadSummary,
   fallbackReplyOptions,
   fallbackThreadSummary,
+  linesForSummaryTranscript,
+  shorterDirectFromPrimary,
   type PrdReplyOption,
 } from './prd-delegate.js'
 export type { IntentSignal } from './cognitive.js'

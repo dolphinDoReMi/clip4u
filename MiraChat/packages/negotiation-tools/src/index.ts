@@ -25,10 +25,10 @@ export function toolProposeSlots(input: ProposeSlotsInput): { slots: string[]; r
       : input.preference === 'afternoon'
         ? ['Tue 15:00', 'Wed 16:00', 'Thu 14:30']
         : ['Tue 11:00', 'Wed 14:00', 'Thu 10:00']
-  const defer = input.relationshipPriority === 'defer' ? ' (lower priority — wider windows acceptable)' : ''
+  const defer = input.relationshipPriority === 'defer' ? ' — lower priority, so wider windows are fine' : ''
   return {
     slots: base,
-    rationale: `Proposed ${input.durationMinutes}m holds; relationship weight=${input.relationshipPriority}${defer}`,
+    rationale: `Suggested ${input.durationMinutes}-minute slots; treating this thread as ${input.relationshipPriority} priority${defer}.`,
   }
 }
 
@@ -58,7 +58,7 @@ export function runNegotiationTurn(input: CounterOfferInput): {
     relationshipPriority: priority,
   })
   toolsUsed.push('propose_slots')
-  const reply = `Acknowledge their note ("${c.normalized.slice(0, 80)}${c.normalized.length > 80 ? '…' : ''}") and offer: ${slots.slots.join(', ')}. Priority: ${priority}.`
+  const reply = `Acknowledge their note ("${c.normalized.slice(0, 80)}${c.normalized.length > 80 ? '…' : ''}") and offer: ${slots.slots.join(', ')}. Treat this as ${priority} priority for how hard to push for a slot.`
   return {
     reply,
     state: {

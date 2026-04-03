@@ -93,7 +93,9 @@ High-output professionals suffer from **communication fragmentation** and **deci
 | Feature | System mapping |
 | --- | --- |
 | Thread summarization | Context engine: `buildContext(event) → { history, semanticRecall }` |
+| Full-text search (DMs + memory) | Postgres FTS on inbound / sent outbound / `memory_chunks`; API `GET /mirachat/search`; ops console sidebar hits |
 | Multi-option replies | Agent Core: `generateReplies(context, modes: ['concise','assertive','warm'])` |
+| Tenant isolation (API) | Optional `MIRACHAT_TENANT_ENFORCE` + bearer map / HMAC; ops console **Tenant bearer token**; thread history filtered by `user_id` when scoped |
 | Draft → approve → send | Policy Engine + queue: if `!safe` → `queueForApproval()` |
 | Tone per relationship | `relationship.tone` → `context.identity` / `context.relationship` in prompts |
 
@@ -118,6 +120,8 @@ UserModel = {
 ### B. Context and memory engine
 
 **Cross-channel** aggregation that tracks **relationship trajectory**, not only the current thread: prior interactions, role of counterparty, and channel-spanning context. **Backing store (illustrative):** Postgres + pgvector; tables such as `messages(user_id, thread_id, content, embedding, …)`, `relationships(user_id, contact_id, tone, role, …)`.
+
+**Full-text multimodal search (implemented in MiraChat):** User-scoped search spans **inbound** message bodies, **sent outbound** drafts, and **`memory_chunks`** — the same store used for **desktop / screenshot ingest** (OCR text, window metadata, optional vision summaries). Search is **lexical** (Postgres `tsvector` / `plainto_tsquery` with `simple` text config, GIN indexes, ranked by `ts_rank_cd`), not embedding KNN; it therefore finds words and phrases in any text that was persisted, including **derived text from multimodal capture**, not raw image bytes. The **ops console** sidebar combines **thread-list filtering** (id, display name, preview) with **debounced message search** via `GET /mirachat/search`, optional **“only open chat”** scoping, and hit badges (**DM** / **Sent** / **Context**). The cognitive pipeline continues to call `MemoryService.searchMessages` for cross-thread recall on each inbound assist.
 
 ### C. Communication engine
 
@@ -174,6 +178,27 @@ To move from “delegate that drafts” to “delegate that gets work done,” a
 
 **Non-claims:** No dependency in MiraChat core on nut.js; implementations live in a **separate process or doer plugin** with narrow **`ApprovedDoerTask`** contracts, timeouts, and allowlists. **Human approval** defaults stricter for OS-level automation than for a single chat send.
 
+### H. Multitenant isolation and private uploads (MiraChat API)
+
+**Product requirement:** Each end-user’s **memory, transcripts, desktop ingest, identity, relationship notes, drafts, metrics, and audit rows** must be **logically isolated**. Another tenant must not read or mutate them by changing `userId` in JSON or query strings.
+
+**Implemented controls (MiraChat HTTP API):**
+
+| Control | Behavior |
+| --- | --- |
+| **Optional enforcement** | Set `MIRACHAT_TENANT_ENFORCE=1` on the API process. When **off** (default), behavior matches legacy dev: `userId` comes from the client (still not safe on untrusted networks). |
+| **Bearer-bound subject** | With enforcement on, clients send `Authorization: Bearer <token>`. The API resolves a **canonical user id** from the token and **rejects** requests where the body/query `userId` does not match that subject (`403`). If the client omits `userId`, the API uses the token subject. |
+| **Token map (MVP)** | `MIRACHAT_TENANT_TOKEN_MAP` — JSON object mapping opaque bearer strings to user ids, e.g. `{"dev-ops-token":"demo-user"}`. Suitable for ops console + server-side workers. |
+| **Signed tokens** | `MIRACHAT_TENANT_HMAC_SECRET` — bearer value is `base64url(payload).base64url(hmac_sha256(secret, payload))` with payload `{"sub":"<userId>","exp":<unixOptional>}`. Issue tokens from the `MiraChat` package: `MIRACHAT_TENANT_HMAC_SECRET=… node scripts/mirachat-issue-tenant-token.mjs <userId> [ttlSeconds]`. |
+| **Thread reads** | When `userId` is supplied to thread history assembly, **inbound**, **sent outbound**, and **memory_chunks** are filtered by that `user_id`, closing cross-tenant leakage for shared `thread_id` strings. |
+| **Drafts / pending send** | Under enforcement, draft triage and pending-send lists are scoped to the authenticated user. Draft approve/reject/edit actions verify **draft ownership** before mutating. |
+| **Delegation audit** | Under enforcement, `GET /mirachat/delegation-events` returns only rows whose `user_id` equals the tenant (omits global/system rows with null `user_id`). |
+| **Ops console** | Connection drawer field **Tenant bearer token** persists to local storage and is sent on every API `fetch` as `Authorization`. |
+
+**Platform and subprocessors:** Uploads and analysis may still be sent to **OpenRouter** (or other LLM providers) per product settings; contracts and data-minimization remain **separate compliance** work. **Row-level security** in Postgres is recommended for defense-in-depth but is not required for the bearer-binding MVP.
+
+**Future:** Replace opaque token map with **OIDC / Clerk / Sign in with Vercel** so `sub` comes from a real IdP; keep the same “deny if claimed `userId` ≠ subject” rule.
+
 ---
 
 ## 6. Go-to-market and wedge strategy
@@ -184,7 +209,46 @@ To move from “delegate that drafts” to “delegate that gets work done,” a
 | **2** | **Unified inbox proxy** | Email and Slack (native integrations/adapters): routine approvals, status updates, polite declines—same identity and policy layer. |
 | **3** | **Agent-to-agent protocol** | Proxies negotiate with other Proxies—**async coordination layer**; long-term structural moat. |
 
-**Integration sequencing (risk):** Prefer **standard OAuth** (e.g. Gmail) where possible before the most **fragmented or unofficial channel plugins** (WhatsApp/WeChat); keep plugins isolated so compliant and unofficial paths can coexist behind the same core contracts.
+### 6.1 Embedded product marketing (in-flow narrative)
+
+**Problem:** A separate marketing site cannot carry the **trust and category** story at the moment of use. Users form their mental model from the **first inbox screen**, draft review, and settings — not from a landing page they may never see.
+
+**Objective:** Embed a **concise, repeatable narrative** in the primary product surfaces (MiraChat ops console, web / Mini Program–style clients, and secondary dashboards) so every session reinforces the PRD mission:
+
+- **Category:** *Proxy Self* = **bounded delegate** (acts on your behalf **inside guardrails**), **not** “faster autocomplete” or generic AI writing.
+- **Core principle:** *Protect user intent; delegate the execution* — echoed in empty states and help copy where it fits without noise.
+- **Trust loop (G1):** **Approve before send** and **private until you act** are both **product claims** and **UX requirements** (see trust notes alongside queues and draft panels).
+- **Wedge:** **Relationship-aware** tone and prioritization vs tools that only optimize calendar whitespace or raw speed.
+
+**Strategic pillars (copy architecture)**
+
+| Pillar | User-facing job | PRD anchor |
+| --- | --- | --- |
+| **Reframe the category** | “Delegate,” not “generate text” | §1 vision, §11 differentiation |
+| **Make trust visible** | Private to you, nothing sent until approval | §5.D delegation layer, GQM G1 |
+| **State the wedge** | Tone and relationship context, not generic speed | §6 phase 1 wedge, §5.A identity |
+| **Repeat the principle** | One-line mission in onboarding-style empty states | *Protect intent; delegate execution* |
+
+**Touchpoints (minimum lovable set)**
+
+| Moment in flow | Surface | Message job |
+| --- | --- | --- |
+| **App entry / inbox** | Sidebar **mission strip** (persistent) | Brand line + three scannable beats: bounded delegate, protect intent / approve before send, relationship-aware tone |
+| **No thread selected** | Empty state body + italic **mission line** | Emotional benefit + verbatim principle |
+| **Draft review** | “Pick a reply” + trust footnote | Reinforce control before delivery |
+| **Identity / relationship / import** | Drawer sections | Moat (voice, boundaries) + confidentiality vs contact |
+| **Audit / metrics** | Operator dashboards | “Your team / your account” framing — not shown to message contacts |
+
+**Implementation rules**
+
+- **Brevity:** One short strip + one optional principle line; avoid paragraph marketing on every screen.
+- **Honesty:** Do not imply full **Auto** autonomy in v1; marketing copy must match **§4** scope (draft → approve → send default).
+- **Consistency:** Same mission strip lexicon across **ops-console** and **web-client** (and future Mini Program) so multi-surface users get one story.
+- **Test contract:** The primary mission strip carries `data-testid="prd-mission-strip"`; the **real-stack Playwright** suite ([`prd-gqm-e2e-test-suite.md`](prd-gqm-e2e-test-suite.md)) asserts it is visible and contains **Proxy Self**, **bounded delegate**, and **Protect intent** so positioning cannot regress silently.
+
+**Future (optional):** Instrument strip impressions or time-in-view in product analytics; correlate with approval-without-edit rate (GQM) — not required for MVP.
+
+**Integration sequencing (risk)** (unchanged product strategy): Prefer **standard OAuth** (e.g. Gmail) where possible before the most **fragmented or unofficial channel plugins** (WhatsApp/WeChat); keep plugins isolated so compliant and unofficial paths can coexist behind the same core contracts.
 
 ---
 
@@ -264,7 +328,7 @@ The product is the **control layer**: identity, policy, delegation logic, and me
 ## 14. Next steps (pick one)
 
 1. **Data:** `UserModel` + relationship graph **schema** and **pipeline** for historical context ingestion (OAuth, embedding jobs, PII boundaries).
-2. **Narrative:** **GTM and fundraising** storyboard (wedge slides, moat, cold-start demo path).
+2. **Narrative:** **GTM and fundraising** storyboard (wedge slides, moat, cold-start demo path) — keep **in-product copy** ([§6.1](#61-embedded-product-marketing-in-flow-narrative)) aligned when the mission or wedge wording changes; update Playwright expectations if the `prd-mission-strip` lexicon changes.
 3. **Build:** Runnable **Node + TypeScript** reference: multi-user, dispatcher, policy stubs, one OAuth source + one **channel plugin** + one **doer plugin** (OpenClaw reference) behind thin registry APIs.
 
 ---
@@ -280,3 +344,4 @@ The product is the **control layer**: identity, policy, delegation logic, and me
 | 0.5 | 2026-04-02 | Aligned §1 architecture table and §E–F with **pluggable channel plugins** + **pluggable doer plugins**; cross-link [system-design-proxy-self.md](system-design-proxy-self.md) |
 | 0.6 | 2026-04-02 | §5 **G**: **Desktop computer use** capability—**nut.js** + browser tiers (Playwright/Puppeteer), MVP vs production stack, doer boundary; §9 risk row for desktop RPA |
 | 0.7 | 2026-04-02 | §5 **G** table: npm **`@nut-tree-fork/nut-js`**, arm64 **libnut** postinstall note |
+| 0.8 | 2026-04-03 | §6.1 **Embedded product marketing**: in-flow narrative strategy, touchpoint map, `data-testid` / e2e contract; mission strip + principle line in MiraChat UIs |

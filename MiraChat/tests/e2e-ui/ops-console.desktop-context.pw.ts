@@ -46,6 +46,10 @@ test.describe('Ops console — desktop context ingest', () => {
     await expect(page.locator('#desktopIngestResult')).toContainText('"openRouterAnalysis": null')
     await expect(page.locator('#desktopIngestResult')).toContainText('"openRouterAnalysisSkippedReason": "disabled"')
 
+    await expect(page.locator('#desktopOpenRouterPanel')).toHaveClass(/show/)
+    await expect(page.locator('#desktopOpenRouterStatusWrap')).toBeVisible()
+    await expect(page.locator('#desktopOpenRouterStatus')).toContainText(/OpenRouter was off/i)
+
     const raw = await page.locator('#desktopIngestResult').textContent()
     const parsed = JSON.parse(raw || '{}') as {
       ok?: boolean
@@ -55,6 +59,13 @@ test.describe('Ops console — desktop context ingest', () => {
     expect(parsed.ok).toBe(true)
     expect(parsed.userId).toBe(session.userId)
     expect(parsed.memoryChunkCount).toBe(1)
+
+    await expect(page.locator('#ingestFlowModal')).toBeHidden()
+    await expect(page.locator('#ingestFlowInline')).toBeVisible()
+    await page.locator('#ingestFlowExpand').click()
+    await expect(page.locator('#ingestFlowModal')).toBeVisible()
+    await page.locator('#ingestFlowClose').click()
+    await expect(page.locator('#ingestFlowModal')).toBeHidden()
 
     await dismissChromeOverlays(page)
   })
@@ -100,6 +111,9 @@ test.describe('Ops console — desktop context ingest', () => {
     await expect(page.locator('#desktopIngestResult')).toContainText('"ok": true', { timeout: 30_000 })
     await expect(page.locator('#desktopIngestResult')).toContainText('"memoryChunkCount": 2')
 
+    await expect(page.locator('#ingestFlowModal')).toBeHidden()
+    await expect(page.locator('#ingestFlowInline')).toBeVisible()
+
     await dismissChromeOverlays(page)
   })
 
@@ -132,11 +146,27 @@ test.describe('Ops console — desktop context ingest', () => {
       ok?: boolean
       memoryChunkCount?: number
       openRouterAnalysis?: string | null
+      openRouterSuggestedReply?: string | null
       openRouterAnalysisSkippedReason?: string | null
+      openRouterPromptOsVersion?: string | null
+      openRouterWhatISee?: string | null
     }
     expect(parsed.ok).toBe(true)
     expect(parsed.memoryChunkCount).toBe(2)
     expect(parsed.openRouterAnalysisSkippedReason).toBeNull()
     expect(parsed.openRouterAnalysis && parsed.openRouterAnalysis.length > 20).toBe(true)
+    expect(
+      parsed.openRouterSuggestedReply && parsed.openRouterSuggestedReply.length > 3,
+    ).toBe(true)
+    expect(parsed.openRouterPromptOsVersion).toMatch(/^\d{4}\.\d+\.\d+\.\d+$/)
+    if (parsed.openRouterWhatISee) {
+      expect(parsed.openRouterAnalysis?.toLowerCase()).toContain('what i see:')
+      expect(parsed.openRouterWhatISee.length).toBeGreaterThan(5)
+    }
+
+    await expect(page.locator('#desktopOpenRouterPanel')).toHaveClass(/show/)
+    await expect(page.locator('#desktopOpenRouterStatus')).toContainText(/OpenRouter completed/i)
+    await expect(page.locator('#desktopOpenRouterPasteWrap')).toBeVisible()
+    await expect(page.locator('#desktopOpenRouterReply')).not.toBeEmpty()
   })
 })

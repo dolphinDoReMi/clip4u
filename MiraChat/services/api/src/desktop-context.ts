@@ -1,4 +1,5 @@
 import type { Channel } from '@delegate-ai/adapter-types'
+import { inferImageMimeFromBase64, isOpenRouterVisionImageMime, validateOpenRouterImageUrl } from '@delegate-ai/agent-core'
 
 const trimString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') {
@@ -51,14 +52,14 @@ export interface DesktopContextIngestInput {
    * Raw base64 (no `data:` prefix). Sent to OpenRouter vision when `openRouterAnalysis` is true; not persisted in DB.
    */
   screenshotImageBase64?: string
+  /** Public HTTPS URL passed to OpenRouter as `image_url.url` (preferred over base64 when both are sent). */
+  screenshotImageUrl?: string
   window?: DesktopWindowMetadata
   identityHints: string[]
   relationshipNotes: string[]
-  /** When true, API calls OpenRouter (requires OPENROUTER_API_KEY) and stores analysis as an extra memory chunk. */
+  /** When true, API calls OpenRouter (requires OPENROUTER_API_KEY) and stores analysis + optional paste-ready suggested reply as memory chunks (reply is used when drafting later in the thread). */
   openRouterAnalysis: boolean
 }
-
-const allowedImageMime = (mime: string): boolean => /^image\/(png|jpeg|jpg|webp|gif)$/i.test(mime.trim())
 
 /**
  * Parse optional screenshot bytes for OpenRouter vision. Accepts raw base64 or a full `data:<mime>;base64,...` URL.
@@ -101,11 +102,17 @@ export const parseScreenshotImageBase64Field = (
   if (!/^[A-Za-z0-9+/]+=*$/.test(payload)) {
     return { ok: false, error: 'screenshotImageBase64 is not valid base64' }
   }
-  if (!mime || !allowedImageMime(mime)) {
+  if (!mime || !isOpenRouterVisionImageMime(mime)) {
+    const inferred = inferImageMimeFromBase64(payload)
+    if (inferred) {
+      mime = inferred
+    }
+  }
+  if (!mime || !isOpenRouterVisionImageMime(mime)) {
     return {
       ok: false,
       error:
-        'screenshotImageBase64 requires an image MIME type (screenshotMimeType or data: URL): image/png, image/jpeg, image/webp, or image/gif',
+        'screenshotImageBase64 needs a known image type (screenshotMimeType, data: URL, or recognizable PNG/JPEG/GIF/WEBP bytes).',
     }
   }
   return { ok: true, base64: payload, mime: mime.toLowerCase() }
@@ -171,12 +178,6 @@ export const parseDesktopContextIngestRequest = (
   if (!userId || !channel || !threadId) {
     return { ok: false, error: 'userId, channel, and threadId are required' }
   }
-  if (!summary && !extractedText && identityHints.length === 0 && relationshipNotes.length === 0) {
-    return {
-      ok: false,
-      error: 'Provide at least one of summary, extractedText, identityHints, or relationshipNotes',
-    }
-  }
 
   const openRouterAnalysis = body.openRouterAnalysis === true
 
@@ -186,6 +187,25 @@ export const parseDesktopContextIngestRequest = (
   }
   const screenshotImageBase64 = imgParsed.base64
   const screenshotMimeResolved = imgParsed.mime ?? screenshotMimeType
+
+  let screenshotImageUrl: string | undefined
+  const rawImageUrl = trimString(body.screenshotImageUrl)
+  if (rawImageUrl) {
+    const v = validateOpenRouterImageUrl(rawImageUrl)
+    if (!v.ok) {
+      return { ok: false, error: v.error }
+    }
+    screenshotImageUrl = v.url
+  }
+
+  const hasRenderableImage = Boolean(screenshotImageUrl) || Boolean(screenshotImageBase64)
+  if (!summary && !extractedText && identityHints.length === 0 && relationshipNotes.length === 0 && !hasRenderableImage) {
+    return {
+      ok: false,
+      error:
+        'Provide at least one of summary, extractedText, identityHints, relationshipNotes, screenshotImageUrl, or screenshotImageBase64',
+    }
+  }
 
   return {
     ok: true,
@@ -201,6 +221,7 @@ export const parseDesktopContextIngestRequest = (
       screenshotMimeType: screenshotMimeResolved,
       captureTool,
       screenshotImageBase64,
+      screenshotImageUrl,
       window: {
         id: trimString(windowObj.id),
         wmClass: wmClass ?? [],
@@ -223,6 +244,7 @@ export const buildDesktopContextMemoryChunks = (input: DesktopContextIngestInput
     `Desktop chat context from ${input.channel}`,
     input.contactId ? `contact=${input.contactId}` : '',
     `thread=${input.threadId}`,
+    input.screenshotImageUrl ? `screenshot_url=${compactLine(input.screenshotImageUrl, 500)}` : '',
     input.screenshotPath ? `screenshot=${input.screenshotPath}` : '',
     input.screenshotMimeType ? `attachment_mime=${input.screenshotMimeType}` : '',
     input.captureTool ? `capture_tool=${input.captureTool}` : '',

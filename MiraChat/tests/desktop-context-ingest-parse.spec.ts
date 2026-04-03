@@ -35,4 +35,45 @@ describe('parseDesktopContextIngestRequest (screenshotImageBase64 for OpenRouter
       expect(r.value.screenshotMimeType).toBe('image/png')
     }
   })
+
+  it('accepts raw PNG base64 without screenshotMimeType (magic-byte infer)', () => {
+    const r = parseDesktopContextIngestRequest({
+      userId: 'u',
+      channel: 'whatsapp',
+      threadId: 't',
+      summary: 'screenshot',
+      screenshotImageBase64: tinyPngBase64,
+    })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.screenshotMimeType).toBe('image/png')
+    }
+  })
+
+  it('accepts screenshotImageUrl without summary when https', () => {
+    const r = parseDesktopContextIngestRequest({
+      userId: 'u',
+      channel: 'whatsapp',
+      threadId: 't',
+      screenshotImageUrl: 'https://example.com/chart.png',
+    })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.value.screenshotImageUrl).toBe('https://example.com/chart.png')
+    }
+  })
+
+  it('rejects non-https screenshotImageUrl', () => {
+    const r = parseDesktopContextIngestRequest({
+      userId: 'u',
+      channel: 'whatsapp',
+      threadId: 't',
+      summary: 'x',
+      screenshotImageUrl: 'http://example.com/x.png',
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error).toMatch(/https/i)
+    }
+  })
 })

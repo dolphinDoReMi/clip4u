@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>MiraChat — Proxy Self</title>
+    <title>MiraChat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -37,6 +37,17 @@
       }
       * {
         box-sizing: border-box;
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
       html,
       body {
@@ -77,6 +88,7 @@
         width: 100%;
         max-width: 390px;
         min-width: 280px;
+        min-height: 0;
         border-right: 1px solid var(--ig-border);
         display: flex;
         flex-direction: column;
@@ -129,9 +141,28 @@
         color: var(--ig-text);
         transform: translateY(-1px);
       }
+      .icon-btn-plus {
+        font-size: 1.45rem;
+        font-weight: 300;
+        line-height: 1;
+      }
       .search-wrap {
         padding: 0.8rem 0.85rem 0.7rem;
         border-bottom: 1px solid var(--ig-border);
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        position: relative;
+        z-index: 2;
+      }
+      .search-field-label {
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ig-soft);
+        margin: 0 0 0.42rem 0.2rem;
       }
       .search-wrap input {
         width: 100%;
@@ -152,10 +183,157 @@
         border-color: rgba(255, 79, 216, 0.45);
         box-shadow: 0 0 0 4px rgba(255, 79, 216, 0.12);
       }
+      /* Grid avoids flex “anonymous text” shrinking to a hairline column beside the checkbox. */
+      .search-scope {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: start;
+        column-gap: 0.5rem;
+        row-gap: 0.15rem;
+        margin-top: 0.55rem;
+        font-size: 0.72rem;
+        color: var(--ig-muted);
+        user-select: none;
+        width: 100%;
+        min-width: 0;
+      }
+      .search-scope input[type='checkbox'] {
+        accent-color: #ff4fd8;
+        width: 1rem;
+        height: 1rem;
+        margin: 0.15rem 0 0 0;
+        flex-shrink: 0;
+        cursor: pointer;
+      }
+      .search-scope-text {
+        min-width: 0;
+        line-height: 1.35;
+        padding-top: 0.06rem;
+      }
+      .message-search-hits {
+        max-height: 10.5rem;
+        overflow-y: auto;
+        border-bottom: 1px solid var(--ig-border);
+        background: rgba(0, 0, 0, 0.12);
+      }
+      .message-search-hits.hidden {
+        display: none;
+      }
+      .message-search-hits .msh-head {
+        padding: 0.45rem 0.85rem 0.25rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ig-soft);
+      }
+      .message-search-hits .msh-row {
+        padding: 0.55rem 0.85rem 0.65rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .message-search-hits .msh-row:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .message-search-hits .msh-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.25rem;
+        font-size: 0.68rem;
+        color: var(--ig-muted);
+      }
+      .message-search-hits .msh-badge {
+        font-size: 0.6rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 0.12rem 0.38rem;
+        border-radius: 999px;
+        background: rgba(255, 79, 216, 0.18);
+        color: #ffb8ec;
+      }
+      .message-search-hits .msh-snippet {
+        font-size: 0.78rem;
+        line-height: 1.35;
+        color: var(--ig-text);
+        opacity: 0.92;
+      }
+      .message-search-hits .msh-empty,
+      .message-search-hits .msh-error {
+        padding: 0.65rem 0.85rem;
+        font-size: 0.75rem;
+        color: var(--ig-muted);
+      }
+      .message-search-hits .msh-error {
+        color: #ffd4db;
+      }
       .thread-list {
         flex: 1;
         overflow-y: auto;
         padding: 0.4rem 0;
+        min-height: 0;
+      }
+      .sidebar-contact-footer {
+        flex-shrink: 0;
+        padding: 0.55rem 0.85rem calc(0.65rem + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--ig-border);
+        background: linear-gradient(0deg, rgba(15, 16, 20, 0.98) 0%, rgba(17, 18, 24, 0.92) 100%);
+      }
+      .sidebar-footer-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--ig-border);
+        background: rgba(255, 255, 255, 0.035);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      }
+      .sidebar-quick-tile {
+        display: flex;
+        gap: 0.8rem;
+        width: 100%;
+        padding: 0.78rem 0.9rem;
+        align-items: center;
+        text-align: left;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        cursor: pointer;
+        font: inherit;
+        color: inherit;
+        transition: background 0.18s ease, transform 0.18s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .sidebar-quick-tile:last-child {
+        border-bottom: none;
+      }
+      .sidebar-quick-tile:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .sidebar-quick-tile:active {
+        transform: scale(0.992);
+      }
+      .sidebar-quick-tile:focus-visible {
+        outline: 2px solid rgba(255, 79, 216, 0.55);
+        outline-offset: -2px;
+        position: relative;
+        z-index: 1;
+      }
+      .avatar.sidebar-quick-avatar {
+        width: 48px;
+        height: 48px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+      }
+      .avatar.sidebar-quick-avatar svg {
+        width: 22px;
+        height: 22px;
+        color: var(--ig-text);
+        opacity: 0.92;
       }
       .thread-item {
         display: flex;
@@ -190,6 +368,17 @@
         font-size: 0.95rem;
         color: var(--ig-text);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+      .avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .avatar.has-photo {
+        font-size: 0;
+        line-height: 0;
       }
       .thread-body {
         flex: 1;
@@ -241,6 +430,7 @@
         display: flex;
         flex-direction: column;
         min-width: 0;
+        min-height: 0;
         background:
           radial-gradient(circle at top center, rgba(131, 58, 180, 0.14), transparent 30%),
           radial-gradient(circle at bottom right, rgba(252, 175, 69, 0.12), transparent 26%),
@@ -271,6 +461,17 @@
         font-weight: 700;
         font-size: 0.98rem;
       }
+      .head-thread-ref {
+        font-size: 0.72rem;
+        color: var(--ig-soft);
+        margin-top: 0.12rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .head-thread-ref.hidden {
+        display: none;
+      }
       .head-sub {
         font-size: 0.72rem;
         color: var(--ig-muted);
@@ -300,13 +501,23 @@
         border-color: rgba(124, 77, 255, 0.38);
         color: #c7b2ff;
       }
-      .messages {
+      .chat-thread {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
-        padding: 1rem 1.15rem 0.8rem;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        display: flex;
+        flex-direction: column;
+        padding: 0.85rem 1.15rem 0.5rem;
+        gap: 0.35rem;
+      }
+      .messages {
         display: flex;
         flex-direction: column;
         gap: 0.55rem;
+        flex-shrink: 0;
+        min-height: min-content;
       }
       .day-label {
         align-self: center;
@@ -325,6 +536,25 @@
       }
       .bubble-row.in {
         justify-content: flex-start;
+        align-items: flex-end;
+        gap: 0.45rem;
+      }
+      .bubble-peer-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 2px solid transparent;
+        background:
+          linear-gradient(var(--ig-bg-elevated), var(--ig-bg-elevated)) padding-box,
+          var(--ig-story) border-box;
+      }
+      .bubble-peer-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
       }
       .bubble-row.out {
         justify-content: flex-end;
@@ -368,24 +598,56 @@
         border-left: 3px solid rgba(125, 211, 252, 0.5);
       }
       .approval-panel {
-        border-top: 1px solid var(--ig-border);
-        background: rgba(19, 20, 26, 0.86);
-        padding: 0.9rem 1rem;
-        max-height: 42vh;
-        overflow-y: auto;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        max-height: min(78vh, 720px);
+        border-radius: 14px;
+        background: rgba(22, 23, 30, 0.96);
+        padding: 0.5rem 0.6rem;
+        border: 1px solid rgba(255, 79, 216, 0.22);
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
         backdrop-filter: blur(16px);
       }
+      .approval-panel-head {
+        flex-shrink: 0;
+      }
+      .approval-panel-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding-right: 0.2rem;
+        margin-right: -0.1rem;
+      }
+      .approval-panel-actions {
+        flex-shrink: 0;
+        margin-top: 0.4rem;
+        padding-top: 0.45rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .approval-panel-actions .actions-row {
+        margin-top: 0;
+      }
       .approval-panel h3 {
-        margin: 0 0 0.45rem;
-        font-size: 0.78rem;
+        margin: 0 0 0.25rem;
+        font-size: 0.72rem;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: #ff7be3;
       }
+      .approval-panel .trust-note {
+        font-size: 0.68rem !important;
+        line-height: 1.35 !important;
+        margin: 0 0 0.35rem !important;
+      }
       .policy-bar {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: var(--ig-muted);
-        margin-bottom: 0.7rem;
+        margin-bottom: 0.4rem;
+        line-height: 1.35;
       }
       .summary-box {
         font-size: 0.82rem;
@@ -397,23 +659,109 @@
         border: 1px solid rgba(255, 255, 255, 0.06);
         border-left: 3px solid #ff4fd8;
       }
-      .opt-block {
-        margin-bottom: 0.65rem;
-        padding: 0.75rem;
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 18px;
+      .snapshot-details {
+        margin-bottom: 0.4rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
         border: 1px solid rgba(255, 255, 255, 0.06);
+        border-left: 3px solid #ff4fd8;
+        overflow: hidden;
       }
-      .opt-label {
+      .snapshot-details > summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 0.45rem 0.55rem;
         font-size: 0.72rem;
+        color: var(--ig-text);
+        user-select: none;
+      }
+      .snapshot-details > summary::-webkit-details-marker {
+        display: none;
+      }
+      .snapshot-details > summary::after {
+        content: ' ▾';
+        font-size: 0.65rem;
+        color: var(--ig-soft);
+      }
+      .snapshot-details[open] > summary::after {
+        content: ' ▴';
+      }
+      .snapshot-details .snapshot-body {
+        font-size: 0.76rem;
         color: var(--ig-muted);
-        margin-bottom: 0.3rem;
+        line-height: 1.4;
+        padding: 0 0.55rem 0.5rem;
+        max-height: 5.5rem;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .appr-suggest-card {
+        margin-bottom: 0.5rem;
+        padding: 0.5rem 0.55rem;
+        background: rgba(124, 77, 255, 0.1);
+        border: 1px dashed rgba(255, 79, 216, 0.38);
+        border-radius: 12px;
+      }
+      .appr-suggest-card--primary {
+        border-color: rgba(255, 79, 216, 0.55);
+        background: rgba(124, 77, 255, 0.14);
+      }
+      .appr-suggest-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.35rem;
+      }
+      .appr-suggest-tone {
+        font-size: 0.65rem;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.07em;
+        color: var(--ig-muted);
+        flex: 1;
+        min-width: 0;
+      }
+      .appr-suggest-text {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: inherit;
+        font-size: 0.84rem;
+        line-height: 1.42;
+        color: var(--ig-text);
+        max-height: 9rem;
+        overflow-y: auto;
+        padding: 0.35rem 0.4rem;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.2);
+      }
+      .approval-panel .btn.btn-compact {
+        padding: 0.38rem 0.62rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+      }
+      .desktop-or-status {
+        font-size: 0.75rem;
+        line-height: 1.4;
+        color: var(--ig-muted);
+        padding: 0.45rem 0.55rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--ig-border);
+      }
+      .desktop-or-status.ok {
+        color: #b8f5cb;
+        border-color: rgba(74, 222, 128, 0.25);
+      }
+      .desktop-or-status.warn {
+        color: #ffd277;
+        border-color: rgba(255, 178, 36, 0.28);
       }
       .composer-wrap {
         display: flex;
         flex-direction: column;
+        flex-shrink: 0;
         gap: 0.55rem;
         padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom));
         background: rgba(17, 18, 24, 0.78);
@@ -452,6 +800,52 @@
         background: rgba(255, 255, 255, 0.08);
         border-color: rgba(255, 79, 216, 0.4);
         box-shadow: 0 0 0 4px rgba(255, 79, 216, 0.12);
+      }
+      .composer-actions {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-end;
+        gap: 0.45rem;
+        flex-shrink: 0;
+      }
+      .composer-more-wrap {
+        position: relative;
+      }
+      .composer-more-btn {
+        min-width: 46px;
+        min-height: 46px;
+        padding: 0 0.65rem;
+        font-size: 1.2rem;
+        font-weight: 800;
+        line-height: 1;
+      }
+      .composer-more-menu {
+        position: absolute;
+        bottom: calc(100% + 6px);
+        right: 0;
+        min-width: 12.5rem;
+        padding: 0.35rem;
+        flex-direction: column;
+        gap: 0.35rem;
+        background: var(--ig-panel-2);
+        border: 1px solid var(--ig-border);
+        border-radius: 14px;
+        box-shadow: var(--ig-shadow);
+        z-index: 25;
+      }
+      .composer-more-menu:not(.composer-more-menu--collapsed) {
+        display: flex;
+      }
+      .composer-more-menu--collapsed {
+        display: none !important;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .composer-more-item {
+        width: 100%;
+        justify-content: flex-start;
+        text-align: left;
+        border-radius: 10px;
       }
       .btn {
         border-radius: 999px;
@@ -767,6 +1161,9 @@
         padding: 1rem;
         background: rgba(0, 0, 0, 0.6);
       }
+      .modal[hidden] {
+        display: none !important;
+      }
       .modal.show {
         display: grid;
       }
@@ -792,36 +1189,511 @@
         overflow-y: auto;
         font-size: 0.88rem;
       }
+      .memory-chunk-card {
+        border: 1px solid var(--ig-border);
+        border-radius: 14px;
+        padding: 0.65rem 0.78rem;
+        margin-bottom: 0.5rem;
+        background: rgba(255, 255, 255, 0.035);
+        text-align: left;
+      }
+      .memory-chunk-card:last-child {
+        margin-bottom: 0;
+      }
+      .memory-chunk-meta {
+        font-size: 0.65rem;
+        color: var(--ig-soft);
+        margin-bottom: 0.38rem;
+        font-family: var(--mono);
+        letter-spacing: -0.02em;
+      }
+      .memory-chunk-body {
+        font-size: 0.82rem;
+        line-height: 1.42;
+        color: var(--ig-muted);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .memory-modal-empty {
+        font-size: 0.84rem;
+        color: var(--ig-muted);
+        margin: 0;
+        line-height: 1.45;
+      }
+      .ingest-flow-modal[hidden] {
+        display: none !important;
+      }
+      .ingest-flow-modal {
+        z-index: 65;
+      }
+      .ingest-flow-card {
+        max-width: 480px;
+      }
+      .ingest-flow-body {
+        max-height: min(70vh, 520px);
+      }
+      .ingest-flow-track {
+        margin-bottom: 0.5rem;
+      }
+      .ingest-flow-bar-wrap {
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        margin-bottom: 0.85rem;
+      }
+      .ingest-flow-bar {
+        height: 100%;
+        width: 0;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #7c4dff, #ff4fd8 45%, #fcaf45);
+        transition: width 0.35s ease;
+      }
+      .ingest-flow-bar.indeterminate {
+        width: 38%;
+        animation: ingest-bar-sweep 1.1s ease-in-out infinite alternate;
+      }
+      .ingest-flow-bar.done {
+        width: 100%;
+        animation: none;
+      }
+      @keyframes ingest-bar-sweep {
+        from {
+          transform: translateX(0);
+          opacity: 0.65;
+        }
+        to {
+          transform: translateX(155%);
+          opacity: 1;
+        }
+      }
+      .ingest-steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .ingest-step {
+        display: flex;
+        gap: 0.55rem;
+        padding: 0.55rem 0.65rem;
+        border-radius: 14px;
+        border: 1px solid var(--ig-border);
+        background: rgba(255, 255, 255, 0.03);
+        opacity: 0.42;
+        transition: opacity 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .ingest-step.active {
+        opacity: 1;
+        border-color: rgba(255, 79, 216, 0.38);
+        box-shadow: 0 0 0 1px rgba(255, 79, 216, 0.1);
+      }
+      .ingest-step.done {
+        opacity: 1;
+      }
+      .ingest-step.err {
+        opacity: 1;
+        border-color: rgba(255, 93, 115, 0.4);
+        background: rgba(255, 93, 115, 0.06);
+      }
+      .ingest-step-icon {
+        flex-shrink: 0;
+        width: 1.35rem;
+        text-align: center;
+        font-size: 0.95rem;
+        line-height: 1.35;
+      }
+      .ingest-step-label {
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: -0.02em;
+      }
+      .ingest-step-detail {
+        font-size: 0.74rem;
+        color: var(--ig-muted);
+        margin-top: 0.25rem;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 7.5rem;
+        overflow: auto;
+      }
+      .ingest-flow-conclusion {
+        margin-top: 0.85rem;
+        padding: 0.65rem 0.7rem;
+        border-radius: 12px;
+        border: 1px solid rgba(124, 77, 255, 0.28);
+        background: rgba(124, 77, 255, 0.06);
+      }
+      .ingest-flow-conclusion.hidden {
+        display: none;
+      }
+      .ingest-conclusion-lead {
+        margin: 0 0 0.45rem;
+        font-size: 0.82rem;
+        line-height: 1.45;
+        color: var(--ig-text);
+      }
+      .ingest-conclusion-details {
+        margin-top: 0.4rem;
+        font-size: 0.76rem;
+        color: var(--ig-muted);
+      }
+      .ingest-conclusion-details summary {
+        cursor: pointer;
+        color: #ff7be3;
+        font-weight: 600;
+      }
+      .ingest-conclusion-pre {
+        margin: 0.35rem 0 0;
+        padding: 0.45rem 0.5rem;
+        font-size: 0.72rem;
+        line-height: 1.4;
+        font-family: var(--mono);
+        background: rgba(0, 0, 0, 0.28);
+        border-radius: 8px;
+        max-height: 9rem;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .thread-import-shell {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 0.5rem 0.75rem;
+        padding: 0 1rem 0.35rem;
+      }
+      .thread-import-shell .thread-import-row {
+        padding: 0;
+        flex: 0 1 auto;
+      }
+      .ingest-flow-inline {
+        flex: 1 1 180px;
+        min-width: min(100%, 180px);
+        max-width: 100%;
+        border-radius: 22px;
+        border: 1px solid var(--ig-border);
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: none;
+      }
+      .ingest-flow-inline.hidden {
+        display: none !important;
+      }
+      .ingest-flow-inline-inner {
+        padding: 0.4rem 0.65rem 0.45rem;
+        cursor: zoom-in;
+      }
+      .ingest-flow-inline-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.3rem;
+      }
+      .ingest-flow-inline-status {
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--ig-text);
+      }
+      .ingest-flow-inline-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.2rem;
+        flex-shrink: 0;
+      }
+      .btn-ingest-detail {
+        font-family: inherit;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--ig-accent);
+        cursor: pointer;
+      }
+      .btn-ingest-detail:hover {
+        background: rgba(255, 79, 216, 0.1);
+      }
+      .ingest-flow-inline-dismiss {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        border: none;
+        background: transparent;
+        color: var(--ig-soft);
+        font-size: 1.05rem;
+        line-height: 1;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+      }
+      .ingest-flow-inline-dismiss:hover {
+        color: var(--ig-text);
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .ingest-flow-bar-wrap--inline {
+        margin-bottom: 0.28rem;
+        height: 2px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .ingest-flow-bar-wrap--inline .ingest-flow-bar {
+        border-radius: 999px;
+      }
+      .ingest-flow-inline-discovery {
+        margin: 0;
+        font-size: 0.72rem;
+        line-height: 1.3;
+        color: var(--ig-muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ingest-flow-inline-discovery.ingest-flow-inline-discovery--empty {
+        display: none;
+      }
+      .ingest-flow-modal .modal-card {
+        cursor: default;
+      }
+      .trust-note {
+        font-size: 0.68rem;
+        line-height: 1.45;
+        color: var(--ig-soft);
+        letter-spacing: 0.02em;
+        margin: 0;
+      }
+      .trust-note strong {
+        color: var(--ig-muted);
+        font-weight: 600;
+      }
+      .mission-strip {
+        margin: 0;
+        padding: 0.55rem 0.85rem 0.6rem;
+        border-bottom: 1px solid var(--ig-border);
+        background: linear-gradient(105deg, rgba(255, 79, 216, 0.1), rgba(124, 77, 255, 0.06), transparent 55%);
+        font-size: 0.7rem;
+        line-height: 1.45;
+        color: var(--ig-soft);
+        letter-spacing: 0.02em;
+      }
+      .mission-strip-kicker {
+        display: block;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #ff8eea;
+        margin-bottom: 0.2rem;
+      }
+      .mission-strip-line {
+        color: var(--ig-muted);
+      }
     </style>
   </head>
   <body>
     <div class="banner-err" id="banner"></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div
+      class="modal ingest-flow-modal"
+      id="ingestFlowModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ingestFlowTitle"
+      aria-hidden="true"
+      hidden
+    >
+      <div class="modal-card ingest-flow-card">
+        <div class="mh" id="ingestFlowTitle">Import — full detail</div>
+        <div class="mb ingest-flow-body">
+          <div class="ingest-flow-track">
+            <div class="ingest-flow-bar-wrap" aria-hidden="true">
+              <div class="ingest-flow-bar" id="ingestFlowBar"></div>
+            </div>
+            <ol class="ingest-steps" id="ingestFlowSteps">
+              <li class="ingest-step" data-ingest-step="prepare">
+                <span class="ingest-step-icon">○</span>
+                <div>
+                  <div class="ingest-step-label">Prepare</div>
+                  <div class="ingest-step-detail"></div>
+                </div>
+              </li>
+              <li class="ingest-step" data-ingest-step="transmit">
+                <span class="ingest-step-icon">○</span>
+                <div>
+                  <div class="ingest-step-label">Send &amp; ingest</div>
+                  <div class="ingest-step-detail"></div>
+                </div>
+              </li>
+              <li class="ingest-step" data-ingest-step="openrouter">
+                <span class="ingest-step-icon">○</span>
+                <div>
+                  <div class="ingest-step-label">OpenRouter analysis</div>
+                  <div class="ingest-step-detail"></div>
+                </div>
+              </li>
+              <li class="ingest-step" data-ingest-step="memory">
+                <span class="ingest-step-icon">○</span>
+                <div>
+                  <div class="ingest-step-label">Memory</div>
+                  <div class="ingest-step-detail"></div>
+                </div>
+              </li>
+              <li class="ingest-step" data-ingest-step="conclude">
+                <span class="ingest-step-icon">○</span>
+                <div>
+                  <div class="ingest-step-label">Conclusion</div>
+                  <div class="ingest-step-detail"></div>
+                </div>
+              </li>
+            </ol>
+          </div>
+          <div class="ingest-flow-conclusion hidden" id="ingestFlowConclusion" aria-label="Summary"></div>
+        </div>
+        <div style="padding: 0.65rem 1rem; border-top: 1px solid var(--ig-border)">
+          <button type="button" class="btn btn-secondary" id="ingestFlowClose" style="width: 100%">Close import</button>
+        </div>
+      </div>
+    </div>
     <div class="app">
       <aside class="sidebar" id="sidebar">
         <div class="sb-top">
           <h1>MiraChat</h1>
+          <button
+            type="button"
+            class="icon-btn icon-btn-plus"
+            id="btnNewChatSidebar"
+            data-testid="btn-new-chat-plus"
+            title="New chat or new contact"
+            aria-label="New chat"
+          >
+            +
+          </button>
           <button type="button" class="icon-btn" id="btnMeasurement" title="Measurement dashboard" aria-label="Measurement dashboard">◎</button>
           <button type="button" class="icon-btn" id="btnMenu" title="Settings & tools" aria-label="Menu">☰</button>
         </div>
+        <p class="mission-strip" data-testid="prd-mission-strip">
+          <strong class="mission-strip-kicker">Proxy Self</strong>
+          <span class="mission-strip-line">Bounded delegate for your DMs — not just faster typing. Protect intent · approve before send · relationship-aware tone.</span>
+        </p>
         <div class="search-wrap">
-          <input type="search" id="threadSearch" placeholder="Search DMs" autocomplete="off" />
+          <label for="threadSearch" class="search-field-label" id="dmSearchFieldLabel">Search DM/Contact</label>
+          <input
+            type="search"
+            id="threadSearch"
+            placeholder="Contact name, thread id, or DM keywords…"
+            autocomplete="off"
+            data-testid="dm-search-input"
+            aria-labelledby="dmSearchFieldLabel"
+            aria-describedby="dmSearchHint"
+          />
+          <p id="dmSearchHint" class="sr-only">
+            Filters the sidebar by contact display name, thread id, and last-message preview. Words with two or more characters also search inside DM bodies and imported desktop context below.
+          </p>
+          <label class="search-scope">
+            <input type="checkbox" id="messageSearchThisThread" data-testid="dm-search-this-thread" />
+            <span class="search-scope-text">Search only open chat</span>
+          </label>
         </div>
+        <div class="message-search-hits hidden" id="messageSearchHits" data-testid="dm-message-search-hits" aria-live="polite"></div>
         <div class="inbox-queue-actions" style="padding: 0 0.85rem 0.65rem; border-bottom: 1px solid var(--ig-border)">
-          <button type="button" class="btn btn-primary" id="btnProcessPending" style="width: 100%; font-size: 0.78rem; padding: 0.5rem">
+          <button
+            type="button"
+            class="btn btn-primary"
+            id="btnProcessPending"
+            data-testid="btn-process-queue"
+            aria-label="Generate replies for queue"
+            style="width: 100%; font-size: 0.78rem; padding: 0.5rem"
+          >
             Generate replies for queue
           </button>
           <div id="pendingInboundHint" style="font-size: 0.72rem; color: var(--ig-muted); margin-top: 0.35rem; line-height: 1.35"></div>
+          <p class="trust-note" style="margin-top: 0.45rem">
+            <strong>Private to you on this device.</strong> Nothing is delivered to them until you approve or send.
+          </p>
         </div>
         <div class="thread-list" id="threadList"></div>
+        <div class="sidebar-contact-footer">
+          <div class="sidebar-footer-actions" role="group" aria-label="Inbox shortcuts">
+            <button
+              type="button"
+              class="sidebar-quick-tile"
+              id="btnContactList"
+              data-testid="btn-contact-list"
+              title="Clear search and show every conversation for this account"
+            >
+              <div class="avatar sidebar-quick-avatar has-photo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm3 10v-1a5 5 0 0 0-3.5-4.7"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
+              <div class="thread-body">
+                <div class="thread-row1">
+                  <span class="thread-title">Contact list</span>
+                </div>
+                <div class="thread-preview">Everyone in this inbox — clears search &amp; matches</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              class="sidebar-quick-tile"
+              id="btnSidebarMemory"
+              data-testid="btn-sidebar-memory"
+              title="Open Desktop memory import — what you save stays private until you use it"
+            >
+              <div class="avatar sidebar-quick-avatar has-photo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M8 7h8M8 11h5"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
+              <div class="thread-body">
+                <div class="thread-row1">
+                  <span class="thread-title">Memory</span>
+                </div>
+                <div class="thread-preview">What you remember — imports &amp; context (Desktop)</div>
+              </div>
+            </button>
+          </div>
+          <p class="trust-note" style="margin: 0.45rem 0 0; font-size: 0.68rem; line-height: 1.4">
+            Same look as threads above: story ring + preview. Nothing here is sent to contacts until you approve.
+          </p>
+        </div>
       </aside>
       <section class="chat-pane" id="chatPane">
         <div class="empty-state" id="emptyChat" style="display: none">
           <div>
-            <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Decision-first inbox</p>
+            <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Catch up like a social app — decide with confidence</p>
             <p style="margin: 0; font-size: 0.85rem">
-              Summaries, intent, and three tone options per draft — pick, tweak, send. Use the sidebar button to drain the
-              inbound queue when messages are waiting.
+              See what they want, preview replies in your voice, and send when it feels right. When new messages are waiting,
+              use the sidebar button to turn them into drafts you can review first.
+            </p>
+            <p class="trust-note" style="margin-top: 0.75rem">
+              <strong>Visible only to you here.</strong> Drafts and summaries stay on your side until you explicitly send.
+            </p>
+            <p class="trust-note" style="margin-top: 0.55rem; font-style: italic; color: var(--ig-muted)">
+              Mission: protect your intent; delegate the execution — always inside your guardrails.
             </p>
           </div>
         </div>
@@ -831,21 +1703,42 @@
             <div class="avatar" id="headAvatar">?</div>
             <div class="head-meta">
               <div class="head-title" id="headTitle">—</div>
+              <div class="head-thread-ref hidden" id="headThreadRef"></div>
               <div class="head-sub">
                 <span class="pill" id="healthPill">API …</span>
                 <span class="pill" id="connPill">conn …</span>
-                <span class="pill mode-approve" id="modePill">Approve mode</span>
+                <span class="pill mode-approve" id="modePill">Review before send</span>
               </div>
             </div>
-            <button type="button" class="icon-btn" id="btnModeCycle" title="Cycle delegation: Assist → Approve → Auto">⇄</button>
+            <button
+              type="button"
+              class="icon-btn icon-btn-plus"
+              id="btnNewChatHeader"
+              data-testid="btn-new-chat-plus-header"
+              title="New chat or new contact"
+              aria-label="New chat"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              class="icon-btn"
+              id="btnModeCycle"
+              title="Cycle delegation: Assist → Approve → Auto"
+              aria-label="Cycle delegation mode"
+            >
+              ⇄
+            </button>
           </header>
-          <div class="messages" id="messages"></div>
-          <div class="approval-panel" id="approvalPanel" style="display: none"></div>
+          <div class="chat-thread" id="chatThread" aria-label="Conversation and draft review">
+            <div class="messages" id="messages"></div>
+            <div class="approval-panel" id="approvalPanel" style="display: none"></div>
+          </div>
           <div class="composer-wrap">
             <div class="pending-queue" id="pendingQueue" style="display: none"></div>
             <div class="field" style="padding: 0 1rem 0.5rem; margin: 0">
               <label for="simThreadId" style="font-size: 0.72rem; color: var(--ig-muted)"
-                >Simulate inbound — thread / recipient id (when none selected)</label
+                >Simulate a message from them — thread / recipient id (when none selected)</label
               >
               <input
                 id="simThreadId"
@@ -864,27 +1757,108 @@
                 "
               />
             </div>
-            <div class="thread-import-row" role="group" aria-label="Import context into memory for this thread">
-              <span class="thread-import-label">Import to memory</span>
-              <input
-                type="file"
-                id="threadUploadConversation"
-                class="file-input-screen-reader"
-                tabindex="-1"
-                aria-hidden="true"
-                accept=".txt,.text,.md,.mdown,.markdown,.csv,.json,.log,text/plain,text/markdown,text/csv,application/json"
-              />
-              <input type="file" id="threadUploadScreenshot" class="file-input-screen-reader" tabindex="-1" aria-hidden="true" accept="image/*" />
-              <button type="button" class="btn btn-secondary" id="btnThreadUploadConversation" style="font-size: 0.78rem; padding: 0.5rem 0.85rem">
-                Upload conversation
-              </button>
-              <button type="button" class="btn btn-secondary" id="btnThreadUploadScreenshot" style="font-size: 0.78rem; padding: 0.5rem 0.85rem">
-                Upload screenshot
-              </button>
+            <div class="thread-import-shell">
+              <div
+                class="thread-import-row"
+                role="group"
+                aria-label="Add private context to this chat — stored for your account, not shared until you use it in a reply"
+              >
+                <span class="thread-import-label">Import to memory</span>
+                <input
+                  type="file"
+                  id="threadContextUpload"
+                  class="file-input-screen-reader"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  accept="image/*,.txt,.text,.md,.mdown,.markdown,.csv,.json,.log,text/plain,text/markdown,text/csv,application/json"
+                />
+                <button type="button" class="btn btn-secondary" id="btnThreadContextUpload" style="font-size: 0.78rem; padding: 0.5rem 0.85rem">
+                  Upload
+                </button>
+              </div>
+              <div id="ingestFlowInline" class="ingest-flow-inline hidden" aria-live="polite" title="Tap for full detail">
+                <div class="ingest-flow-inline-inner" id="ingestFlowInlineInner">
+                  <div class="ingest-flow-inline-head">
+                    <span class="ingest-flow-inline-status" id="ingestFlowInlinePhase">Import</span>
+                    <div class="ingest-flow-inline-actions">
+                      <button type="button" class="btn-ingest-detail" id="ingestFlowExpand">Details</button>
+                      <button type="button" class="ingest-flow-inline-dismiss" id="ingestFlowInlineDismiss" aria-label="Hide import status">
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                  <div class="ingest-flow-bar-wrap ingest-flow-bar-wrap--inline" aria-hidden="true">
+                    <div class="ingest-flow-bar" id="ingestFlowBarInline"></div>
+                  </div>
+                  <p class="ingest-flow-inline-discovery ingest-flow-inline-discovery--empty" id="ingestFlowInlineHint"></p>
+                </div>
+              </div>
             </div>
             <div class="composer-row">
-              <textarea id="composer" rows="1" placeholder="Drop in a DM to simulate…"></textarea>
-              <button type="button" class="btn btn-primary" id="btnInbound">Send</button>
+              <textarea
+                id="composer"
+                rows="1"
+                placeholder="Drop in a DM to simulate…"
+                aria-label="Simulated message from contact"
+              ></textarea>
+              <div class="composer-actions">
+                <button type="button" class="btn btn-primary" id="btnInbound" aria-label="Send simulated message">
+                  Send
+                </button>
+                <div class="composer-more-wrap" id="composerMoreWrap">
+                  <button
+                    type="button"
+                    class="btn btn-secondary composer-more-btn"
+                    id="btnComposerMore"
+                    data-testid="btn-composer-more"
+                    aria-expanded="false"
+                    aria-haspopup="true"
+                    aria-controls="composerMoreMenu"
+                    title="More actions"
+                    aria-label="More chat actions — find meeting times, summarize thread, refresh"
+                  >
+                    +
+                  </button>
+                  <div
+                    class="composer-more-menu composer-more-menu--collapsed"
+                    id="composerMoreMenu"
+                    role="menu"
+                    aria-labelledby="btnComposerMore"
+                    aria-hidden="true"
+                  >
+                    <button
+                      type="button"
+                      class="btn btn-secondary composer-more-item"
+                      id="btnNegotiate"
+                      data-testid="btn-negotiate-schedule"
+                      role="menuitem"
+                      aria-label="Find meeting times"
+                    >
+                      Find meeting times
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-secondary composer-more-item"
+                      id="btnSummarize"
+                      data-testid="btn-summarize-thread"
+                      role="menuitem"
+                      aria-label="Summarize thread"
+                    >
+                      Summarize thread
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-secondary composer-more-item"
+                      id="btnRefresh"
+                      data-testid="btn-refresh-inbox"
+                      role="menuitem"
+                      aria-label="Refresh inbox"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
             <p
               style="
@@ -894,25 +1868,46 @@
                 color: var(--ig-muted);
               "
             >
-              Simulated inbound only (not a file upload). <strong>Upload conversation</strong> / <strong>Upload screenshot</strong> ingest into memory for the selected thread (or the simulate recipient id above). OpenRouter and manual edit: menu (☰) →
-              <strong>Desktop</strong>.
+              <strong>Enter</strong> sends; <strong>Shift+Enter</strong> starts a new line. After <strong>Send</strong>, use
+              <strong>Reply in your tone</strong> below the chat — drafts mirror how you write; copy, edit, or approve to send. If nothing
+              appears, wait or open
+              <strong>+</strong> → <strong>Refresh</strong>. <strong>Upload</strong> adds private memory. Advanced import: menu
+              (☰) → <strong>Desktop</strong>.
+              <span class="trust-note" style="display: block; margin-top: 0.35rem"
+                ><strong>Nothing goes to them</strong> from this flow until you approve or send.</span
+              >
             </p>
-            <div class="actions-row">
-              <button type="button" class="btn btn-secondary" id="btnAssist">Assist &amp; options</button>
-              <button type="button" class="btn btn-secondary" id="btnNegotiate">Negotiate schedule</button>
-              <button type="button" class="btn btn-secondary" id="btnSummarize">Summarize thread</button>
-              <button type="button" class="btn btn-secondary" id="btnRefresh">Refresh</button>
-            </div>
           </div>
         </div>
       </section>
     </div>
 
-    <div class="drawer-overlay" id="overlay"></div>
+    <div
+      class="drawer-overlay"
+      id="overlay"
+      role="presentation"
+      aria-hidden="true"
+      data-testid="drawer-overlay-dismiss"
+    ></div>
     <aside class="drawer" id="drawer">
       <div class="drawer-head">
         <span>Settings &amp; roadmap</span>
-        <button type="button" class="icon-btn" id="btnCloseDrawer" aria-label="Close">×</button>
+        <button type="button" class="icon-btn" id="btnCloseDrawer" aria-label="Close settings drawer">×</button>
+      </div>
+      <div class="drawer-quick-actions" style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--ig-border)">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          id="btnNewChat"
+          data-testid="btn-new-chat"
+          style="width: 100%; font-size: 0.82rem"
+          title="Clear the open thread and draft a message to a new recipient"
+        >
+          New chat / new contact
+        </button>
+        <p style="font-size: 0.7rem; color: var(--ig-muted); margin: 0.4rem 0 0; line-height: 1.35">
+          Leaves this menu and returns to “New conversation” so you can set a thread or recipient id.
+        </p>
       </div>
       <div class="drawer-body">
         <div class="tabs" id="drawerTabs">
@@ -949,6 +1944,19 @@
               Twilio channels should use `TWILIO_ACCOUNT_SID`. When this is still `default-account`, the console will try to load the SID from the API.
             </div>
           </div>
+          <div class="field">
+            <label for="mirachatTenantBearer">Tenant bearer token</label>
+            <input
+              id="mirachatTenantBearer"
+              type="password"
+              placeholder="Required when API sets MIRACHAT_TENANT_ENFORCE=1"
+              autocomplete="off"
+            />
+            <div style="font-size: 0.72rem; color: var(--ig-muted); margin-top: 0.35rem">
+              Sent as <span class="mono">Authorization: Bearer …</span>. Server maps tokens via <span class="mono">MIRACHAT_TENANT_TOKEN_MAP</span> or verifies HMAC with
+              <span class="mono">MIRACHAT_TENANT_HMAC_SECRET</span>.
+            </div>
+          </div>
           <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">OpenClaw doer settings (used by “Run with OpenClaw” approval actions)</p>
           <div class="field">
             <label for="openClawAgentId">OpenClaw agent ID</label>
@@ -966,7 +1974,7 @@
             <label for="openClawThinking">OpenClaw thinking</label>
             <input id="openClawThinking" placeholder="optional thinking level" />
           </div>
-          <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">Twilio voice notify (outbound TTS — see docs/FEATURE-phone-calls-openclaw-delegation.md)</p>
+          <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">Twilio voice notify (calls them and reads your message aloud — see docs/FEATURE-phone-calls-openclaw-delegation.md)</p>
           <div class="field">
             <label for="myPhoneE164">My phone — call me now (E.164)</label>
             <input id="myPhoneE164" placeholder="+15551234567" autocomplete="tel" />
@@ -993,20 +2001,29 @@
             <textarea id="phoneNotifyMessage" rows="2" placeholder="Short message read by TTS…"></textarea>
           </div>
           <div class="field">
-            <label for="phoneOutboundSecret">Outbound secret (optional)</label>
+            <label for="phoneOutboundSecret">Phone API secret (optional)</label>
             <input id="phoneOutboundSecret" type="password" placeholder="If API requires X-Mirachat-Phone-Secret" autocomplete="off" />
           </div>
           <button type="button" class="btn btn-secondary" id="btnPhoneNotify" style="width: 100%; margin-bottom: 0.75rem">Place voice call (Twilio)</button>
-          <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">Gateway connection (scan QR when auth required)</p>
+          <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">
+            Link your chat account (scan the QR when asked). <strong style="color: var(--ig-muted)">Shown only on this device</strong> while you are signed in here.
+          </p>
           <div id="qrConn"></div>
           <div class="drawer-footer">
             <button type="button" class="btn btn-primary" id="btnSaveSettings" style="width: 100%">Save &amp; reconnect</button>
-            <div class="drawer-note" id="connSaveHint">Changes are stored locally. Press Enter in a field to reconnect.</div>
+            <div class="drawer-note" id="connSaveHint">
+              <strong style="color: var(--ig-muted)">On this device only.</strong> Connection details stay in your browser until
+              you change them. Press Enter in a field to reconnect.
+            </div>
           </div>
         </div>
         <div id="panel-metrics" style="display: none"></div>
         <div id="panel-audit" style="display: none"></div>
         <div id="panel-identity" style="display: none">
+          <p class="trust-note" style="margin: 0 0 0.85rem">
+            <strong>Used to sound like you — not public.</strong> Identity hints shape drafts; they are tied to your account on
+            the server, not shown to people you message.
+          </p>
           <div class="field">
             <label>Display name</label>
             <input id="idDisplayName" />
@@ -1026,6 +2043,10 @@
           <button type="button" class="btn btn-primary" id="btnSaveIdentity" style="width: 100%">Save identity</button>
         </div>
         <div id="panel-rel" style="display: none">
+          <p class="trust-note" style="margin: 0 0 0.65rem">
+            <strong>Just for this conversation.</strong> Relationship notes help tone and boundaries; only you and your backend
+            see them — not the contact.
+          </p>
           <p style="font-size: 0.8rem; color: var(--ig-muted)">Uses active thread as contact ID.</p>
           <div class="field">
             <label>Role</label>
@@ -1050,11 +2071,15 @@
           <button type="button" class="btn btn-primary" id="btnSaveRel" style="width: 100%">Save relationship</button>
         </div>
         <div id="panel-desktop" style="display: none">
+          <p class="trust-note" style="margin: 0 0 0.75rem">
+            <strong>Your files stay under your control.</strong> Uploads go to your MiraChat backend and optional OpenRouter
+            analysis — not to the person you are messaging — until you choose to send something.
+          </p>
           <p style="font-size: 0.8rem; color: var(--ig-muted); margin-top: 0">
             <strong>Default flow:</strong> upload a conversation file or screenshot — we ingest into memory and run
             <strong>OpenRouter analysis</strong> when the API has <span class="mono">OPENROUTER_API_KEY</span>. You can also
-            type a summary/transcript and click ingest. The same file upload is available in the chat area as
-            <strong>Upload conversation</strong> and <strong>Upload screenshot</strong>.
+            type a summary/transcript and click ingest. The same multimodal upload is in the chat area as
+            <strong>Upload</strong> (next to Import to memory).
           </p>
           <div class="field">
             <label for="desktopContextUpload">Upload conversation or screenshot</label>
@@ -1092,13 +2117,17 @@
             Ingest context (same as upload)
           </button>
           <div id="desktopOpenRouterPanel" class="desktop-or-panel" aria-live="polite">
+            <div id="desktopOpenRouterStatusWrap" class="desktop-or-card" style="display: none">
+              <div id="desktopOpenRouterStatus" class="desktop-or-status"></div>
+            </div>
             <div id="desktopOpenRouterAnalysisWrap" class="desktop-or-card" style="display: none">
               <div class="desktop-or-label">OpenRouter analysis</div>
               <div id="desktopOpenRouterAnalysis" class="desktop-or-body"></div>
             </div>
             <div id="desktopOpenRouterPasteWrap" class="desktop-or-card desktop-or-paste" style="display: none">
               <div class="desktop-or-label">
-                WeChat / WhatsApp reply <span class="desktop-or-sub">— matches your tone · click to copy</span>
+                WeChat / WhatsApp reply
+                <span class="desktop-or-sub">— private here until you copy · matches your tone</span>
               </div>
               <div
                 id="desktopOpenRouterReply"
@@ -1130,22 +2159,15 @@
       </div>
     </aside>
 
-    <div class="modal" id="assistModal" role="dialog" aria-modal="true">
-      <div class="modal-card">
-        <div class="mh">Assist — multi-option &amp; summary</div>
-        <div class="mb" id="assistBody"></div>
-        <div style="padding: 0.65rem 1rem; border-top: 1px solid var(--ig-border)">
-          <button type="button" class="btn btn-secondary" id="assistClose" style="width: 100%">Close</button>
-        </div>
-      </div>
-    </div>
-
     <div class="modal" id="negotiateModal" role="dialog" aria-modal="true">
       <div class="modal-card">
-        <div class="mh">Relationship-aware scheduling</div>
+        <div class="mh">Find a time together</div>
         <div class="mb">
+          <p class="trust-note" style="margin: 0 0 0.75rem">
+            <strong>Planning help, not automatic sends.</strong> Results stay on this device until you send or approve.
+          </p>
           <div class="field">
-            <label for="negCounterpartyText">Counterparty message</label>
+            <label for="negCounterpartyText">Their message</label>
             <textarea id="negCounterpartyText" placeholder="Can we move this to Thursday afternoon?"></textarea>
           </div>
           <div class="field">
@@ -1176,8 +2198,67 @@
           <div id="negotiateResult" class="summary-box" style="display: none"></div>
         </div>
         <div style="padding: 0.65rem 1rem; border-top: 1px solid var(--ig-border); display: flex; gap: 0.5rem">
-          <button type="button" class="btn btn-secondary" id="negotiateClose" style="flex: 1">Close</button>
-          <button type="button" class="btn btn-primary" id="negotiateRun" style="flex: 1">Run negotiation</button>
+          <button type="button" class="btn btn-secondary" id="negotiateClose" style="flex: 1" aria-label="Close scheduling">
+            Close
+          </button>
+          <button type="button" class="btn btn-primary" id="negotiateRun" style="flex: 1" data-testid="btn-run-negotiate">
+            Suggest times
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="summarizeModal" role="dialog" aria-modal="true" aria-labelledby="summarizeTitle">
+      <div class="modal-card">
+        <div class="mh" id="summarizeTitle">Thread summary</div>
+        <div class="mb">
+          <p class="trust-note" style="margin: 0 0 0.75rem">
+            <strong>Private to you on this device.</strong> Your contact does not see this unless you share it.
+          </p>
+          <div
+            id="summarizeBody"
+            style="white-space: pre-wrap; word-break: break-word; font-size: 0.88rem; line-height: 1.45; min-height: 2rem"
+          ></div>
+        </div>
+        <div style="padding: 0.65rem 1rem; border-top: 1px solid var(--ig-border); display: flex; gap: 0.5rem; justify-content: flex-end">
+          <button type="button" class="btn btn-primary" id="summarizeClose" data-testid="summarize-close" aria-label="Close summary">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="memoryModal" role="dialog" aria-modal="true" aria-labelledby="memoryModalTitle">
+      <div class="modal-card">
+        <div class="mh" id="memoryModalTitle">Saved memory</div>
+        <div class="mb">
+          <p class="trust-note" style="margin: 0 0 0.75rem">
+            Durable notes and imports for your account — indexed for search (“Context” hits) and merged into this thread’s
+            history when a thread id is set. Your contact does not see this until you put it in a sent message.
+          </p>
+          <p id="memoryModalScope" style="margin: 0 0 0.65rem; font-size: 0.78rem; color: var(--ig-muted); line-height: 1.4"></p>
+          <div id="memoryModalList" data-testid="memory-modal-list"></div>
+        </div>
+        <div
+          style="
+            padding: 0.65rem 1rem;
+            border-top: 1px solid var(--ig-border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+          "
+        >
+          <div style="display: flex; gap: 0.5rem">
+            <button type="button" class="btn btn-secondary" id="memoryModalRefresh" style="flex: 1" data-testid="memory-modal-refresh">
+              Refresh
+            </button>
+            <button type="button" class="btn btn-primary" id="memoryModalAdd" style="flex: 1" data-testid="btn-memory-modal-add">
+              Add to memory
+            </button>
+          </div>
+          <button type="button" class="btn btn-secondary" id="memoryModalClose" style="width: 100%" data-testid="memory-modal-close">
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -1200,20 +2281,6 @@
         desktopUploadMeta: null,
       }
 
-      const replyOptionDisplayLabel = (raw) => {
-        const k = String(raw || '')
-          .trim()
-          .toLowerCase()
-        const map = {
-          direct: 'Direct',
-          balanced: 'Balanced',
-          'relationship-first': 'Relationship-first',
-          concise: 'Direct',
-          warm: 'Relationship-first',
-          assertive: 'Direct',
-        }
-        return map[k] || (raw ? String(raw) : 'Option')
-      }
       let toastTimer = null
 
       const params = new URLSearchParams(location.search)
@@ -1236,6 +2303,9 @@
         $('userId').value = localStorage.getItem('mirachatUserId') || 'demo-user'
         $('channel').value = localStorage.getItem('mirachatChannel') || 'twilio_whatsapp'
         $('accountId').value = localStorage.getItem('mirachatAccountId') || 'default-account'
+        if ($('mirachatTenantBearer')) {
+          $('mirachatTenantBearer').value = localStorage.getItem('mirachatTenantBearer') || ''
+        }
         $('openClawAgentId').value = localStorage.getItem('mirachatOpenClawAgentId') || ''
         $('openClawSessionId').value = localStorage.getItem('mirachatOpenClawSessionId') || ''
         $('openClawTo').value = localStorage.getItem('mirachatOpenClawTo') || ''
@@ -1261,6 +2331,9 @@
         localStorage.setItem('mirachatUserId', $('userId').value.trim())
         localStorage.setItem('mirachatChannel', $('channel').value)
         localStorage.setItem('mirachatAccountId', $('accountId').value.trim())
+        if ($('mirachatTenantBearer')) {
+          localStorage.setItem('mirachatTenantBearer', $('mirachatTenantBearer').value.trim())
+        }
         localStorage.setItem('mirachatOpenClawAgentId', $('openClawAgentId').value.trim())
         localStorage.setItem('mirachatOpenClawSessionId', $('openClawSessionId').value.trim())
         localStorage.setItem('mirachatOpenClawTo', $('openClawTo').value.trim())
@@ -1297,7 +2370,7 @@
       const loadRuntimeConfig = async (force = false) => {
         if (!force && state.runtimeConfig) return state.runtimeConfig
         try {
-          const cfg = await j('/mirachat/runtime-config')
+          const cfg = await j('/mirachat/runtime-config', { timeoutMs: 12_000 })
           state.runtimeConfig = cfg
           return cfg
         } catch {
@@ -1314,9 +2387,20 @@
         $('accountId').value = defaultAccountId
         persistConnectionFields()
         if (channel === 'twilio_whatsapp' || channel === 'twilio_sms') {
-          $('connSaveHint').textContent = 'Loaded Twilio Account SID from API env so pending-send matches gateway polling.'
+          $('connSaveHint').textContent =
+            'Loaded Twilio Account SID from the API for this session. On this device only — helps pending-send match your account.'
         }
         return true
+      }
+
+      /** Resolve user/channel/account after Twilio (etc.) defaults — must run before any Mirachat write or session-scoped read so inbound rows and draft queries use the same account_id. */
+      const mirachatSessionParams = async () => {
+        await maybeApplyChannelDefaults()
+        return {
+          userId: $('userId').value.trim() || 'demo-user',
+          channel: $('channel').value,
+          accountId: $('accountId').value.trim() || 'default-account',
+        }
       }
 
       const trimVal = (value) => {
@@ -1364,16 +2448,61 @@
         }, 4200)
       }
 
+      const copyPlainToClipboard = async (text, okMsg = 'Copied to clipboard') => {
+        const t = String(text || '').trim()
+        if (!t) return
+        try {
+          await navigator.clipboard.writeText(t)
+          showToast(okMsg)
+        } catch {
+          showToast('Copy failed — select text manually', 'error')
+        }
+      }
+
+      const scrollChatThreadToEnd = () => {
+        const thread = $('chatThread')
+        if (!thread) return
+        requestAnimationFrame(() => {
+          thread.scrollTop = thread.scrollHeight
+        })
+      }
+
       const latestInboundText = () =>
         state.messages.filter((m) => m.direction === 'inbound').slice(-1)[0]?.content ||
         draftForThread(state.selectedThreadId)?.inboundText ||
         ''
 
+      const mirachatAuthHeaders = () => {
+        const t = ($('mirachatTenantBearer') && $('mirachatTenantBearer').value.trim()) || ''
+        if (!t) return {}
+        return { Authorization: `Bearer ${t}` }
+      }
+
       const j = async (path, opts = {}) => {
-        const res = await fetch(api() + path, {
-          ...opts,
-          headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
-        })
+        const { timeoutMs, headers: hdrIn, ...fetchOpts } = opts
+        const init = {
+          ...fetchOpts,
+          headers: {
+            'content-type': 'application/json',
+            ...mirachatAuthHeaders(),
+            ...(hdrIn || {}),
+          },
+        }
+        if (timeoutMs != null && Number(timeoutMs) > 0 && typeof AbortSignal?.timeout === 'function') {
+          init.signal = AbortSignal.timeout(Number(timeoutMs))
+        }
+        let res
+        try {
+          res = await fetch(api() + path, init)
+        } catch (e) {
+          const name = e && e.name
+          if (name === 'AbortError' || name === 'TimeoutError') {
+            throw new Error(
+              'Request timed out — check the API URL, network, or try a smaller screenshot / transcript.',
+            )
+          }
+          throw e
+        }
         const text = await res.text()
         let data
         try {
@@ -1398,9 +2527,9 @@
       }
 
       const persistDelegationMode = async (tid, fromMode, toMode) => {
-        const userId = $('userId').value.trim()
+        const userId = $('userId').value.trim() || 'demo-user'
         const channel = $('channel').value
-        const accountId = $('accountId').value.trim()
+        const accountId = $('accountId').value.trim() || 'default-account'
         return j('/mirachat/delegation-mode', {
           method: 'POST',
           body: JSON.stringify({
@@ -1438,7 +2567,11 @@
         const el = $('modePill')
         const m = state.selectedThreadId ? threadMode(state.selectedThreadId) : 'approve'
         el.className = 'pill mode-' + m
-        const labels = { assist: 'Assist mode', approve: 'Approve mode (default)', auto: 'Auto (policy-gated, v2)' }
+        const labels = {
+          assist: 'Suggest only',
+          approve: 'Review before send',
+          auto: 'Auto-send when allowed',
+        }
         el.textContent = labels[m]
       }
 
@@ -1449,9 +2582,263 @@
         return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
       }
 
-      const initials = (tid) => {
-        const s = String(tid || '?').slice(0, 2)
-        return s.toUpperCase()
+      const formatChunkTime = (isoOrMs) => {
+        if (isoOrMs == null) return ''
+        const d = typeof isoOrMs === 'number' ? new Date(isoOrMs) : new Date(isoOrMs)
+        if (Number.isNaN(d.getTime())) return ''
+        return d.toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      }
+
+      const THREAD_PERSONA_STORAGE_KEY = 'mirachatOpsThreadPersonaV1'
+
+      const PERSONA_GIVEN = [
+        'Yuki',
+        'Mina',
+        'Sora',
+        'Aiko',
+        'Lina',
+        'Maya',
+        'Aria',
+        'Noa',
+        'Hana',
+        'Rina',
+        'Yui',
+        'Mei',
+        'Nana',
+        'Kiko',
+        'Emi',
+        'Saki',
+        'Yuna',
+        'Mio',
+        'Hina',
+        'Kana',
+        'Nora',
+        'Luna',
+        'Ivy',
+        'Zoe',
+      ]
+      const PERSONA_FAMILY = [
+        'Kim',
+        'Chen',
+        'Park',
+        'Tanaka',
+        'Patel',
+        'Reyes',
+        'Silva',
+        'Khan',
+        'Murphy',
+        'Sato',
+        'Nguyen',
+        'Garcia',
+        'Cohen',
+        'Fischer',
+        'Lopez',
+        'Andersen',
+        'Okonkwo',
+        'Bakker',
+        'Rossi',
+        'Dubois',
+        'Haddad',
+        'Varga',
+        'Grant',
+        'Webb',
+      ]
+
+      function hash32(str) {
+        let h = 2166136261
+        const s = String(str)
+        for (let i = 0; i < s.length; i++) {
+          h ^= s.charCodeAt(i)
+          h = Math.imul(h, 16777619)
+        }
+        return h >>> 0
+      }
+
+      function randomDisplayName(seed) {
+        const h = hash32(seed)
+        const g = PERSONA_GIVEN[h % PERSONA_GIVEN.length]
+        const f = PERSONA_FAMILY[(h >>> 8) % PERSONA_FAMILY.length]
+        return g + ' ' + f
+      }
+
+      /** Photo-style stock portraits (social-profile look), stable per thread. */
+      function socialAvatarRandomUserUrl(threadId) {
+        const n = hash32(threadId) % 100
+        return 'https://randomuser.me/api/portraits/med/women/' + n + '.jpg'
+      }
+
+      function socialAvatarPravatarUrl(threadId) {
+        return 'https://i.pravatar.cc/128?u=' + encodeURIComponent(threadId)
+      }
+
+      /** Flat initials on color — last resort if CDNs fail (not a sketch). */
+      function socialAvatarUiFallbackUrl(entry, threadId) {
+        const raw = String(entry?.displayName || threadId || 'User')
+          .replace(/\s+/g, ' ')
+          .trim() || 'User'
+        const parts = raw.split(/\s+/)
+        let ini = ((parts[0]?.[0] || '') + (parts[1]?.[0] || parts[0]?.[1] || '')).toUpperCase().slice(0, 2) || 'U'
+        const bg = (((hash32(threadId + 'ui') >>> 0) % 0xb0b0b0) + 0x404060).toString(16).padStart(6, '0')
+        return (
+          'https://ui-avatars.com/api/?name=' +
+          encodeURIComponent(ini) +
+          '&size=128&background=' +
+          bg +
+          '&color=f2f2f7&bold=true&length=2&format=png'
+        )
+      }
+
+      function bindThreadAvatarImg(img, threadId, entry) {
+        const fallbackFinal = () => {
+          img.onerror = null
+          img.onload = null
+          img.src = socialAvatarUiFallbackUrl(entry, threadId)
+        }
+        const tryStockPhotos = () => {
+          const primary = socialAvatarRandomUserUrl(threadId)
+          const secondary = socialAvatarPravatarUrl(threadId)
+          img.onload = () => {
+            img.onload = null
+            img.onerror = null
+          }
+          img.onerror = () => {
+            img.onload = () => {
+              img.onload = null
+              img.onerror = null
+            }
+            img.onerror = () => fallbackFinal()
+            img.src = secondary
+          }
+          img.src = primary
+        }
+        if (entry?.avatarDataUrl) {
+          img.onload = () => {
+            img.onload = null
+            img.onerror = null
+          }
+          img.onerror = () => {
+            img.onload = null
+            tryStockPhotos()
+          }
+          img.src = entry.avatarDataUrl
+          return
+        }
+        tryStockPhotos()
+      }
+
+      function loadPersonaMap() {
+        try {
+          const raw = localStorage.getItem(THREAD_PERSONA_STORAGE_KEY)
+          const o = raw ? JSON.parse(raw) : {}
+          return o && typeof o === 'object' ? o : {}
+        } catch {
+          return {}
+        }
+      }
+
+      function savePersonaMap(map) {
+        try {
+          localStorage.setItem(THREAD_PERSONA_STORAGE_KEY, JSON.stringify(map))
+        } catch (e) {
+          console.warn('mirachat ops: persona map save failed', e)
+        }
+      }
+
+      function personaKey(userId, threadId) {
+        return String(userId || '').trim() + '::' + String(threadId || '')
+      }
+
+      function getOrCreatePersonaEntry(map, userId, threadId) {
+        const k = personaKey(userId, threadId)
+        let e = map[k]
+        if (!e || typeof e !== 'object') {
+          e = { displayName: randomDisplayName(threadId) }
+          map[k] = e
+          return { entry: e, created: true }
+        }
+        if (!e.displayName || typeof e.displayName !== 'string') {
+          e.displayName = randomDisplayName(threadId)
+          return { entry: e, created: true }
+        }
+        return { entry: e, created: false }
+      }
+
+      function setPersonaScreenshotAvatar(userId, threadId, dataUrl) {
+        const map = loadPersonaMap()
+        const { entry } = getOrCreatePersonaEntry(map, userId, threadId)
+        entry.avatarDataUrl = dataUrl
+        entry.avatarFromScreenshot = true
+        savePersonaMap(map)
+      }
+
+      async function fileToAvatarDataUrl(file, maxEdge = 112) {
+        const bmp = await createImageBitmap(file)
+        try {
+          const canvas = document.createElement('canvas')
+          const scale = Math.min(maxEdge / bmp.width, maxEdge / bmp.height, 1)
+          canvas.width = Math.max(1, Math.round(bmp.width * scale))
+          canvas.height = Math.max(1, Math.round(bmp.height * scale))
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return null
+          ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+          return canvas.toDataURL('image/jpeg', 0.82)
+        } finally {
+          bmp.close()
+        }
+      }
+
+      async function dataUrlToAvatarDataUrl(dataUrl, maxEdge = 112) {
+        const img = new Image()
+        await new Promise((resolve, reject) => {
+          img.onload = resolve
+          img.onerror = () => reject(new Error('image load'))
+          img.src = dataUrl
+        })
+        const canvas = document.createElement('canvas')
+        const scale = Math.min(maxEdge / img.width, maxEdge / img.height, 1)
+        canvas.width = Math.max(1, Math.round(img.width * scale))
+        canvas.height = Math.max(1, Math.round(img.height * scale))
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return null
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        return canvas.toDataURL('image/jpeg', 0.82)
+      }
+
+      function applyHeadAvatar(threadId, entry) {
+        const el = $('headAvatar')
+        if (!el) return
+        el.classList.add('has-photo')
+        el.innerHTML = ''
+        const img = document.createElement('img')
+        img.alt = ''
+        img.width = 52
+        img.height = 52
+        img.decoding = 'async'
+        bindThreadAvatarImg(img, threadId, entry)
+        el.appendChild(img)
+      }
+
+      function refreshHeadPersonaIfSelected() {
+        const tid = state.selectedThreadId
+        if (!tid) return
+        const uid = $('userId').value.trim() || 'demo-user'
+        const pmap = loadPersonaMap()
+        const { entry, created } = getOrCreatePersonaEntry(pmap, uid, tid)
+        if (created) savePersonaMap(pmap)
+        $('headTitle').textContent = entry.displayName
+        const htr = $('headThreadRef')
+        if (htr) {
+          const showRef = tid !== entry.displayName
+          htr.textContent = showRef ? tid : ''
+          htr.classList.toggle('hidden', !showRef)
+        }
+        applyHeadAvatar(tid, entry)
       }
 
       const draftForThread = (tid) => state.drafts.find((d) => d.threadId === tid)
@@ -1478,32 +2865,79 @@
 
       const renderThreadList = () => {
         const q = $('threadSearch').value.trim().toLowerCase()
+        const uid = $('userId').value.trim() || 'demo-user'
         const merged = mergeThreads()
+        const pmap = loadPersonaMap()
+        let personaDirty = false
+        for (const t of merged) {
+          const { created } = getOrCreatePersonaEntry(pmap, uid, t.threadId)
+          if (created) personaDirty = true
+        }
+        if (personaDirty) savePersonaMap(pmap)
+
+        const filtered = q
+          ? merged.filter((t) => {
+              const { entry } = getOrCreatePersonaEntry(pmap, uid, t.threadId)
+              const dn = (entry.displayName || '').toLowerCase()
+              return (
+                t.threadId.toLowerCase().includes(q) ||
+                dn.includes(q) ||
+                (t.preview || '').toLowerCase().includes(q)
+              )
+            })
+          : merged
+
         const list = $('threadList')
         list.innerHTML = ''
-        const filtered = q ? merged.filter((t) => t.threadId.toLowerCase().includes(q)) : merged
+        const syncMessageSearchScope = () => {
+          const scopeCb = $('messageSearchThisThread')
+          if (scopeCb) {
+            scopeCb.disabled = !state.selectedThreadId
+            if (!state.selectedThreadId && scopeCb.checked) {
+              scopeCb.checked = false
+              scheduleMessageSearch()
+            }
+          }
+        }
         if (!filtered.length) {
-          list.innerHTML =
-            '<div class="empty-state" style="padding:1.5rem">No chats yet. Send a simulated message or connect a gateway.</div>'
+          const emptyMsg =
+            merged.length && q
+              ? 'No contacts or threads match this search. Try another name, id, or clear the field.'
+              : 'No chats yet. Send a test message or link your chat account.'
+          list.innerHTML = '<div class="empty-state" style="padding:1.5rem">' + emptyMsg + '</div>'
+          syncMessageSearchScope()
           return
         }
         for (const t of filtered) {
+          const { entry } = getOrCreatePersonaEntry(pmap, uid, t.threadId)
+          const displayTitle = entry.displayName
           const row = document.createElement('div')
           row.className = 'thread-item' + (t.threadId === state.selectedThreadId ? ' active' : '')
           row.dataset.tid = t.threadId
           row.setAttribute('role', 'button')
           row.setAttribute('tabindex', '0')
-          row.setAttribute('aria-label', `Open thread ${t.threadId}`)
+          row.setAttribute('aria-label', `Open thread ${displayTitle}`)
           const badge = t.draftCount ? `<span class="badge">${t.draftCount}</span>` : ''
-          row.innerHTML = `
-            <div class="avatar">${initials(t.threadId)}</div>
-            <div class="thread-body">
-              <div class="thread-row1">
-                <span class="thread-title">${escapeHtml(t.threadId)}</span>
-                <span class="thread-time">${formatTime(t.lastAt)}</span>
-              </div>
-              <div class="thread-preview">${escapeHtml(t.preview || '')}${badge}</div>
-            </div>`
+          const av = document.createElement('div')
+          av.className = 'avatar has-photo'
+          const img = document.createElement('img')
+          img.alt = ''
+          img.width = 52
+          img.height = 52
+          img.decoding = 'async'
+          img.loading = 'lazy'
+          bindThreadAvatarImg(img, t.threadId, entry)
+          av.appendChild(img)
+          row.appendChild(av)
+          const body = document.createElement('div')
+          body.className = 'thread-body'
+          body.innerHTML = `
+            <div class="thread-row1">
+              <span class="thread-title">${escapeHtml(displayTitle)}</span>
+              <span class="thread-time">${formatTime(t.lastAt)}</span>
+            </div>
+            <div class="thread-preview">${escapeHtml(t.preview || '')}${badge}</div>`
+          row.appendChild(body)
           row.addEventListener('click', () => selectThread(t.threadId))
           row.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -1513,6 +2947,7 @@
           })
           list.appendChild(row)
         }
+        syncMessageSearchScope()
       }
 
       const escapeHtml = (s) =>
@@ -1522,13 +2957,221 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
 
+      const memoryModalTruncate = (s, n = 520) => {
+        const t = String(s || '').trim()
+        if (t.length <= n) return t
+        return `${t.slice(0, n - 1)}…`
+      }
+
+      function closeMemoryModal() {
+        $('memoryModal').classList.remove('show')
+      }
+
+      async function loadMemoryModalList() {
+        const listEl = $('memoryModalList')
+        const uid = $('userId').value.trim() || 'demo-user'
+        let url = '/mirachat/memory?userId=' + encodeURIComponent(uid) + '&limit=100'
+        const tid = state.selectedThreadId
+        if (tid) url += '&threadId=' + encodeURIComponent(tid)
+        listEl.innerHTML = '<p class="memory-modal-empty">Loading…</p>'
+        try {
+          const data = await j(url)
+          const chunks = Array.isArray(data.chunks) ? data.chunks : []
+          if (!chunks.length) {
+            listEl.innerHTML =
+              '<p class="memory-modal-empty">No saved chunks yet. Use “Add to memory” for Desktop import, a file, or a summary.</p>'
+            return
+          }
+          listEl.innerHTML = chunks
+            .map((c) => {
+              const ref = c.threadId ? escapeHtml(String(c.threadId)) : 'account-wide'
+              const meta = `${formatChunkTime(c.createdAt)} · ${ref}`
+              const body = escapeHtml(memoryModalTruncate(c.content))
+              return `<div class="memory-chunk-card"><div class="memory-chunk-meta">${meta}</div><div class="memory-chunk-body">${body}</div></div>`
+            })
+            .join('')
+        } catch (e) {
+          listEl.innerHTML =
+            '<p class="memory-modal-empty" style="color:#ffd4db">' + escapeHtml(String(e.message || e)) + '</p>'
+        }
+      }
+
+      function openMemoryModal() {
+        const scope = $('memoryModalScope')
+        const tid = state.selectedThreadId
+        if (scope) {
+          scope.textContent = tid
+            ? `Scoped to this thread (${tid}). Same rows appear in chat as “Imported context” when user id is set on load.`
+            : 'All saved chunks for your user id. Open a thread to list only that thread’s memory.'
+        }
+        $('memoryModal').classList.add('show')
+        void loadMemoryModalList()
+      }
+
+      let messageSearchTimer = null
+
+      const messageSearchHitLabel = (hit) => {
+        const src = hit.searchSource || (hit.direction === 'outbound' ? 'outbound' : 'inbound')
+        if (src === 'memory') return 'Context'
+        if (src === 'outbound') return 'Sent'
+        return 'DM'
+      }
+
+      const scheduleMessageSearch = () => {
+        if (messageSearchTimer) clearTimeout(messageSearchTimer)
+        messageSearchTimer = setTimeout(() => {
+          messageSearchTimer = null
+          void runMessageSearch()
+        }, 340)
+      }
+
+      async function runMessageSearch() {
+        const panel = $('messageSearchHits')
+        if (!panel) return
+        const q = ($('threadSearch').value || '').trim()
+        const terms = q
+          .toLowerCase()
+          .split(/\s+/)
+          .map((t) => t.trim())
+          .filter((t) => t.length >= 2)
+        if (terms.length === 0) {
+          panel.classList.add('hidden')
+          panel.innerHTML = ''
+          return
+        }
+        const uid = $('userId').value.trim() || 'demo-user'
+        const onlyThreadEl = $('messageSearchThisThread')
+        const onlyThread =
+          onlyThreadEl &&
+          onlyThreadEl.checked &&
+          state.selectedThreadId &&
+          String(state.selectedThreadId).trim()
+        let url =
+          '/mirachat/search?userId=' +
+          encodeURIComponent(uid) +
+          '&q=' +
+          encodeURIComponent(q) +
+          '&limit=35'
+        if (onlyThread) url += '&threadId=' + encodeURIComponent(onlyThread)
+        panel.classList.remove('hidden')
+        panel.innerHTML =
+          '<div class="msh-head">Matching DMs &amp; context</div><div class="msh-empty">Searching…</div>'
+        try {
+          const data = await j(url)
+          const hits = Array.isArray(data.hits) ? data.hits : []
+          const pmap = loadPersonaMap()
+          if (!hits.length) {
+            panel.innerHTML =
+              '<div class="msh-head">Matching DMs &amp; context</div><div class="msh-empty">No DM or context matches — try other words or clear “only open chat”.</div>'
+            return
+          }
+          const rows = hits
+            .map((h) => {
+              const tid = String(h.threadId || '')
+              const { entry } = getOrCreatePersonaEntry(pmap, uid, tid)
+              const title = escapeHtml(entry.displayName || tid || '—')
+              const sn = escapeHtml(h.searchSnippet || h.content || '')
+              const badge = escapeHtml(messageSearchHitLabel(h))
+              return `<div class="msh-row" role="button" tabindex="0" data-msh-tid="${escapeHtml(tid)}">
+              <div class="msh-meta"><span class="msh-badge">${badge}</span><span>${title}</span></div>
+              <div class="msh-snippet">${sn}</div>
+            </div>`
+            })
+            .join('')
+          panel.innerHTML = `<div class="msh-head">Matching DMs &amp; context</div>${rows}`
+          panel.querySelectorAll('.msh-row').forEach((row) => {
+            const tid = row.getAttribute('data-msh-tid')
+            const open = () => tid && selectThread(tid)
+            row.addEventListener('click', open)
+            row.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                open()
+              }
+            })
+          })
+        } catch (e) {
+          panel.innerHTML =
+            '<div class="msh-head">Matching DMs &amp; context</div><div class="msh-error">' +
+            escapeHtml(String(e.message || e)) +
+            '</div>'
+        }
+      }
+
+      const auditEventLabel = (t) =>
+        ({
+          'inbound.enqueued': 'Message received',
+          'assist.generated': 'Assist generated',
+          'summary.generated': 'Summary generated',
+          'policy.evaluated': 'Policy checked',
+          'draft.created': 'Draft created',
+          'draft.auto_queued': 'Auto-send queued',
+          'draft.auto_sent': 'Auto-sent',
+          'draft.approved_as_is': 'Approved as written',
+          'draft.approved_with_edit': 'Approved with edits',
+          'draft.rejected': 'Draft rejected',
+          'doer.started': 'OpenClaw run started',
+          'doer.completed': 'OpenClaw run finished',
+          'doer.failed': 'OpenClaw run failed',
+          'outbound.sent': 'Reply sent',
+          'outbound.send_failed': 'Send failed',
+          'pipeline.failed': 'Pipeline failed',
+          'twilio.message_status': 'Delivery status',
+          'oauth.connected': 'Account connected',
+          'ingest.completed': 'Import finished',
+          'identity.updated': 'Identity updated',
+          'relationship.updated': 'Relationship updated',
+          'mode.changed': 'Mode changed',
+          'trust.regression': 'Trust dialed back',
+          'feedback.sounds_like_me': 'Sounds-like-me feedback',
+          'feedback.regret': 'Regret logged',
+          'feedback.boundary_violation': 'Boundary feedback',
+          'a2a.proposal': 'A2A proposal',
+          'a2a.response': 'A2A response',
+          'negotiation.turn': 'Scheduling step',
+          'phone.call.requested': 'Call requested',
+          'phone.call.placed': 'Call placed',
+          'phone.call.failed': 'Call failed',
+          'phone.twilio.call_status': 'Call status',
+        })[t] || t
+
+      const friendlyPolicyHint = (raw) => {
+        if (!raw || !String(raw).trim()) return ''
+        const m = {
+          high_risk_relationship: 'This contact is marked high-priority — we suggest a careful reply.',
+          financial_commitment_or_hard_boundary: 'Sensitive topic — please read closely before sending.',
+        }
+        return String(raw)
+          .split(/\s*\|\s*/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((k) => m[k] || k.replace(/_/g, ' '))
+          .join(' · ')
+      }
+
       const renderMessages = () => {
         const el = $('messages')
         el.innerHTML = ''
+        const tid = state.selectedThreadId
+
         if (!state.messages.length) {
-          el.innerHTML = '<div class="day-label">No history in store for this thread</div>'
+          const empty = document.createElement('div')
+          empty.className = 'day-label'
+          empty.textContent = 'No history in store for this thread'
+          el.appendChild(empty)
+          scrollChatThreadToEnd()
           return
         }
+
+        const uid = $('userId').value.trim() || 'demo-user'
+        let peerEntry = null
+        if (tid) {
+          const pmap = loadPersonaMap()
+          const { entry, created } = getOrCreatePersonaEntry(pmap, uid, tid)
+          peerEntry = entry
+          if (created) savePersonaMap(pmap)
+        }
+
         el.appendChild(document.createElement('div')).className = 'day-label'
         el.lastChild.textContent = 'Today'
         for (const m of state.messages) {
@@ -1536,6 +3179,18 @@
           const isMem = m.channel === 'memory'
           row.className =
             'bubble-row ' + (m.direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-row' : '')
+          if (m.direction !== 'outbound' && !isMem && tid && peerEntry) {
+            const wrap = document.createElement('div')
+            wrap.className = 'bubble-peer-avatar'
+            const avi = document.createElement('img')
+            avi.alt = ''
+            avi.width = 38
+            avi.height = 38
+            avi.decoding = 'async'
+            bindThreadAvatarImg(avi, tid, peerEntry)
+            wrap.appendChild(avi)
+            row.appendChild(wrap)
+          }
           const b = document.createElement('div')
           b.className = 'bubble ' + (m.direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-bubble' : '')
           const memLabel = isMem ? '<div class="memory-import-tag">Imported context</div>' : ''
@@ -1543,8 +3198,17 @@
           row.appendChild(b)
           el.appendChild(row)
         }
-        el.scrollTop = el.scrollHeight
+        scrollChatThreadToEnd()
       }
+
+      $('chatThread').addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-appr-copy')
+        if (!btn || !btn.closest('#approvalPanel')) return
+        e.preventDefault()
+        const card = btn.closest('.appr-suggest-card')
+        const pre = card?.querySelector('.appr-suggest-text')
+        void copyPlainToClipboard(pre?.textContent || '')
+      })
 
       const renderApproval = () => {
         const panel = $('approvalPanel')
@@ -1557,54 +3221,64 @@
         panel.style.display = 'block'
         const conf = d.confidenceScore != null ? (Number(d.confidenceScore) * 100).toFixed(0) : '—'
         const opts = Array.isArray(d.replyOptions) ? d.replyOptions : []
-        let optsHtml = ''
-        opts.forEach((o, i) => {
-          optsHtml += `<div class="opt-block">
-            <div class="opt-label">${escapeHtml(replyOptionDisplayLabel(o.label) || 'Option ' + (i + 1))}</div>
-            <div style="font-size:0.88rem">${escapeHtml(o.text || '')}</div>
+        let replyText = String(d.generatedText || '').trim()
+        if (!replyText) {
+          for (const o of opts) {
+            const t = String(o?.text || '').trim()
+            if (t) {
+              replyText = t
+              break
+            }
+          }
+        }
+        const replyForActions = replyText || String(d.generatedText || '').trim()
+
+        let suggestionsBlockHtml = ''
+        if (replyText) {
+          suggestionsBlockHtml = `<div class="appr-suggest-card appr-suggest-card--primary">
+            <div class="appr-suggest-head">
+              <span class="appr-suggest-tone">Your reply</span>
+              <button type="button" class="btn btn-secondary btn-compact btn-appr-copy">Copy</button>
+            </div>
+            <pre class="appr-suggest-text">${escapeHtml(replyText)}</pre>
+          </div>`
+        } else {
+          suggestionsBlockHtml =
+            '<p class="policy-bar" style="margin:0">No reply text yet — try <strong>Refresh</strong> or wait for drafting to finish.</p>'
+        }
+
+        const snapshotHtml = d.threadSummary
+          ? `<details class="snapshot-details">
+            <summary><strong>Thread snapshot</strong> <span style="color:var(--ig-soft);font-weight:500">· expand</span></summary>
+            <div class="snapshot-body">${escapeHtml(d.threadSummary)}</div>
+          </details>`
+          : ''
+        panel.innerHTML = `
+          <div class="approval-panel-head">
+            <h3>Reply in your tone</h3>
+            <p class="trust-note" style="margin: 0 0 0.65rem"><strong>Private to you.</strong> One personalized reply in <strong>your tone</strong> (identity + style settings). Copy or edit, then approve to queue sending — nothing is delivered until you approve.</p>
+            <div class="policy-bar">Confidence ${conf}% · ${escapeHtml(d.intentSummary || '')}
+              ${d.ruleTriggered ? ' · ' + escapeHtml(friendlyPolicyHint(d.ruleTriggered)) : ''}</div>
+          </div>
+          <div class="approval-panel-scroll">
+            ${snapshotHtml}
+            ${suggestionsBlockHtml}
+          </div>
+          <div class="approval-panel-actions">
             <div class="actions-row">
-              <button type="button" class="btn btn-secondary btn-pick-opt" data-i="${i}">Approve this option</button>
-              <button
-                type="button"
-                class="btn btn-primary btn-pick-opt-doer"
-                data-i="${i}"
-                aria-label="Run option ${escapeHtml(o.label || 'option ' + (i + 1))} with OpenClaw"
-              >Run with OpenClaw</button>
+              <button type="button" class="btn btn-ok btn-compact" id="apprPrimary">Approve reply</button>
+              <button type="button" class="btn btn-primary btn-compact" id="apprPrimaryDoer" aria-label="Run reply with OpenClaw">Run with OpenClaw</button>
+              <button type="button" class="btn btn-danger btn-compact" id="apprReject">Reject</button>
+              <button type="button" class="btn btn-secondary btn-compact" id="apprEdit">Edit &amp; approve</button>
+              <button type="button" class="btn btn-secondary btn-compact" id="apprEditDoer">Edit &amp; OpenClaw</button>
             </div>
           </div>`
-        })
-        panel.innerHTML = `
-          <h3>Pick a reply</h3>
-          <div class="policy-bar">Confidence ${conf}% · ${escapeHtml(d.intentSummary || '')}
-            ${d.ruleTriggered ? ' · Rules: ' + escapeHtml(d.ruleTriggered) : ''}</div>
-          ${d.threadSummary ? `<div class="summary-box"><strong>Thread snapshot</strong><br/>${escapeHtml(d.threadSummary)}</div>` : ''}
-          <div class="opt-label">Inbound</div>
-          <div class="summary-box" style="border-left-color: var(--ig-warn)">${escapeHtml(d.inboundText || '')}</div>
-          <div class="opt-label">Primary draft</div>
-          <div class="summary-box" style="border-left-color: var(--ig-accent-3)">${escapeHtml(d.generatedText || '')}</div>
-          ${optsHtml}
-          <div class="actions-row">
-            <button type="button" class="btn btn-ok" id="apprPrimary">Approve primary</button>
-            <button type="button" class="btn btn-primary" id="apprPrimaryDoer" aria-label="Run primary with OpenClaw">Run with OpenClaw</button>
-            <button type="button" class="btn btn-danger" id="apprReject">Reject</button>
-            <button type="button" class="btn btn-secondary" id="apprEdit">Edit &amp; approve</button>
-            <button type="button" class="btn btn-secondary" id="apprEditDoer">Edit &amp; OpenClaw</button>
-          </div>`
         panel.querySelector('#apprPrimary').addEventListener('click', () => doApprove(d.id))
-        panel.querySelector('#apprPrimaryDoer').addEventListener('click', () => doApprove(d.id, true, d.generatedText))
+        panel.querySelector('#apprPrimaryDoer').addEventListener('click', () => doApprove(d.id, true, replyForActions))
         panel.querySelector('#apprReject').addEventListener('click', () => doReject(d.id))
-        panel.querySelector('#apprEdit').addEventListener('click', () => doEdit(d.id, d.generatedText))
-        panel.querySelector('#apprEditDoer').addEventListener('click', () => doEdit(d.id, d.generatedText, true))
-        panel.querySelectorAll('.btn-pick-opt').forEach((btn) => {
-          btn.addEventListener('click', () => doSelectOpt(d.id, Number(btn.dataset.i)))
-        })
-        panel.querySelectorAll('.btn-pick-opt-doer').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const idx = Number(btn.dataset.i)
-            const selected = opts[idx] || {}
-            doSelectOpt(d.id, idx, true, selected.text || '')
-          })
-        })
+        panel.querySelector('#apprEdit').addEventListener('click', () => doEdit(d.id, replyForActions))
+        panel.querySelector('#apprEditDoer').addEventListener('click', () => doEdit(d.id, replyForActions, true))
+        scrollChatThreadToEnd()
       }
 
       const normalizePendingSendRow = (p) => ({
@@ -1654,7 +3328,7 @@
             const summary = trimVal(res?.doer?.summary)
             showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
           } else {
-            showToast('Approved - queued for gateway send')
+            showToast('Approved — queued to send to them')
           }
           await refreshData()
         } catch (e) {
@@ -1688,7 +3362,7 @@
             const summary = trimVal(res?.doer?.summary)
             showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
           } else {
-            showToast('Saved edit - queued for gateway send')
+            showToast('Saved edit — queued to send to them')
           }
           await refreshData()
         } catch (e) {
@@ -1696,27 +3370,6 @@
           showToast(String(e.message || e), 'error')
         }
       }
-      const doSelectOpt = async (id, index, useOpenClaw = false, task = '') => {
-        try {
-          const payload = useOpenClaw ? { index, ...buildOpenClawBody(task) } : { index }
-          const res = await j('/mirachat/drafts/' + id + '/select-option', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          })
-          upsertPendingRow(draftRowFromApproveLikeResponse(res), { text: task })
-          if (useOpenClaw) {
-            const summary = trimVal(res?.doer?.summary)
-            showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
-          } else {
-            showToast('Option approved - queued for gateway send')
-          }
-          await refreshData()
-        } catch (e) {
-          showErr(String(e.message || e))
-          showToast(String(e.message || e), 'error')
-        }
-      }
-
       const renderPending = () => {
         const bar = $('pendingQueue')
         const ch = $('channel').value
@@ -1729,7 +3382,7 @@
         }
         bar.style.display = 'flex'
         bar.innerHTML =
-          '<span>Queued for gateway (' +
+          '<span>Ready to send (' +
           escapeHtml(ch) +
           '):</span> ' +
           forThread
@@ -1758,7 +3411,15 @@
         $('emptyChat').style.display = 'none'
         $('chatActive').style.display = 'flex'
         $('headTitle').textContent = 'New conversation'
-        $('headAvatar').textContent = '+'
+        const htr = $('headThreadRef')
+        if (htr) {
+          htr.textContent = ''
+          htr.classList.add('hidden')
+        }
+        const ha = $('headAvatar')
+        ha.classList.remove('has-photo')
+        ha.innerHTML = ''
+        ha.textContent = '+'
         $('healthPill').textContent = $('healthPill').textContent || 'API …'
         updateModePill()
         renderMessages()
@@ -1784,11 +3445,22 @@
 
       async function selectThread(tid) {
         state.selectedThreadId = tid
-        $('headTitle').textContent = tid
-        $('headAvatar').textContent = initials(tid)
+        const uid = $('userId').value.trim() || 'demo-user'
+        const pmap = loadPersonaMap()
+        const { entry, created } = getOrCreatePersonaEntry(pmap, uid, tid)
+        if (created) savePersonaMap(pmap)
+        $('headTitle').textContent = entry.displayName
+        const htr = $('headThreadRef')
+        if (htr) {
+          const showRef = tid !== entry.displayName
+          htr.textContent = showRef ? tid : ''
+          htr.classList.toggle('hidden', !showRef)
+        }
+        applyHeadAvatar(tid, entry)
         updateModePill()
         layoutMobile()
         renderThreadList()
+        scheduleMessageSearch()
         await loadThreadMessages()
         renderApproval()
         renderPending()
@@ -1797,11 +3469,12 @@
       async function loadThreadMessages() {
         if (!state.selectedThreadId) return
         try {
-          const uid = $('userId').value.trim()
+          const uid = $('userId').value.trim() || 'demo-user'
           const data = await j(
             '/mirachat/thread?threadId=' +
               encodeURIComponent(state.selectedThreadId) +
-              (uid ? '&userId=' + encodeURIComponent(uid) : ''),
+              '&userId=' +
+              encodeURIComponent(uid),
           )
           state.messages = data.messages || []
           renderMessages()
@@ -1815,10 +3488,7 @@
       async function refreshData() {
         showErr('')
         try {
-          await maybeApplyChannelDefaults()
-          const uid = $('userId').value.trim()
-          const ch = $('channel').value
-          const acc = $('accountId').value.trim()
+          const { userId: uid, channel: ch, accountId: acc } = await mirachatSessionParams()
           const sessionScope =
             '?userId=' +
             encodeURIComponent(uid) +
@@ -1849,8 +3519,8 @@
             const n = state.pendingInboundCount
             hintEl.textContent =
               n > 0
-                ? `${n} inbound message${n === 1 ? '' : 's'} waiting in queue — click to enqueue drafting.`
-                : 'Inbound queue clear for this user + gateway.'
+                ? `${n} new message${n === 1 ? '' : 's'} waiting — click Generate replies for queue to draft replies.`
+                : 'All caught up — no new messages waiting for this account.'
           }
           if (pqBtn) pqBtn.disabled = state.pendingInboundCount === 0
           const prevPending = state.pending || []
@@ -1870,7 +3540,11 @@
             if (until && Date.now() < until) byId.set(p.id, p)
           }
           state.pending = [...byId.values()]
-          $('healthPill').textContent = health.ok ? (health.mirachat ? 'DB online' : 'No DB') : 'API down'
+          $('healthPill').textContent = health.ok
+            ? health.mirachat
+              ? 'History on'
+              : 'No history DB'
+            : 'Server offline'
           await refreshConn()
           renderThreadList()
           if (state.selectedThreadId) {
@@ -1882,6 +3556,16 @@
           }
         } catch (e) {
           showErr(String(e.message || e))
+          try {
+            const h = await j('/health').catch(() => ({}))
+            $('healthPill').textContent = h.ok
+              ? h.mirachat
+                ? 'History on'
+                : 'No history DB'
+              : 'Server offline'
+          } catch {
+            $('healthPill').textContent = 'Server offline'
+          }
         }
       }
 
@@ -1911,12 +3595,12 @@
         const el = $('panel-metrics')
         el.innerHTML = 'Loading…'
         try {
-          const uid = $('userId').value.trim()
+          const uid = $('userId').value.trim() || 'demo-user'
           const q = '/mirachat/metrics?days=7&userId=' + encodeURIComponent(uid)
           const m = await j(q)
           const rate =
             m.approvalWithoutEditRate != null ? (m.approvalWithoutEditRate * 100).toFixed(1) + '%' : 'n/a'
-          el.innerHTML = `<div class="metrics-grid">
+          el.innerHTML = `<p class="trust-note" style="margin:0 0 0.65rem"><strong>Your metrics, your account.</strong> Aggregates are for you and your team — not shown to message contacts.</p><div class="metrics-grid">
             <div class="metric-card"><strong>${rate}</strong>Approved without edit</div>
             <div class="metric-card"><strong>${m.asIsApprovals ?? 0}</strong>As-is approvals</div>
             <div class="metric-card"><strong>${m.editedApprovals ?? 0}</strong>Edited approvals</div>
@@ -1934,12 +3618,16 @@
         try {
           const ev = await j('/mirachat/delegation-events?limit=80')
           const list = Array.isArray(ev) ? ev : []
-          el.innerHTML = list
-            .map(
-              (e) =>
-                `<div class="log-line">${escapeHtml(e.created_at)} · ${escapeHtml(e.event_type)} · ${escapeHtml(e.thread_id || '')}</div>`,
-            )
-            .join('')
+          const auditTrust =
+            '<p class="trust-note" style="margin:0 0 0.65rem"><strong>Visible to you here.</strong> This activity log is for your review; it is not shown to people you message.</p>'
+          el.innerHTML =
+            auditTrust +
+            list
+              .map(
+                (e) =>
+                  `<div class="log-line">${escapeHtml(e.created_at)} · ${escapeHtml(auditEventLabel(e.event_type))} · ${escapeHtml(e.thread_id || '')}</div>`,
+              )
+              .join('')
         } catch (e) {
           el.innerHTML = '<p style="color:#ffd4db">' + escapeHtml(String(e.message || e)) + '</p>'
         }
@@ -1947,7 +3635,7 @@
 
       async function loadIdentity() {
         try {
-          const uid = $('userId').value.trim()
+          const uid = $('userId').value.trim() || 'demo-user'
           const p = await j('/mirachat/identity?userId=' + encodeURIComponent(uid))
           $('idDisplayName').value = p.displayName || ''
           $('idTone').value = p.tone || ''
@@ -1963,7 +3651,7 @@
 
       async function loadRelationship() {
         try {
-          const uid = $('userId').value.trim()
+          const uid = $('userId').value.trim() || 'demo-user'
           const cid = state.selectedThreadId || ''
           if (!cid) return
           const p = await j(
@@ -1982,11 +3670,15 @@
       }
 
       function openDrawer() {
-        $('overlay').classList.add('open')
+        const ov = $('overlay')
+        ov.classList.add('open')
+        ov.setAttribute('aria-hidden', 'false')
         $('drawer').classList.add('open')
       }
       function closeDrawer() {
-        $('overlay').classList.remove('open')
+        const ov = $('overlay')
+        ov.classList.remove('open')
+        ov.setAttribute('aria-hidden', 'true')
         $('drawer').classList.remove('open')
       }
 
@@ -2035,7 +3727,408 @@
         if (t) setDrawerTab(t.dataset.tab)
       })
 
-      const submitDesktopContextIngest = async () => {
+      const ingestFlowSleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+      const ingestFlowTruncate = (s, n) => {
+        const t = String(s || '').trim()
+        if (t.length <= n) return t
+        return t.slice(0, n) + '…'
+      }
+
+      /** Ignore stray clicks right after the inline strip appears (e.g. file-picker closing). */
+      let ingestInlineModalGuardUntil = 0
+
+      function ingestBarReset() {
+        ;['ingestFlowBar', 'ingestFlowBarInline'].forEach((id) => {
+          const el = $(id)
+          if (el) el.className = 'ingest-flow-bar'
+        })
+      }
+
+      function ingestBarIndeterminate() {
+        ;['ingestFlowBar', 'ingestFlowBarInline'].forEach((id) => {
+          const el = $(id)
+          if (el) {
+            el.className = 'ingest-flow-bar'
+            el.classList.add('indeterminate')
+          }
+        })
+      }
+
+      function ingestBarDone() {
+        ;['ingestFlowBar', 'ingestFlowBarInline'].forEach((id) => {
+          const el = $(id)
+          if (el) {
+            el.classList.remove('indeterminate')
+            el.classList.add('done')
+          }
+        })
+      }
+
+      function ingestBarClearDoneState() {
+        ;['ingestFlowBar', 'ingestFlowBarInline'].forEach((id) => {
+          const el = $(id)
+          if (el) {
+            el.classList.remove('indeterminate', 'done')
+          }
+        })
+      }
+
+      function resetIngestFlowModalStepsOnly() {
+        document.querySelectorAll('#ingestFlowModal [data-ingest-step]').forEach((row) => {
+          row.classList.remove('active', 'done', 'err')
+          const icon = row.querySelector('.ingest-step-icon')
+          const det = row.querySelector('.ingest-step-detail')
+          if (icon) icon.textContent = '○'
+          if (det) det.textContent = ''
+        })
+      }
+
+      function setIngestInlineRow(status, discovery) {
+        const p = $('ingestFlowInlinePhase')
+        const h = $('ingestFlowInlineHint')
+        if (p) p.textContent = status || ''
+        if (h) {
+          const d = discovery || ''
+          h.textContent = d
+          h.classList.toggle('ingest-flow-inline-discovery--empty', !d)
+        }
+      }
+
+      function resetIngestFlowUi() {
+        ingestBarReset()
+        $('ingestFlowConclusion').classList.add('hidden')
+        $('ingestFlowConclusion').replaceChildren()
+        resetIngestFlowModalStepsOnly()
+        setIngestInlineRow('Import', '')
+      }
+
+      function openIngestFlowInline() {
+        resetIngestFlowUi()
+        const strip = $('ingestFlowInline')
+        strip.classList.remove('hidden')
+        closeIngestFlowModal()
+        ingestInlineModalGuardUntil = performance.now() + 500
+        strip.style.pointerEvents = 'none'
+        const actions = strip.querySelector('.ingest-flow-inline-actions')
+        if (actions) actions.style.pointerEvents = 'auto'
+        setTimeout(() => {
+          strip.style.pointerEvents = ''
+          if (actions) actions.style.pointerEvents = ''
+        }, 500)
+      }
+
+      function hideIngestFlowInline() {
+        $('ingestFlowInline').classList.add('hidden')
+        closeIngestFlowModal()
+      }
+
+      function showIngestFlowDetailModal() {
+        const m = $('ingestFlowModal')
+        m.removeAttribute('hidden')
+        m.classList.add('show')
+        m.setAttribute('aria-hidden', 'false')
+      }
+
+      function closeIngestFlowModal() {
+        const m = $('ingestFlowModal')
+        m.classList.remove('show')
+        m.setAttribute('hidden', '')
+        m.setAttribute('aria-hidden', 'true')
+      }
+
+      function analysisTextForSnippet(raw) {
+        let t = String(raw || '').trim()
+        if (!t) return ''
+        t = t.replace(/^```(?:json|markdown|md|text)?\s*/i, '').replace(/\s*```\s*$/i, '')
+        if (/^[\[{]/.test(t) && (t.includes('"') || t.includes("'"))) {
+          try {
+            const parsed = JSON.parse(t)
+            if (typeof parsed === 'string' && parsed.trim()) return parsed.trim()
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              const keys = ['summary', 'analysis', 'message', 'text', 'content', 'findings', 'description', 'overview']
+              for (const k of keys) {
+                const v = parsed[k]
+                if (typeof v === 'string' && v.trim()) return v.trim()
+              }
+            }
+          } catch {
+            /* keep raw */
+          }
+        }
+        return t
+      }
+
+      function firstSnippetFromAnalysis(text) {
+        const raw = analysisTextForSnippet(text)
+        if (!raw) return ''
+        const lines = raw.split(/\n/)
+        for (const line of lines) {
+          const cleaned = line
+            .replace(/^[\s>*•\-–—]+/, '')
+            .replace(/^\d+\.\s*/, '')
+            .trim()
+          if (cleaned.length >= 8) {
+            return ingestFlowTruncate(cleaned, 88)
+          }
+        }
+        const oneLine = raw.replace(/\s+/g, ' ').trim()
+        return oneLine ? ingestFlowTruncate(oneLine, 88) : ''
+      }
+
+      function firstSnippetFromReply(text) {
+        const raw = String(text || '').trim().replace(/\s+/g, ' ')
+        if (!raw) return ''
+        return ingestFlowTruncate(raw, 72)
+      }
+
+      function buildIngestInlineMemoryExtra(data) {
+        const bits = []
+        if (data.identityUpdated) bits.push('Your style hints updated')
+        if (data.relationshipUpdated) bits.push('Contact notes updated')
+        const n = data.memoryChunkCount
+        if (typeof n === 'number' && n > 0) bits.unshift(`${n} memory note${n === 1 ? '' : 's'}`)
+        return bits.length ? bits.join(' · ') : ''
+      }
+
+      function buildIngestInlineDiscovery(data) {
+        const hasA = Boolean(data.openRouterAnalysis && String(data.openRouterAnalysis).trim())
+        const hasR = Boolean(data.openRouterSuggestedReply && String(data.openRouterSuggestedReply).trim())
+        const skip = data.openRouterAnalysisSkippedReason
+        const hadImageBytes = Number(data.ingestScreenshotBase64Chars || 0) > 400
+        const visionOk = data.openRouterVisionAttached === true
+        if (hasA) {
+          const snip = firstSnippetFromAnalysis(data.openRouterAnalysis)
+          if (hadImageBytes && !visionOk) {
+            return snip ? `${snip} · screenshot not fully seen by model` : 'Screenshot sent but model used text only'
+          }
+          if (hasR) {
+            const rsnip = firstSnippetFromReply(data.openRouterSuggestedReply)
+            if (snip && rsnip) return `${snip} · Reply idea: ${rsnip}`
+            return snip || `Reply idea: ${rsnip}`
+          }
+          return snip || 'Noted the gist for you'
+        }
+        if (hasR) return `Reply idea: ${firstSnippetFromReply(data.openRouterSuggestedReply)}`
+        if (skip === 'disabled') return 'Saved without AI — turn on analysis for summaries'
+        if (skip === 'no_api_key') return 'Saved — add OpenRouter key on the API for AI notes'
+        if (skip === 'openrouter_failed') return 'Saved — AI summary failed; memory still updated'
+        return 'Added to your memory'
+      }
+
+      /** Keep the composer strip in sync with modal steps (`ingestResult` only after POST returns). */
+      function syncIngestInlineFromStep(key, phase, detail, ingestResult) {
+        const d = ingestResult
+        const hadImage = d && Number(d.ingestScreenshotBase64Chars || 0) > 400
+        const visionOk = d && d.openRouterVisionAttached === true
+        const skip = d && d.openRouterAnalysisSkippedReason
+
+        if (phase === 'err') {
+          setIngestInlineRow("Couldn't save", ingestFlowTruncate(String(detail || ''), 56))
+          return
+        }
+        if (phase === 'pending') return
+
+        if (key === 'prepare' && phase === 'active') {
+          setIngestInlineRow('Reading file', ingestFlowTruncate(String(detail || 'Preparing import…'), 72))
+          return
+        }
+        if (key === 'prepare' && phase === 'done') {
+          setIngestInlineRow('Ready', ingestFlowTruncate(String(detail || ''), 72))
+          return
+        }
+        if (key === 'transmit' && phase === 'active') {
+          setIngestInlineRow('Uploading', 'Sending to the server…')
+          return
+        }
+        if (key === 'transmit' && phase === 'done') {
+          setIngestInlineRow('Received', 'Server finished — walking through memory & AI…')
+          return
+        }
+        if (key === 'openrouter' && phase === 'active') {
+          if (!d) {
+            setIngestInlineRow('Processing', ingestFlowTruncate(String(detail || ''), 64))
+            return
+          }
+          if (skip === 'disabled') {
+            setIngestInlineRow('Memory', 'AI analysis is off — storing your text only…')
+          } else if (skip === 'no_api_key') {
+            setIngestInlineRow('Memory', 'No API key — skipping AI, saving text…')
+          } else {
+            const sub = hadImage
+              ? visionOk
+                ? 'Understanding screenshot + message together…'
+                : 'Reading your text (screenshot may not be in the model)…'
+              : 'Understanding your transcript…'
+            setIngestInlineRow('Analyzing', sub)
+          }
+          return
+        }
+        if (key === 'openrouter' && phase === 'done') {
+          if (d) setIngestInlineRow('Understood', buildIngestInlineDiscovery(d))
+          return
+        }
+        if (key === 'memory' && phase === 'done') {
+          if (d) {
+            const extra = buildIngestInlineMemoryExtra(d)
+            const disc = buildIngestInlineDiscovery(d)
+            const line = [extra, disc].filter(Boolean).join(' · ')
+            setIngestInlineRow('Memory saved', ingestFlowTruncate(line, 120))
+          } else {
+            setIngestInlineRow('Memory saved', ingestFlowTruncate(String(detail || ''), 72))
+          }
+          return
+        }
+        if (key === 'conclude' && phase === 'done') {
+          if (d) setIngestInlineRow('Saved', buildIngestInlineDiscovery(d))
+          return
+        }
+      }
+
+      function setIngestStep(key, phase, detail, ingestResult) {
+        document.querySelectorAll(`#ingestFlowModal [data-ingest-step="${key}"]`).forEach((row) => {
+          row.classList.remove('active', 'done', 'err')
+          const icon = row.querySelector('.ingest-step-icon')
+          const det = row.querySelector('.ingest-step-detail')
+          if (detail !== undefined && det) det.textContent = detail
+          if (phase === 'pending') {
+            if (icon) icon.textContent = '○'
+          } else if (phase === 'active') {
+            row.classList.add('active')
+            if (icon) icon.textContent = '◐'
+          } else if (phase === 'done') {
+            row.classList.add('done')
+            if (icon) icon.textContent = '✓'
+          } else if (phase === 'err') {
+            row.classList.add('err')
+            if (icon) icon.textContent = '✗'
+          }
+        })
+        syncIngestInlineFromStep(key, phase, detail, ingestResult)
+      }
+
+      function buildOpenRouterStepDetail(data) {
+        const skip = data.openRouterAnalysisSkippedReason
+        const hasA = Boolean(data.openRouterAnalysis && String(data.openRouterAnalysis).trim())
+        const hasR = Boolean(data.openRouterSuggestedReply && String(data.openRouterSuggestedReply).trim())
+        if (skip === 'disabled') {
+          return 'Analysis was disabled (checkbox). Nothing was sent to the model; your text still went to memory.'
+        }
+        if (skip === 'no_api_key') {
+          return 'Skipped: OPENROUTER_API_KEY is not set on the API process.'
+        }
+        if (skip === 'openrouter_failed') {
+          return 'The model call failed or returned empty fields. Check API logs or OPENROUTER_MODEL.'
+        }
+        if (!hasA && !hasR) {
+          return 'The model ran but returned no analysis or suggested reply.'
+        }
+        const parts = []
+        if (hasA) parts.push('Findings:\n' + ingestFlowTruncate(data.openRouterAnalysis, 480))
+        if (hasR) parts.push('Suggested reply:\n' + ingestFlowTruncate(data.openRouterSuggestedReply, 220))
+        return parts.join('\n\n')
+      }
+
+      function buildIngestConclusionLead(data) {
+        const chunks = data.memoryChunkCount ?? 0
+        const hasR = Boolean(data.openRouterSuggestedReply && String(data.openRouterSuggestedReply).trim())
+        const hasA = Boolean(data.openRouterAnalysis && String(data.openRouterAnalysis).trim())
+        const hadImageBytes = Number(data.ingestScreenshotBase64Chars || 0) > 400
+        const visionOk = data.openRouterVisionAttached === true
+        const parts = [`Ingest finished for «${data.threadId}» with ${chunks} memory chunk(s).`]
+        if (data.identityUpdated) parts.push('Identity hints were merged into your style guide.')
+        if (data.relationshipUpdated) parts.push('Relationship notes were updated.')
+        if (hadImageBytes && !visionOk && hasA) {
+          parts.push(
+            'Warning: a screenshot was uploaded but the API did not attach it as vision — the analysis used only the text fields. If this persists, try PNG/JPEG or check API logs.',
+          )
+        }
+        if (hasA && hasR) {
+          parts.push('OpenRouter produced an analysis and a paste-ready reply (expand below).')
+        } else if (hasA) {
+          parts.push('OpenRouter produced an analysis (expand below).')
+        } else if (hasR) {
+          parts.push('OpenRouter suggested a reply (expand below).')
+        } else if (data.openRouterAnalysisSkippedReason === 'disabled') {
+          parts.push('OpenRouter was off; only your uploaded or typed context was remembered.')
+        } else if (data.openRouterAnalysisSkippedReason === 'no_api_key') {
+          parts.push('OpenRouter was skipped (no server API key).')
+        } else if (data.openRouterAnalysisSkippedReason === 'openrouter_failed') {
+          parts.push('OpenRouter did not return usable output; memory still updated.')
+        } else {
+          parts.push('No model prose was returned; raw JSON is under Desktop → ingest result.')
+        }
+        return parts.join(' ')
+      }
+
+      function renderIngestFlowConclusion(data) {
+        const host = $('ingestFlowConclusion')
+        host.classList.remove('hidden')
+        host.replaceChildren()
+        const lead = document.createElement('p')
+        lead.className = 'ingest-conclusion-lead'
+        lead.textContent = buildIngestConclusionLead(data)
+        host.appendChild(lead)
+        const a = data.openRouterAnalysis && String(data.openRouterAnalysis).trim()
+        if (a) {
+          const det = document.createElement('details')
+          det.className = 'ingest-conclusion-details'
+          const sum = document.createElement('summary')
+          sum.textContent = 'What OpenRouter found (full)'
+          det.appendChild(sum)
+          const pre = document.createElement('pre')
+          pre.className = 'ingest-conclusion-pre'
+          pre.textContent = a
+          det.appendChild(pre)
+          host.appendChild(det)
+        }
+        const r = data.openRouterSuggestedReply && String(data.openRouterSuggestedReply).trim()
+        if (r) {
+          const det = document.createElement('details')
+          det.className = 'ingest-conclusion-details'
+          const sum = document.createElement('summary')
+          sum.textContent = 'Suggested reply (full)'
+          det.appendChild(sum)
+          const pre = document.createElement('pre')
+          pre.className = 'ingest-conclusion-pre'
+          pre.textContent = r
+          det.appendChild(pre)
+          host.appendChild(det)
+        }
+      }
+
+      document.addEventListener(
+        'keydown',
+        (e) => {
+          if (e.key !== 'Escape') return
+          const mem = $('memoryModal')
+          if (mem.classList.contains('show')) {
+            e.preventDefault()
+            mem.classList.remove('show')
+            return
+          }
+          const sum = $('summarizeModal')
+          if (sum.classList.contains('show')) {
+            e.preventDefault()
+            sum.classList.remove('show')
+            return
+          }
+          const neg = $('negotiateModal')
+          if (neg.classList.contains('show')) {
+            e.preventDefault()
+            neg.classList.remove('show')
+            return
+          }
+          const m = $('ingestFlowModal')
+          if (!m.classList.contains('show')) return
+          e.preventDefault()
+          closeIngestFlowModal()
+        },
+        true,
+      )
+
+      const submitDesktopContextIngest = async (opts = {}) => {
+        const flowAlreadyOpen = Boolean(opts.flowAlreadyOpen)
         let threadId = $('desktopIngestThreadId').value.trim()
         if (!threadId && state.selectedThreadId) {
           threadId = state.selectedThreadId
@@ -2044,31 +4137,52 @@
         const summary = $('desktopIngestSummary').value.trim()
         const extracted = $('desktopIngestExtracted').value.trim()
         if (!threadId) {
+          if (flowAlreadyOpen) hideIngestFlowInline()
           showToast('Thread id required — select a thread or type a contact / thread id.', 'error')
-          return
+          return false
         }
         if (!summary && !extracted) {
+          if (flowAlreadyOpen) hideIngestFlowInline()
           showToast('Add a summary or transcript (or upload a conversation file / screenshot).', 'error')
-          return
+          return false
         }
+        if (!flowAlreadyOpen) {
+          openIngestFlowInline()
+          setIngestStep('prepare', 'active', 'Gathering summary and transcript fields…')
+          await ingestFlowSleep(520)
+          const prepMeta = state.desktopUploadMeta
+          let prep = `Thread «${threadId}».`
+          if (prepMeta?.screenshotImageBase64) prep += ' Image payload ready for vision.'
+          else if (summary && extracted) prep += ' Summary and transcript set.'
+          else if (extracted) prep += ' Transcript set.'
+          else prep += ' Summary set.'
+          setIngestStep('prepare', 'done', prep)
+        }
+        ingestBarIndeterminate()
+        setIngestInlineRow('Preparing', 'Syncing session (account defaults)…')
         const btn = $('btnDesktopIngest')
-        const prev = btn.textContent
-        btn.disabled = true
-        btn.textContent = 'Ingesting…'
+        const prev = btn ? btn.textContent : ''
+        if (btn) {
+          btn.disabled = true
+          btn.textContent = 'Ingesting…'
+        }
         try {
-          const accountRaw = $('accountId').value.trim()
+          const { userId, channel, accountId } = await mirachatSessionParams()
+          setIngestStep(
+            'transmit',
+            'active',
+            'POST /mirachat/ingest/desktop-context — server stores memory and may call OpenRouter…',
+          )
           const meta = state.desktopUploadMeta
           const payload = {
-            userId: $('userId').value.trim(),
-            channel: $('channel').value,
+            userId,
+            channel,
             threadId,
             contactId: threadId,
             summary: summary || undefined,
             extractedText: extracted || undefined,
             openRouterAnalysis: $('desktopIngestOpenRouter').checked,
-          }
-          if (accountRaw) {
-            payload.accountId = accountRaw
+            accountId,
           }
           if (meta?.screenshotPath) {
             payload.screenshotPath = meta.screenshotPath
@@ -2079,41 +4193,76 @@
           }
           if (meta?.screenshotImageBase64) {
             payload.screenshotImageBase64 = meta.screenshotImageBase64
+            payload.screenshotMimeType =
+              meta.screenshotMimeType && String(meta.screenshotMimeType).startsWith('image/')
+                ? meta.screenshotMimeType
+                : 'image/png'
           }
+          const ingestTimeoutMs =
+            meta?.screenshotImageBase64 && meta.screenshotImageBase64.length > 200_000 ? 480_000 : 300_000
           const data = await j('/mirachat/ingest/desktop-context', {
             method: 'POST',
             body: JSON.stringify(payload),
+            timeoutMs: ingestTimeoutMs,
           })
+          if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            throw new Error('Unexpected response from server (expected JSON object).')
+          }
+          const imageSnap =
+            meta?.screenshotImageBase64 && meta?.screenshotMimeType?.startsWith('image/')
+              ? { mime: meta.screenshotMimeType, b64: meta.screenshotImageBase64 }
+              : null
+          const tidForAvatar = threadId
+          const uidForAvatar = $('userId').value.trim() || 'demo-user'
           state.desktopUploadMeta = null
           $('desktopIngestResult').textContent = JSON.stringify(data, null, 2)
           const panel = $('desktopOpenRouterPanel')
+          const statusWrap = $('desktopOpenRouterStatusWrap')
+          const statusEl = $('desktopOpenRouterStatus')
           const analysisWrap = $('desktopOpenRouterAnalysisWrap')
           const pasteWrap = $('desktopOpenRouterPasteWrap')
           const analysisEl = $('desktopOpenRouterAnalysis')
           const replyEl = $('desktopOpenRouterReply')
           const hasAnalysis = Boolean(data.openRouterAnalysis && String(data.openRouterAnalysis).trim())
           const hasReply = Boolean(data.openRouterSuggestedReply && String(data.openRouterSuggestedReply).trim())
-          if (hasAnalysis || hasReply) {
-            panel.classList.add('show')
-            if (hasAnalysis) {
-              analysisWrap.style.display = 'block'
-              analysisEl.textContent = data.openRouterAnalysis
-            } else {
-              analysisWrap.style.display = 'none'
-              analysisEl.textContent = ''
-            }
-            if (hasReply) {
-              pasteWrap.style.display = 'block'
-              replyEl.textContent = data.openRouterSuggestedReply
-            } else {
-              pasteWrap.style.display = 'none'
-              replyEl.textContent = ''
-            }
+          const skip = data.openRouterAnalysisSkippedReason
+
+          panel.classList.add('show')
+          statusWrap.style.display = 'block'
+          statusEl.className = 'desktop-or-status'
+          if (skip === 'disabled') {
+            statusEl.classList.add('warn')
+            statusEl.textContent =
+              'OpenRouter was off (checkbox unchecked). Memory was updated. Enable “OpenRouter analysis” for a bullet summary and a paste-ready WeChat/WhatsApp reply.'
+          } else if (skip === 'no_api_key') {
+            statusEl.classList.add('warn')
+            statusEl.textContent =
+              'OpenRouter skipped: the API process has no OPENROUTER_API_KEY. Set it and restart the API to see analysis and a copyable reply.'
+          } else if (skip === 'openrouter_failed') {
+            statusEl.classList.add('warn')
+            statusEl.textContent =
+              'OpenRouter did not return usable output (request error, unsupported json mode, or empty fields). Memory ingest still completed — see raw JSON below.'
+          } else if (hasAnalysis || hasReply) {
+            statusEl.classList.add('ok')
+            statusEl.textContent = 'OpenRouter completed. Analysis and/or reply below — click the reply block to copy.'
           } else {
-            panel.classList.remove('show')
+            statusEl.classList.add('warn')
+            statusEl.textContent =
+              'OpenRouter ran but returned no analysis or reply. Add more transcript in the text fields or try another OPENROUTER_MODEL.'
+          }
+
+          if (hasAnalysis) {
+            analysisWrap.style.display = 'block'
+            analysisEl.textContent = data.openRouterAnalysis
+          } else {
             analysisWrap.style.display = 'none'
-            pasteWrap.style.display = 'none'
             analysisEl.textContent = ''
+          }
+          if (hasReply) {
+            pasteWrap.style.display = 'block'
+            replyEl.textContent = data.openRouterSuggestedReply
+          } else {
+            pasteWrap.style.display = 'none'
             replyEl.textContent = ''
           }
           const or =
@@ -2121,21 +4270,83 @@
               ? ` + OpenRouter${hasReply ? ' + paste reply' : ''}`
               : ''
           showToast(`Context ingested (${data.memoryChunkCount} chunk(s))${or}`)
+
+          ingestBarDone()
+          setIngestStep('transmit', 'done', 'Server returned OK — memory ingest completed.', data)
+          await ingestFlowSleep(720)
+          setIngestStep('openrouter', 'active', 'Unpacking OpenRouter outcome for this thread…', data)
+          await ingestFlowSleep(820)
+          setIngestStep('openrouter', 'done', buildOpenRouterStepDetail(data), data)
+          await ingestFlowSleep(620)
+          const memLines = [`${data.memoryChunkCount} chunk(s) stored (includes transcript${hasAnalysis ? ' + analysis chunk' : ''}).`]
+          if (data.identityUpdated) memLines.push('Remembered: identity style hints updated.')
+          if (data.relationshipUpdated) memLines.push('Remembered: relationship notes updated.')
+          if (!data.identityUpdated && !data.relationshipUpdated) memLines.push('Identity / relationship: no automatic updates from this payload.')
+          setIngestStep('memory', 'done', memLines.join('\n'), data)
+          await ingestFlowSleep(620)
+          setIngestStep('conclude', 'done', ingestFlowTruncate(buildIngestConclusionLead(data), 320), data)
+          renderIngestFlowConclusion(data)
+
+          if (imageSnap && data.contactAvatarIdentified === true) {
+            try {
+              const thumb = await dataUrlToAvatarDataUrl(
+                'data:' + imageSnap.mime + ';base64,' + imageSnap.b64,
+              )
+              if (thumb) {
+                setPersonaScreenshotAvatar(uidForAvatar, tidForAvatar, thumb)
+                renderThreadList()
+                if (state.selectedThreadId === tidForAvatar) refreshHeadPersonaIfSelected()
+              }
+            } catch (err) {
+              console.warn('mirachat ops: ingest avatar thumb', err)
+            }
+          }
+          return true
         } catch (e) {
+          ingestBarClearDoneState()
+          setIngestStep('transmit', 'err', String(e.message || e))
           $('desktopOpenRouterPanel').classList.remove('show')
+          $('desktopOpenRouterStatusWrap').style.display = 'none'
+          $('desktopOpenRouterStatus').className = 'desktop-or-status'
+          $('desktopOpenRouterStatus').textContent = ''
           $('desktopOpenRouterAnalysisWrap').style.display = 'none'
           $('desktopOpenRouterPasteWrap').style.display = 'none'
           $('desktopOpenRouterAnalysis').textContent = ''
           $('desktopOpenRouterReply').textContent = ''
           $('desktopIngestResult').textContent = String(e.message || e)
           showToast(String(e.message || e), 'error')
+          return false
         } finally {
-          btn.disabled = false
-          btn.textContent = prev
+          if (btn) {
+            btn.disabled = false
+            btn.textContent = prev
+          }
         }
       }
 
-      $('btnDesktopIngest').addEventListener('click', () => submitDesktopContextIngest())
+      $('ingestFlowClose').addEventListener('click', closeIngestFlowModal)
+      $('ingestFlowModal').addEventListener('click', (e) => {
+        if (e.target === $('ingestFlowModal')) closeIngestFlowModal()
+      })
+      const ingestFlowModalCard = $('ingestFlowModal')?.querySelector('.modal-card')
+      if (ingestFlowModalCard) {
+        ingestFlowModalCard.addEventListener('click', (e) => e.stopPropagation())
+      }
+      $('ingestFlowInlineInner').addEventListener('click', (e) => {
+        if (e.target.closest('button')) return
+        if (performance.now() < ingestInlineModalGuardUntil) return
+        showIngestFlowDetailModal()
+      })
+      $('ingestFlowExpand').addEventListener('click', (e) => {
+        e.stopPropagation()
+        showIngestFlowDetailModal()
+      })
+      $('ingestFlowInlineDismiss').addEventListener('click', (e) => {
+        e.stopPropagation()
+        hideIngestFlowInline()
+      })
+
+      $('btnDesktopIngest').addEventListener('click', () => void submitDesktopContextIngest())
 
       const copyOpenRouterReplyToClipboard = async () => {
         const el = $('desktopOpenRouterReply')
@@ -2187,6 +4398,10 @@
           /\.(txt|md|mdown|markdown|csv|json|log)$/i.test(name)
         const isImage = mime.startsWith('image/')
 
+        openIngestFlowInline()
+        setIngestStep('prepare', 'active', `Reading «${name}»…`)
+
+        let prepareDetail = ''
         try {
           if (isText) {
             state.desktopUploadMeta = {
@@ -2195,10 +4410,12 @@
               captureTool: 'browser_upload',
             }
             const text = await file.text()
-            $('desktopIngestExtracted').value = text.slice(0, 120_000)
+            const clipped = text.slice(0, 120_000)
+            $('desktopIngestExtracted').value = clipped
             if (!$('desktopIngestSummary').value.trim()) {
               $('desktopIngestSummary').value = `Conversation import from «${name}»`
             }
+            prepareDetail = `Loaded ${clipped.length} character(s) from «${name}».`
           } else if (isImage) {
             const maxDataUrlChars = 9_000_000
             const dataUrl = await new Promise((resolve, reject) => {
@@ -2208,35 +4425,47 @@
               r.readAsDataURL(file)
             })
             if (dataUrl.length > maxDataUrlChars) {
+              state.desktopUploadMeta = null
+              hideIngestFlowInline()
               showToast('Image too large — try a screenshot under ~6 MB.', 'error')
               return
             }
-            const dm = dataUrl.match(/^data:([\w/+.-]+);base64,(.*)$/i)
-            if (!dm) {
+            const base64Idx = dataUrl.indexOf(';base64,')
+            if (base64Idx === -1 || !dataUrl.startsWith('data:')) {
+              state.desktopUploadMeta = null
+              hideIngestFlowInline()
               showToast('Could not read image as base64.', 'error')
               return
             }
+            const metaHeader = dataUrl.slice('data:'.length, base64Idx)
+            const mimeFromUrl = metaHeader.split(';')[0].trim().toLowerCase() || 'image/png'
+            const rawB64 = dataUrl.slice(base64Idx + ';base64,'.length).replace(/\s+/g, '')
             state.desktopUploadMeta = {
               screenshotPath: `upload:${name}`,
-              screenshotMimeType: dm[1],
-              screenshotImageBase64: dm[2],
+              screenshotMimeType: mimeFromUrl,
+              screenshotImageBase64: rawB64,
               captureTool: 'browser_upload',
             }
             $('desktopIngestExtracted').value = ''
             if (!$('desktopIngestSummary').value.trim()) {
-              $('desktopIngestSummary').value = `Screenshot / image: «${name}» (${dm[1]}). Add what it shows if needed.`
+              $('desktopIngestSummary').value = `Screenshot / image: «${name}» (${mimeFromUrl}). Add what it shows if needed.`
             }
+            prepareDetail = `Image «${name}» (${mimeFromUrl}) encoded for vision.`
           } else {
+            hideIngestFlowInline()
             showToast('Unsupported file — use a text file or an image.', 'error')
             return
           }
         } catch (err) {
           state.desktopUploadMeta = null
+          hideIngestFlowInline()
           showToast(String(err.message || err), 'error')
           return
         }
 
-        await submitDesktopContextIngest()
+        setIngestStep('prepare', 'done', prepareDetail)
+        await ingestFlowSleep(520)
+        await submitDesktopContextIngest({ flowAlreadyOpen: true })
       }
 
       const bindDesktopFileInput = (inputEl) => {
@@ -2247,16 +4476,14 @@
         })
       }
       bindDesktopFileInput($('desktopContextUpload'))
-      bindDesktopFileInput($('threadUploadConversation'))
-      bindDesktopFileInput($('threadUploadScreenshot'))
+      bindDesktopFileInput($('threadContextUpload'))
 
-      $('btnThreadUploadConversation').addEventListener('click', () => $('threadUploadConversation').click())
-      $('btnThreadUploadScreenshot').addEventListener('click', () => $('threadUploadScreenshot').click())
+      $('btnThreadContextUpload').addEventListener('click', () => $('threadContextUpload').click())
 
       const persistConnectionFields = () => {
         persist()
         syncApiQueryParam()
-        $('connSaveHint').textContent = 'Saved locally. Reconnect to apply.'
+        $('connSaveHint').textContent = 'Saved on this device only. Reconnect to apply.'
       }
 
       async function saveSettingsAndReconnect() {
@@ -2268,7 +4495,7 @@
         try {
           await refreshData()
           showErr('')
-          $('connSaveHint').textContent = 'Connected. Settings stored locally.'
+          $('connSaveHint').textContent = 'Connected. Settings stay on this device.'
           closeDrawer()
           showToast(`Connected to ${api()}`)
         } catch (e) {
@@ -2286,6 +4513,7 @@
         'apiBase',
         'userId',
         'accountId',
+        'mirachatTenantBearer',
         'openClawAgentId',
         'openClawSessionId',
         'openClawTo',
@@ -2308,6 +4536,7 @@
         'apiBase',
         'userId',
         'accountId',
+        'mirachatTenantBearer',
         'openClawAgentId',
         'openClawSessionId',
         'openClawTo',
@@ -2342,7 +4571,6 @@
 
       async function placeMirachatOutboundVoiceCall({ to, message, requireCustomMessage, loadingBtn }) {
         persist()
-        const userId = $('userId').value.trim()
         const callerName = $('phoneCallerName').value.trim()
         const disclosureMode = $('phoneDisclosureMode').value
         const secret = $('phoneOutboundSecret').value.trim()
@@ -2351,10 +4579,6 @@
           (!requireCustomMessage
             ? 'This is MiraChat calling you now from the ops console.'
             : '')
-        if (!userId) {
-          showToast('Set user ID first', 'error')
-          return
-        }
         if (!to || !isValidE164(to)) {
           showToast('Enter a valid E.164 number (e.g. +15551234567)', 'error')
           return
@@ -2368,13 +4592,14 @@
         btn.disabled = true
         btn.textContent = 'Calling…'
         try {
+          const { userId, channel, accountId } = await mirachatSessionParams()
           const body = {
             userId,
             to,
             message: msg,
             disclosureMode,
-            channel: $('channel').value,
-            accountId: $('accountId').value.trim() || undefined,
+            channel,
+            accountId,
           }
           if (callerName) body.callerName = callerName
           if (state.selectedThreadId) body.threadId = state.selectedThreadId
@@ -2421,7 +4646,7 @@
       })
 
       $('btnSaveIdentity').addEventListener('click', async () => {
-        const uid = $('userId').value.trim()
+        const uid = $('userId').value.trim() || 'demo-user'
         const body = {
           userId: uid,
           displayName: $('idDisplayName').value,
@@ -2436,7 +4661,7 @@
       })
 
       $('btnSaveRel').addEventListener('click', async () => {
-        const uid = $('userId').value.trim()
+        const uid = $('userId').value.trim() || 'demo-user'
         const cid = state.selectedThreadId
         if (!cid) {
           alert('Select a thread first')
@@ -2455,18 +4680,137 @@
         showToast('Relationship saved')
       })
 
-      $('btnBack').addEventListener('click', () => {
+      function clearThreadSelection() {
         state.selectedThreadId = null
         renderIdleComposerState()
         layoutMobile()
         renderThreadList()
+      }
+
+      $('btnBack').addEventListener('click', () => {
+        clearThreadSelection()
       })
+
+      function beginNewChatContact() {
+        clearThreadSelection()
+        const sim = $('simThreadId')
+        if (sim) {
+          sim.value = ''
+          persistConnectionFields()
+        }
+        const comp = $('composer')
+        if (comp) comp.value = ''
+        closeDrawer()
+        showToast('New conversation — enter a thread or recipient id, then Send.')
+        sim?.focus()
+      }
+
+      $('btnNewChat').addEventListener('click', beginNewChatContact)
+      $('btnNewChatSidebar').addEventListener('click', beginNewChatContact)
+      $('btnNewChatHeader').addEventListener('click', beginNewChatContact)
 
       $('btnModeCycle').addEventListener('click', cycleMode)
 
-      $('threadSearch').addEventListener('input', renderThreadList)
+      $('threadSearch').addEventListener('input', () => {
+        renderThreadList()
+        scheduleMessageSearch()
+      })
+      const msgScopeEl = $('messageSearchThisThread')
+      if (msgScopeEl) {
+        msgScopeEl.addEventListener('change', () => {
+          scheduleMessageSearch()
+        })
+      }
 
-      $('btnInbound').addEventListener('click', async () => {
+      $('btnContactList').addEventListener('click', () => {
+        const input = $('threadSearch')
+        if (input) input.value = ''
+        const scope = $('messageSearchThisThread')
+        if (scope) scope.checked = false
+        const hits = $('messageSearchHits')
+        if (hits) {
+          hits.classList.add('hidden')
+          hits.innerHTML = ''
+        }
+        renderThreadList()
+        scheduleMessageSearch()
+        const list = $('threadList')
+        if (list) list.scrollTop = 0
+        showToast('Showing all contacts')
+      })
+
+      $('btnSidebarMemory').addEventListener('click', () => openMemoryModal())
+      $('memoryModalClose').addEventListener('click', closeMemoryModal)
+      $('memoryModalRefresh').addEventListener('click', () => void loadMemoryModalList())
+      $('memoryModalAdd').addEventListener('click', () => {
+        closeMemoryModal()
+        openDrawer()
+        setDrawerTab('desktop')
+        showToast('Add to memory — paste summary or upload below')
+        requestAnimationFrame(() => {
+          const summary = $('desktopIngestSummary')
+          if (summary) summary.focus()
+          else $('desktopIngestThreadId')?.focus()
+        })
+      })
+
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+      /** Poll until triage draft exists for this thread (worker runs async after POST /mirachat/inbound). */
+      async function pollUntilDraftForThread(threadId, maxMs = 75_000) {
+        const deadline = Date.now() + maxMs
+        const started = Date.now()
+        while (Date.now() < deadline) {
+          await refreshData()
+          if (state.selectedThreadId === threadId && draftForThread(threadId)) {
+            renderMessages()
+            renderApproval()
+            const panel = $('approvalPanel')
+            if (panel.style.display === 'block') {
+              if (Date.now() - started > 2500) {
+                showToast('Reply draft ready — review “Reply in your tone” below the history')
+              }
+              return true
+            }
+          }
+          await sleep(600)
+        }
+        showToast(
+          'No draft yet — click Refresh, or use sidebar “Generate replies for queue” if messages are stuck pending.',
+        )
+        return false
+      }
+
+      const composerMoreMenu = $('composerMoreMenu')
+      const composerMoreWrap = $('composerMoreWrap')
+
+      function setComposerMoreOpen(open) {
+        composerMoreMenu.classList.toggle('composer-more-menu--collapsed', !open)
+        composerMoreMenu.setAttribute('aria-hidden', open ? 'false' : 'true')
+        $('btnComposerMore').setAttribute('aria-expanded', open ? 'true' : 'false')
+      }
+
+      $('btnComposerMore').addEventListener('click', (e) => {
+        e.stopPropagation()
+        setComposerMoreOpen(composerMoreMenu.classList.contains('composer-more-menu--collapsed'))
+      })
+
+      document.addEventListener('click', (e) => {
+        if (composerMoreWrap.contains(e.target)) return
+        setComposerMoreOpen(false)
+      })
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !composerMoreMenu.classList.contains('composer-more-menu--collapsed')) {
+          setComposerMoreOpen(false)
+        }
+      })
+
+      ;[ $('btnNegotiate'), $('btnSummarize'), $('btnRefresh') ].forEach((btn) => {
+        btn.addEventListener('click', () => setComposerMoreOpen(false))
+      })
+
+      async function sendInboundMessage() {
         const text = $('composer').value.trim()
         if (!text) return
         const simTid = ($('simThreadId').value || '').trim()
@@ -2476,9 +4820,7 @@
           prompt('Thread / contact id', 'demo-contact') ||
           'demo-contact'
         if (!state.selectedThreadId) await selectThread(tid)
-        const uid = $('userId').value.trim()
-        const ch = $('channel').value
-        const acc = $('accountId').value.trim()
+        const { userId: uid, channel: ch, accountId: acc } = await mirachatSessionParams()
         await j('/mirachat/inbound', {
           method: 'POST',
           body: JSON.stringify({
@@ -2489,73 +4831,22 @@
             contactId: tid,
             senderId: tid,
             text,
+            messageId: `ui-sim-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           }),
         })
         $('composer').value = ''
         await refreshData()
-      })
+        await pollUntilDraftForThread(tid)
+      }
 
-      $('btnAssist').addEventListener('click', async () => {
-        if (!state.selectedThreadId) {
-          alert('Select a thread')
-          return
-        }
-        const text = $('composer').value.trim() || latestInboundText()
-        if (!text) {
-          alert('Type a message or load thread history')
-          return
-        }
-        const uid = $('userId').value.trim()
-        const ch = $('channel').value
-        const acc = $('accountId').value.trim()
-        try {
-          const res = await j('/mirachat/assist', {
-            method: 'POST',
-            body: JSON.stringify({
-              userId: uid,
-              channel: ch,
-              accountId: acc,
-              threadId: state.selectedThreadId,
-              senderId: state.selectedThreadId,
-              text,
-            }),
-          })
-          const parts = []
-          if (res.threadSummary) parts.push('<h4 style="margin:0.5rem 0 0.25rem">Thread summary</h4><p>' + escapeHtml(res.threadSummary) + '</p>')
-          if (res.primaryDraft?.response) {
-            parts.push('<h4 style="margin:0.5rem 0 0.25rem">Primary draft</h4><p>' + escapeHtml(res.primaryDraft.response) + '</p>')
-          }
-          if (Array.isArray(res.replyOptions)) {
-            res.replyOptions.forEach((o) => {
-              parts.push(
-                '<div class="opt-block"><div class="opt-label">' +
-                  escapeHtml(replyOptionDisplayLabel(o.label)) +
-                  '</div>' +
-                  escapeHtml(o.text) +
-                  '</div>',
-              )
-            })
-          }
-          if (Array.isArray(res.assistVariants)) {
-            res.assistVariants.forEach((o) => {
-              const body = o.text ?? o.response ?? ''
-              parts.push(
-                '<div class="opt-block"><div class="opt-label">Variant: ' +
-                  escapeHtml(o.label || '') +
-                  '</div>' +
-                  escapeHtml(body) +
-                  '</div>',
-              )
-            })
-          }
-          $('assistBody').innerHTML = parts.join('') || '<p>No content</p>'
-          $('assistModal').classList.add('show')
-        } catch (e) {
-          showErr(String(e.message || e))
-        }
-      })
+      $('btnInbound').addEventListener('click', () => void sendInboundMessage())
 
-      $('assistClose').addEventListener('click', () => $('assistModal').classList.remove('show'))
+      $('composer').addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return
+        if (e.shiftKey) return
+        e.preventDefault()
+        void sendInboundMessage()
+      })
 
       $('btnNegotiate').addEventListener('click', () => {
         if (!state.selectedThreadId) {
@@ -2581,7 +4872,7 @@
         }
         const counterpartyText = $('negCounterpartyText').value.trim()
         if (!counterpartyText) {
-          showToast('Add the counterparty message first', 'error')
+          showToast('Add their message first', 'error')
           return
         }
         const constraints = $('negConstraints').value
@@ -2592,7 +4883,7 @@
           const res = await j('/mirachat/tools/negotiate', {
             method: 'POST',
             body: JSON.stringify({
-              userId: $('userId').value.trim(),
+              userId: $('userId').value.trim() || 'demo-user',
               threadRef: state.selectedThreadId,
               counterpartyText,
               relationshipPriority: $('negPriority').value,
@@ -2610,12 +4901,8 @@
               ${escapeHtml((res.slotToolSample?.slots || []).join(', '))}
             </div>
             <div style="margin-top:0.6rem">
-              <strong style="display:block;margin-bottom:0.25rem">Rationale</strong>
+              <strong style="display:block;margin-bottom:0.25rem">Why these times</strong>
               ${escapeHtml(res.slotToolSample?.rationale || '')}
-            </div>
-            <div style="margin-top:0.6rem">
-              <strong style="display:block;margin-bottom:0.25rem">Tools used</strong>
-              ${escapeHtml((res.toolsUsed || []).join(', '))}
             </div>
           `
           showToast('Negotiation suggestion ready')
@@ -2628,25 +4915,28 @@
       $('btnSummarize').addEventListener('click', async () => {
         if (!state.selectedThreadId) return
         try {
-          const uid = $('userId').value.trim()
+          const uid = $('userId').value.trim() || 'demo-user'
           const res = await j('/mirachat/summarize-thread', {
             method: 'POST',
             body: JSON.stringify({ threadId: state.selectedThreadId, userId: uid }),
           })
-          alert(res.summary || 'No summary')
+          $('summarizeBody').textContent = res.summary || 'No summary yet.'
+          $('summarizeModal').classList.add('show')
         } catch (e) {
           showErr(String(e.message || e))
         }
       })
 
+      $('summarizeClose').addEventListener('click', () => {
+        $('summarizeModal').classList.remove('show')
+      })
+
       $('btnRefresh').addEventListener('click', refreshData)
 
       $('btnProcessPending').addEventListener('click', async () => {
-        const uid = $('userId').value.trim()
-        const channel = $('channel').value
-        const accountId = $('accountId').value.trim()
-        if (!channel || !accountId) {
-          showToast('Set channel and account ID first', 'error')
+        const { userId: uid, channel, accountId } = await mirachatSessionParams()
+        if (!channel) {
+          showToast('Set channel first', 'error')
           return
         }
         try {

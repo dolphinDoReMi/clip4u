@@ -1,12 +1,15 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Channel, IdentityProfile, MessageEvent, Mode, RelationshipProfile } from '@delegate-ai/adapter-types'
-import type { DelegateRuntime } from '@delegate-ai/agent-core'
+import type { DelegateRuntime, OpenRouterDesktopContextResult } from '@delegate-ai/agent-core'
 import {
+  OPENROUTER_PROMPT_OS_VERSION,
   buildAssistSuggestions,
   buildContextBundle,
+  buildIngestSuggestedReplyMemoryChunk,
   buildReplyOptions,
   buildThreadSummary,
   classifyIntent,
+  linesForSummaryTranscript,
   openRouterDesktopContextAnalysis,
   runCognitivePipeline,
 } from '@delegate-ai/agent-core'
@@ -29,9 +32,11 @@ import {
   insertMemoryChunks,
   listA2aEnvelopesForUser,
   listDelegationEvents,
+  listDelegationEventsForUser,
   listDraftedOutboundTriage,
   listDraftedOutboundTriageForSession,
   listDraftedOutboundTriageForUser,
+  listMemoryChunksForUser,
   listPendingSend,
   listPendingInboundIdsForUser,
   listThreadSummariesForSession,
@@ -73,6 +78,7 @@ import {
   mergeUniqueStrings,
   parseDesktopContextIngestRequest,
 } from './desktop-context.js'
+import { mirachatTenantEnforceEnabled, resolveEffectiveTenantUserId } from './tenant-auth.js'
 
 export interface MirachatSqlContext {
   pool: Pool
@@ -163,6 +169,22 @@ const trimString = (value: unknown): string | undefined => {
   }
   const trimmed = value.trim()
   return trimmed ? trimmed : undefined
+}
+
+/** Query `userId=` is often empty from clients; `?? 'demo-user'` does not catch ''. */
+const resolveQueryUserId = (params: URLSearchParams): string => trimString(params.get('userId')) ?? 'demo-user'
+
+const requireMirachatTenantUser = (
+  request: IncomingMessage,
+  response: ServerResponse,
+  claimedUserId: string | undefined,
+): string | null => {
+  const r = resolveEffectiveTenantUserId(request, claimedUserId)
+  if (!r.ok) {
+    sendJson(response, r.status, { error: r.message })
+    return null
+  }
+  return r.userId
 }
 
 const isValidE164Phone = (value: string): boolean => /^\+[1-9]\d{9,14}$/.test(value.trim())
@@ -655,9 +677,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       const primaryDraft = await runCognitivePipeline(context)
       const [replyOptions, threadSummary] = await Promise.all([
         buildReplyOptions(context, primaryDraft.response),
-        buildThreadSummary(
-          context.memory.recentMessages.map(m => `${m.direction}: ${m.content}`).join('\n'),
-        ),
+        buildThreadSummary(linesForSummaryTranscript(context.memory.recentMessages)),
       ])
 
       sendJson(response, 200, {
@@ -767,8 +787,11 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     if (request.method === 'POST' && url.pathname === '/mirachat/inbound') {
       const body = parseJson(await readBody(request))
       const channel = String(body.channel ?? 'wechat') as Channel
-      const accountId = String(body.accountId ?? 'default-account')
-      const userId = String(body.userId ?? 'demo-user')
+      const accountId = trimString(body.accountId) ?? 'default-account'
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       await upsertUserConnection(pool, { channel, accountId, userId, status: 'ONLINE' })
       const conn = await getUserConnection(pool, channel, accountId)
       const inboundId = await insertInboundMessage(pool, {
@@ -800,10 +823,14 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'POST' && url.pathname === '/mirachat/assist') {
       const body = parseJson(await readBody(request))
+      const tenantUid = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!tenantUid) {
+        return
+      }
       const event: MessageEvent = {
         channel: String(body.channel ?? 'twilio_whatsapp') as Channel,
         accountId: String(body.accountId ?? 'default-account'),
-        userId: String(body.userId ?? 'demo-user'),
+        userId: tenantUid,
         senderId: String(body.senderId ?? body.threadId ?? 'unknown'),
         threadId: String(body.threadId ?? 'unknown'),
         messageId: String(body.messageId ?? `assist-${Date.now()}`),
@@ -820,9 +847,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       const [replyOptions, assistVariants, threadSummary] = await Promise.all([
         buildReplyOptions(context, primaryDraft.response),
         buildAssistSuggestions(context),
-        buildThreadSummary(
-          context.memory.recentMessages.map(m => `${m.direction}: ${m.content}`).join('\n'),
-        ),
+        buildThreadSummary(linesForSummaryTranscript(context.memory.recentMessages)),
       ])
       sendJson(response, 200, {
         threadSummary,
@@ -851,13 +876,16 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     if (request.method === 'POST' && url.pathname === '/mirachat/summarize-thread') {
       const body = parseJson(await readBody(request))
       const threadId = String(body.threadId ?? '')
-      const userId = String(body.userId ?? 'demo-user')
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       if (!threadId) {
         sendJson(response, 400, { error: 'threadId required' })
         return
       }
       const recent = await mirachatMemory.getRecentMessages(threadId, undefined, userId)
-      const transcript = recent.map(m => `${m.direction}: ${m.content}`).join('\n')
+      const transcript = linesForSummaryTranscript(recent)
       const summary = await buildThreadSummary(transcript)
       void insertDelegationEvent(pool, {
         eventType: DelegationEventType.SummaryGenerated,
@@ -891,7 +919,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'POST' && url.pathname === '/mirachat/ingest/gmail') {
       const body = parseJson(await readBody(request))
-      const userId = String(body.userId ?? 'demo-user')
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       const r = await ingestGmailIntoMemory(pool, userId, Number(body.maxMessages ?? 15))
       if ('error' in r) {
         sendJson(response, 400, r)
@@ -903,7 +934,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'POST' && url.pathname === '/mirachat/ingest/slack') {
       const body = parseJson(await readBody(request))
-      const userId = String(body.userId ?? 'demo-user')
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       const channelId = String(body.channelId ?? '')
       if (!channelId) {
         sendJson(response, 400, { error: 'channelId required (Slack channel ID)' })
@@ -925,18 +959,26 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         sendJson(response, 400, { error: parsed.error })
         return
       }
-      const input = parsed.value
+      const tenantUid = requireMirachatTenantUser(request, response, parsed.value.userId)
+      if (!tenantUid) {
+        return
+      }
+      const input = { ...parsed.value, userId: tenantUid }
       const relationshipContactId = input.contactId ?? input.threadId
+
+      const ingestScreenshotBase64Chars = input.screenshotImageBase64?.length ?? 0
 
       let openRouterAnalysisText: string | null = null
       let openRouterSuggestedReply: string | null = null
       let openRouterAnalysisSkippedReason: 'disabled' | 'no_api_key' | 'openrouter_failed' | null = 'disabled'
+      let contactAvatarIdentified = false
+      let openRouterBundle: OpenRouterDesktopContextResult | null = null
       if (input.openRouterAnalysis) {
         if (!process.env.OPENROUTER_API_KEY?.trim()) {
           openRouterAnalysisSkippedReason = 'no_api_key'
         } else {
           openRouterAnalysisSkippedReason = 'openrouter_failed'
-          const orBundle = await openRouterDesktopContextAnalysis({
+          openRouterBundle = await openRouterDesktopContextAnalysis({
             channel: input.channel,
             threadId: input.threadId,
             contactId: input.contactId,
@@ -948,9 +990,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
             windowClass: input.window?.wmClass,
             screenshotImageBase64: input.screenshotImageBase64,
             screenshotMimeType: input.screenshotMimeType,
+            screenshotImageUrl: input.screenshotImageUrl,
           })
-          const a = orBundle?.analysis?.trim() ?? ''
-          const s = orBundle?.suggestedReply?.trim() ?? ''
+          const a = openRouterBundle?.analysis?.trim() ?? ''
+          const s = openRouterBundle?.suggestedReply?.trim() ?? ''
           if (a) {
             openRouterAnalysisText = a
           }
@@ -959,6 +1002,9 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
           }
           if (a || s) {
             openRouterAnalysisSkippedReason = null
+          }
+          if (openRouterBundle?.visionAttached && openRouterBundle.contactAvatarIdentified === true) {
+            contactAvatarIdentified = true
           }
         }
       }
@@ -977,6 +1023,18 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
             .filter(Boolean)
             .join('\n'),
         )
+      }
+
+      const trimmedSuggested = openRouterSuggestedReply?.trim()
+      if (trimmedSuggested) {
+        const chunk = buildIngestSuggestedReplyMemoryChunk({
+          channel: input.channel,
+          threadId: input.threadId,
+          reply: trimmedSuggested,
+        })
+        if (chunk) {
+          memoryContents.push(chunk)
+        }
       }
 
       const memoryChunkCount = await insertMemoryChunks(pool, {
@@ -1061,10 +1119,21 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
           open_router_analysis_requested: input.openRouterAnalysis,
           open_router_analysis_stored: Boolean(trimmedAnalysis),
           open_router_suggested_reply_returned: Boolean(openRouterSuggestedReply),
-          open_router_vision_image: Boolean(input.screenshotImageBase64?.length),
+          open_router_suggested_reply_stored: Boolean(trimmedSuggested),
+          open_router_screenshot_base64_chars: ingestScreenshotBase64Chars,
+          open_router_vision_attached: openRouterBundle?.visionAttached === true,
           open_router_analysis_skipped_reason: openRouterAnalysisSkippedReason,
+          contact_avatar_identified: contactAvatarIdentified,
+          open_router_what_i_see_chars: openRouterBundle?.whatISee?.trim().length ?? 0,
+          open_router_prompt_os_version: input.openRouterAnalysis ? OPENROUTER_PROMPT_OS_VERSION : null,
         },
       })
+
+      const exposeOpenRouterReasoning = process.env.MIRACHAT_EXPOSE_OPENROUTER_REASONING === '1'
+      const reasoningOut =
+        exposeOpenRouterReasoning && openRouterBundle?.reasoningTrace?.trim()
+          ? openRouterBundle.reasoningTrace.trim()
+          : null
 
       sendJson(response, 200, {
         ok: true,
@@ -1077,15 +1146,25 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         identityUpdated,
         relationshipUpdated,
         screenshotPath: input.screenshotPath ?? null,
+        ingestScreenshotBase64Chars,
+        openRouterVisionAttached: openRouterBundle?.visionAttached === true,
+        openRouterPromptOsVersion: input.openRouterAnalysis ? OPENROUTER_PROMPT_OS_VERSION : null,
+        openRouterWhatISee: openRouterBundle?.whatISee?.trim() || null,
+        openRouterReasoningTrace: reasoningOut,
         openRouterAnalysis: trimmedAnalysis ?? null,
         openRouterSuggestedReply: openRouterSuggestedReply ?? null,
         openRouterAnalysisSkippedReason,
+        contactAvatarIdentified,
       })
       return
     }
 
     if (request.method === 'POST' && url.pathname === '/mirachat/tools/negotiate') {
       const body = parseJson(await readBody(request))
+      const tenantUid = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!tenantUid) {
+        return
+      }
       const threadRef = typeof body.threadRef === 'string' ? body.threadRef.trim() : ''
       const counterpartyText =
         typeof body.counterpartyText === 'string'
@@ -1130,7 +1209,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       const out = runNegotiationTurn({ state, counterpartyText })
       void insertDelegationEvent(pool, {
         eventType: DelegationEventType.NegotiationTurn,
-        userId: String(body.userId ?? 'demo-user'),
+        userId: tenantUid,
         threadId: threadRef,
         metadata: { toolsUsed: out.toolsUsed },
       }).catch(() => {})
@@ -1148,6 +1227,12 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/mirachat/doer/openclaw/status') {
+      if (mirachatTenantEnforceEnabled()) {
+        const ok = requireMirachatTenantUser(request, response, undefined)
+        if (!ok) {
+          return
+        }
+      }
       const doer = getOpenClawDoer()
       const config = doer.getConfig()
       sendJson(response, 200, {
@@ -1159,6 +1244,12 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     }
 
     if (request.method === 'POST' && url.pathname === '/mirachat/doer/openclaw/run') {
+      if (mirachatTenantEnforceEnabled()) {
+        const ok = requireMirachatTenantUser(request, response, undefined)
+        if (!ok) {
+          return
+        }
+      }
       const body = parseJson(await readBody(request))
       const task = typeof body.task === 'string' ? body.task.trim() : ''
       if (!task) {
@@ -1190,10 +1281,14 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'POST' && url.pathname === '/a2a/propose') {
       const body = parseJson(await readBody(request))
-      const fromUserId = String(body.fromUserId ?? '')
+      const fromUserIdRaw = String(body.fromUserId ?? '')
+      const fromUserId = requireMirachatTenantUser(request, response, trimString(fromUserIdRaw))
+      if (!fromUserId) {
+        return
+      }
       const toUserId = String(body.toUserId ?? '')
       const intent = String(body.intent ?? '')
-      if (!fromUserId || !toUserId || !intent) {
+      if (!toUserId || !intent) {
         sendJson(response, 400, { error: 'fromUserId, toUserId, intent required' })
         return
       }
@@ -1203,7 +1298,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       }
       const payload = validateA2aPayload(body.payload) ? body.payload : {}
       const id = await insertA2aEnvelope(pool, {
-        fromUserId,
+        fromUserId: fromUserId,
         toUserId,
         threadRef: body.threadRef != null ? String(body.threadRef) : null,
         intent,
@@ -1239,6 +1334,16 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         sendJson(response, 404, { error: 'envelope not found or not proposed' })
         return
       }
+      if (mirachatTenantEnforceEnabled()) {
+        const uid = requireMirachatTenantUser(request, response, undefined)
+        if (!uid) {
+          return
+        }
+        if (row.to_user_id !== uid) {
+          sendJson(response, 403, { error: 'Envelope not addressed to this tenant' })
+          return
+        }
+      }
       void insertDelegationEvent(pool, {
         eventType: DelegationEventType.A2aResponse,
         userId: row.to_user_id,
@@ -1250,7 +1355,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/a2a/inbox') {
-      const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const userId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!userId) {
+        return
+      }
       const role = url.searchParams.get('role') === 'from' ? 'from' : 'to'
       const rows = await listA2aEnvelopesForUser(pool, userId, role, 80)
       sendJson(response, 200, rows)
@@ -1259,6 +1367,15 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'GET' && url.pathname === '/mirachat/delegation-events') {
       const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit') ?? 100)))
+      if (mirachatTenantEnforceEnabled()) {
+        const uid = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+        if (!uid) {
+          return
+        }
+        const events = await listDelegationEventsForUser(pool, uid, limit)
+        sendJson(response, 200, events)
+        return
+      }
       const events = await listDelegationEvents(pool, limit)
       sendJson(response, 200, events)
       return
@@ -1266,11 +1383,21 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'GET' && url.pathname === '/mirachat/metrics') {
       const days = Math.min(366, Math.max(1, Number(url.searchParams.get('days') ?? 7)))
-      const userId = url.searchParams.get('userId')
       const until = new Date()
       const since = new Date(until.getTime() - days * 86_400_000)
+      let scopedUserId: string | null = null
+      if (mirachatTenantEnforceEnabled()) {
+        const uid = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+        if (!uid) {
+          return
+        }
+        scopedUserId = uid
+      } else {
+        const q = url.searchParams.get('userId')
+        scopedUserId = q && q.trim() ? q.trim() : null
+      }
       const rollup = await queryGqmRollup(pool, {
-        userId: userId && userId.trim() ? userId : null,
+        userId: scopedUserId,
         since,
         until,
       })
@@ -1279,7 +1406,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/mirachat/identity') {
-      const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const userId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!userId) {
+        return
+      }
       const profile = await mirachatIdentity.getIdentity(userId)
       sendJson(response, 200, profile)
       return
@@ -1291,10 +1421,14 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         sendJson(response, 400, { error: 'userId required' })
         return
       }
-      await mirachatIdentity.upsertIdentity(body)
+      const tenantUid = requireMirachatTenantUser(request, response, body.userId)
+      if (!tenantUid) {
+        return
+      }
+      await mirachatIdentity.upsertIdentity({ ...body, userId: tenantUid })
       void insertDelegationEvent(pool, {
         eventType: DelegationEventType.IdentityUpdated,
-        userId: body.userId,
+        userId: tenantUid,
         metadata: {
           style_guide_count: Array.isArray(body.styleGuide) ? body.styleGuide.length : 0,
           hard_boundary_count: Array.isArray(body.hardBoundaries) ? body.hardBoundaries.length : 0,
@@ -1305,7 +1439,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/mirachat/relationship') {
-      const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const userId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!userId) {
+        return
+      }
       const contactId = url.searchParams.get('contactId')
       if (!contactId) {
         sendJson(response, 400, { error: 'contactId query required' })
@@ -1322,10 +1459,14 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         sendJson(response, 400, { error: 'userId and contactId required' })
         return
       }
-      await mirachatIdentity.upsertRelationship(body)
+      const tenantUid = requireMirachatTenantUser(request, response, body.userId)
+      if (!tenantUid) {
+        return
+      }
+      await mirachatIdentity.upsertRelationship({ ...body, userId: tenantUid })
       void insertDelegationEvent(pool, {
         eventType: DelegationEventType.RelationshipUpdated,
-        userId: body.userId,
+        userId: tenantUid,
         threadId: body.contactId,
         metadata: {
           risk_level: body.riskLevel,
@@ -1338,7 +1479,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'POST' && url.pathname === '/mirachat/delegation-mode') {
       const body = parseJson(await readBody(request))
-      const userId = String(body.userId ?? '').trim()
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       const threadId = String(body.threadId ?? '').trim()
       const channel = body.channel != null ? String(body.channel) : null
       const accountId = body.accountId != null ? String(body.accountId) : null
@@ -1408,15 +1552,14 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'POST' && url.pathname === '/mirachat/feedback') {
       const body = parseJson(await readBody(request))
-      const userId = String(body.userId ?? '').trim()
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       const type = String(body.type ?? '').trim()
       const draftId = body.draftId != null ? String(body.draftId) : null
       const threadId = body.threadId != null ? String(body.threadId) : null
       const note = body.note != null ? String(body.note) : null
-      if (!userId) {
-        sendJson(response, 400, { error: 'userId required' })
-        return
-      }
       let eventType: string | null = null
       const metadata: Record<string, unknown> = {}
       if (type === 'sounds_like_me') {
@@ -1560,7 +1703,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         return
       }
       const body = parseJson(await readBody(request)) as Record<string, unknown>
-      const userId = trimString(body.userId) ?? 'demo-user'
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       const to = trimString(body.to)
       const message = trimString(body.message)
       const disclosureRaw = trimString(body.disclosureMode)
@@ -1638,7 +1784,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'POST' && url.pathname === '/mirachat/inbox/process-pending') {
       const body = parseJson(await readBody(request))
-      const userId = trimString(body.userId) ?? 'demo-user'
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       const channel = trimString(body.channel)
       const accountId = trimString(body.accountId)
       if (!channel || !accountId) {
@@ -1654,7 +1803,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/mirachat/inbox/pending-count') {
-      const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const userId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!userId) {
+        return
+      }
       const channel = trimString(url.searchParams.get('channel'))
       const accountId = trimString(url.searchParams.get('accountId'))
       if (!channel || !accountId) {
@@ -1667,7 +1819,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/mirachat/threads') {
-      const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const userId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!userId) {
+        return
+      }
       const channel = trimString(url.searchParams.get('channel'))
       const accountId = trimString(url.searchParams.get('accountId'))
       const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') ?? 50)))
@@ -1685,20 +1840,71 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         sendJson(response, 400, { error: 'threadId query required' })
         return
       }
-      const threadUserId = url.searchParams.get('userId')?.trim() || undefined
+      const threadUserId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!threadUserId) {
+        return
+      }
       const messages = await mirachatMemory.getRecentMessages(threadId.trim(), undefined, threadUserId)
       sendJson(response, 200, { threadId: threadId.trim(), messages })
       return
     }
 
+    if (request.method === 'GET' && url.pathname === '/mirachat/search') {
+      const userId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!userId) {
+        return
+      }
+      const q = trimString(url.searchParams.get('q')) ?? ''
+      const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') ?? 40)))
+      const scopeThreadId = trimString(url.searchParams.get('threadId'))
+      const hits = await mirachatMemory.searchMessages(
+        userId,
+        q,
+        limit,
+        scopeThreadId ? { threadId: scopeThreadId } : undefined,
+      )
+      sendJson(response, 200, { query: q, userId, hits })
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/mirachat/memory') {
+      const userId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!userId) {
+        return
+      }
+      const scopeThread = trimString(url.searchParams.get('threadId'))
+      const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') ?? 80)))
+      const rows = await listMemoryChunksForUser(pool, {
+        userId,
+        threadId: scopeThread || undefined,
+        limit,
+      })
+      sendJson(response, 200, {
+        userId,
+        threadId: scopeThread || null,
+        chunks: rows.map(r => ({
+          id: r.id,
+          threadId: r.thread_id,
+          content: r.content,
+          createdAt: r.created_at.toISOString(),
+        })),
+      })
+      return
+    }
+
     if (request.method === 'GET' && url.pathname === '/mirachat/drafts') {
-      const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const userId = requireMirachatTenantUser(request, response, trimString(url.searchParams.get('userId')))
+      if (!userId) {
+        return
+      }
       const channel = trimString(url.searchParams.get('channel'))
       const accountId = trimString(url.searchParams.get('accountId'))
       const drafts =
         channel && accountId
           ? await listDraftedOutboundTriageForSession(pool, { userId, channel, accountId, limit: 200 })
-          : await listDraftedOutboundTriage(pool, 200)
+          : mirachatTenantEnforceEnabled()
+            ? await listDraftedOutboundTriageForUser(pool, userId, 200)
+            : await listDraftedOutboundTriage(pool, 200)
       sendJson(
         response,
         200,
@@ -1733,6 +1939,16 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       if (!draft || draft.status !== 'DRAFTED') {
         sendJson(response, 404, { error: 'Draft not found or not triageable' })
         return
+      }
+      if (mirachatTenantEnforceEnabled()) {
+        const uid = requireMirachatTenantUser(request, response, undefined)
+        if (!uid) {
+          return
+        }
+        if (draft.user_id !== uid) {
+          sendJson(response, 403, { error: 'Draft belongs to another tenant' })
+          return
+        }
       }
       let doerResult: unknown
       if (doerRequest) {
@@ -1788,6 +2004,17 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
 
     if (request.method === 'POST' && url.pathname.match(/^\/mirachat\/drafts\/[^/]+\/reject$/)) {
       const id = url.pathname.split('/')[3]!
+      const draftPre = await getOutboundDraft(pool, id)
+      if (draftPre && mirachatTenantEnforceEnabled()) {
+        const uid = requireMirachatTenantUser(request, response, undefined)
+        if (!uid) {
+          return
+        }
+        if (draftPre.user_id !== uid) {
+          sendJson(response, 403, { error: 'Draft belongs to another tenant' })
+          return
+        }
+      }
       const row = await rejectOutboundDraft(pool, id)
       if (row) {
         void insertDelegationEvent(pool, {
@@ -1820,6 +2047,16 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       if (!draft || draft.status !== 'DRAFTED') {
         sendJson(response, 404, { error: 'Draft not found or not triageable' })
         return
+      }
+      if (mirachatTenantEnforceEnabled()) {
+        const uid = requireMirachatTenantUser(request, response, undefined)
+        if (!uid) {
+          return
+        }
+        if (draft.user_id !== uid) {
+          sendJson(response, 403, { error: 'Draft belongs to another tenant' })
+          return
+        }
       }
       let doerResult: unknown
       if (doerRequest) {
@@ -1895,6 +2132,16 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         sendJson(response, 404, { error: 'Draft not found, invalid option, or not triageable' })
         return
       }
+      if (mirachatTenantEnforceEnabled()) {
+        const uid = requireMirachatTenantUser(request, response, undefined)
+        if (!uid) {
+          return
+        }
+        if (draft.user_id !== uid) {
+          sendJson(response, 403, { error: 'Draft belongs to another tenant' })
+          return
+        }
+      }
       if (!selectedText.trim()) {
         sendJson(response, 404, { error: 'Draft not found, invalid option, or not triageable' })
         return
@@ -1965,7 +2212,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       const body = parseJson(await readBody(request))
       const channel = String(body.channel ?? 'wechat')
       const accountId = String(body.accountId ?? 'default-account')
-      const userId = String(body.userId ?? 'demo-user')
+      const userId = requireMirachatTenantUser(request, response, trimString(body.userId))
+      if (!userId) {
+        return
+      }
       const status = String(body.status ?? 'AUTH_REQUIRED') as 'ONLINE' | 'OFFLINE' | 'AUTH_REQUIRED'
       const qrPayload = body.qrPayload != null ? String(body.qrPayload) : null
       await upsertUserConnectionAuth(pool, { channel, accountId, userId, status, qrPayload })
@@ -1975,9 +2225,17 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/mirachat/pending-send') {
+      let pendingSendUserId: string | undefined
+      if (mirachatTenantEnforceEnabled()) {
+        const uid = requireMirachatTenantUser(request, response, undefined)
+        if (!uid) {
+          return
+        }
+        pendingSendUserId = uid
+      }
       const channel = url.searchParams.get('channel') ?? 'wechat'
       const accountId = url.searchParams.get('accountId') ?? 'default-account'
-      const pending = await listPendingSend(pool, channel, accountId, 50)
+      const pending = await listPendingSend(pool, channel, accountId, 50, pendingSendUserId)
       sendJson(
         response,
         200,
@@ -2030,7 +2288,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       const id = url.pathname.split('/')[3]!
       const body = parseJson(await readBody(request))
       const error =
-        typeof body.error === 'string' && body.error.trim() ? body.error.trim() : 'gateway send failed'
+        typeof body.error === 'string' && body.error.trim() ? body.error.trim() : 'Message failed to send'
       const row = await markOutboundSendFailed(pool, {
         id,
         error,

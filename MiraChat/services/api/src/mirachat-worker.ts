@@ -13,6 +13,7 @@ import {
   buildContextBundle,
   buildReplyOptions,
   buildThreadSummary,
+  linesForSummaryTranscript,
   classifyIntent,
   runCognitivePipeline,
 } from '@delegate-ai/agent-core'
@@ -87,7 +88,7 @@ export const processInboundJob = async (
       },
     }).catch(err => console.error('[measurement] policy.evaluated', err))
 
-    const transcript = context.memory.recentMessages.map(m => `${m.direction}: ${m.content}`).join('\n')
+    const transcript = linesForSummaryTranscript(context.memory.recentMessages)
 
     let outboundStatus: 'DRAFTED' | 'APPROVED' | 'REJECTED'
     let replyOptions: { label: string; text: string }[] | null = null

@@ -236,6 +236,184 @@ describe('Delegate API HTTP (mocked SQL)', () => {
     await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
   })
 
+  it('POST /mirachat/ingest/desktop-context stores memory and enriches identity + relationship', async () => {
+    const memoryChunkInserts: Array<unknown[]> = []
+    const delegationInserts: Array<unknown[]> = []
+    const pool = {
+      query: vi.fn(async (text: string, values?: unknown[]) => {
+        if (/INSERT INTO memory_chunks/.test(text)) {
+          memoryChunkInserts.push(values ?? [])
+          return { rows: [] }
+        }
+        if (/INSERT INTO delegation_events/.test(text)) {
+          delegationInserts.push(values ?? [])
+          return { rows: [] }
+        }
+        throw new Error(`desktop-context mock: ${text.slice(0, 120)}`)
+      }),
+    } as unknown as Pool
+
+    const mirachatIdentity = {
+      getIdentity: vi.fn(async () => ({
+        userId: 'demo-user',
+        displayName: 'Mira User',
+        tone: 'warm, direct, concise',
+        styleGuide: ['keep commitments bounded'],
+        hardBoundaries: ['no financial commitments'],
+      })),
+      upsertIdentity: vi.fn(async () => undefined),
+      getRelationship: vi.fn(async () => ({
+        userId: 'demo-user',
+        contactId: 'alice',
+        role: 'unknown',
+        tone: 'warm',
+        riskLevel: 'medium' as const,
+        notes: ['Existing note'],
+      })),
+      upsertRelationship: vi.fn(async () => undefined),
+    } as unknown as MirachatSqlContext['mirachatIdentity']
+
+    const mirachat: MirachatSqlContext = {
+      pool,
+      boss: { send: vi.fn() } as MirachatSqlContext['boss'],
+      mirachatIdentity,
+      mirachatMemory: {} as MirachatSqlContext['mirachatMemory'],
+    }
+    const server = createServer(
+      createDelegateApiListener({ memoryRuntime: createInMemoryRuntime(), mirachat }),
+    )
+    await new Promise<void>(r => server.listen(0, r))
+    const addr = server.address()
+    const port = typeof addr === 'object' && addr ? addr.port : 0
+
+    const res = await request(port, {
+      method: 'POST',
+      path: '/mirachat/ingest/desktop-context',
+      body: JSON.stringify({
+        userId: 'demo-user',
+        channel: 'whatsapp',
+        threadId: 'alice',
+        contactId: 'alice',
+        summary: 'Alice asked for a quick Tuesday confirmation over WhatsApp.',
+        identityHints: ['Use concise acknowledgements in WhatsApp chats'],
+        relationshipNotes: ['Prefers quick WhatsApp confirmations'],
+        screenshotPath: '/tmp/alice-chat.png',
+        captureTool: 'scrot',
+        window: {
+          id: '0x123',
+          wmClass: ['whatsapp'],
+          wmName: 'WhatsApp',
+        },
+      }),
+    })
+    expect(res.status).toBe(200)
+    const json = JSON.parse(res.body) as {
+      ok: boolean
+      memoryChunkCount: number
+      identityUpdated: boolean
+      relationshipUpdated: boolean
+    }
+    expect(json.ok).toBe(true)
+    expect(json.memoryChunkCount).toBe(1)
+    expect(json.identityUpdated).toBe(true)
+    expect(json.relationshipUpdated).toBe(true)
+    expect(memoryChunkInserts.length).toBe(1)
+    expect(mirachatIdentity.upsertIdentity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        styleGuide: expect.arrayContaining([
+          'keep commitments bounded',
+          'Use concise acknowledgements in WhatsApp chats',
+        ]),
+      }),
+    )
+    expect(mirachatIdentity.upsertRelationship).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contactId: 'alice',
+        notes: expect.arrayContaining(['Existing note', 'Prefers quick WhatsApp confirmations']),
+      }),
+    )
+    expect(delegationInserts.length).toBeGreaterThanOrEqual(1)
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('POST /mirachat/ingest/desktop-context openRouterAnalysis without API key skips model and still ingests', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', '')
+    const memoryChunkInserts: Array<unknown[]> = []
+    const pool = {
+      query: vi.fn(async (text: string, values?: unknown[]) => {
+        if (/INSERT INTO memory_chunks/.test(text)) {
+          memoryChunkInserts.push(values ?? [])
+          return { rows: [] }
+        }
+        if (/INSERT INTO delegation_events/.test(text)) {
+          return { rows: [] }
+        }
+        throw new Error(`desktop-context openrouter mock: ${text.slice(0, 120)}`)
+      }),
+    } as unknown as Pool
+
+    const mirachatIdentity = {
+      getIdentity: vi.fn(async () => ({
+        userId: 'demo-user',
+        displayName: 'Mira User',
+        tone: 'warm',
+        styleGuide: [],
+        hardBoundaries: [],
+      })),
+      upsertIdentity: vi.fn(async () => undefined),
+      getRelationship: vi.fn(async () => ({
+        userId: 'demo-user',
+        contactId: 'bob',
+        role: 'unknown',
+        tone: 'warm',
+        riskLevel: 'low' as const,
+        notes: [],
+      })),
+      upsertRelationship: vi.fn(async () => undefined),
+    } as unknown as MirachatSqlContext['mirachatIdentity']
+
+    const mirachat: MirachatSqlContext = {
+      pool,
+      boss: { send: vi.fn() } as MirachatSqlContext['boss'],
+      mirachatIdentity,
+      mirachatMemory: {} as MirachatSqlContext['mirachatMemory'],
+    }
+    const server = createServer(
+      createDelegateApiListener({ memoryRuntime: createInMemoryRuntime(), mirachat }),
+    )
+    await new Promise<void>(r => server.listen(0, r))
+    const addr = server.address()
+    const port = typeof addr === 'object' && addr ? addr.port : 0
+
+    const res = await request(port, {
+      method: 'POST',
+      path: '/mirachat/ingest/desktop-context',
+      body: JSON.stringify({
+        userId: 'demo-user',
+        channel: 'whatsapp',
+        threadId: 'bob',
+        summary: 'Bob pinged about lunch.',
+        openRouterAnalysis: true,
+      }),
+    })
+    expect(res.status).toBe(200)
+    const json = JSON.parse(res.body) as {
+      ok: boolean
+      memoryChunkCount: number
+      openRouterAnalysis: string | null
+      openRouterAnalysisSkippedReason: string | null
+    }
+    expect(json.ok).toBe(true)
+    expect(json.memoryChunkCount).toBe(1)
+    expect(json.openRouterAnalysis).toBeNull()
+    expect(json.openRouterAnalysisSkippedReason).toBe('no_api_key')
+    expect(memoryChunkInserts.length).toBe(1)
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+    vi.unstubAllEnvs()
+  })
+
   it('POST /mirachat/instrumentation/twilio-status records delegation event (mocked pool)', async () => {
     const delegationInserts: string[] = []
     const pool = {
@@ -321,6 +499,156 @@ describe('Delegate API HTTP (mocked SQL)', () => {
         lastAt: '2026-04-02T03:13:28.206Z',
         preview: 'Can you follow up tomorrow morning and keep the tone warm?',
         messageCount: 2,
+      },
+    ])
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('GET /mirachat/threads scopes results by user, channel, and account when provided', async () => {
+    const pool = {
+      query: vi.fn(async (text: string, values?: unknown[]) => {
+        if (
+          /FROM \(/.test(text) &&
+          /im\.user_id = \$1/.test(text) &&
+          /im\.channel = \$2/.test(text) &&
+          /im\.account_id = \$3/.test(text) &&
+          /od\.user_id = \$1/.test(text) &&
+          /od\.channel = \$2/.test(text) &&
+          /od\.account_id = \$3/.test(text)
+        ) {
+          expect(values).toEqual(['demo-user', 'twilio_whatsapp', 'acct-1', 50])
+          return {
+            rows: [
+              {
+                thread_id: 'scoped-thread',
+                last_at: new Date('2026-04-02T03:13:28.206Z'),
+                preview: 'Only this session should see me',
+                message_count: '1',
+              },
+            ],
+          }
+        }
+        throw new Error(`unexpected: ${text.slice(0, 120)}`)
+      }),
+    } as unknown as Pool
+
+    const mirachat: MirachatSqlContext = {
+      pool,
+      boss: { send: vi.fn() } as MirachatSqlContext['boss'],
+      mirachatIdentity: {} as MirachatSqlContext['mirachatIdentity'],
+      mirachatMemory: {
+        getRecentMessages: vi.fn(),
+      } as unknown as MirachatSqlContext['mirachatMemory'],
+    }
+
+    const listener = createDelegateApiListener({
+      memoryRuntime: createInMemoryRuntime(),
+      mirachat,
+    })
+    const server = createServer(listener)
+    await new Promise<void>(r => server.listen(0, r))
+    const addr = server.address()
+    const port = typeof addr === 'object' && addr ? addr.port : 0
+
+    const res = await request(port, {
+      method: 'GET',
+      path: '/mirachat/threads?userId=demo-user&channel=twilio_whatsapp&accountId=acct-1',
+    })
+    expect(res.status).toBe(200)
+    expect(JSON.parse(res.body)).toEqual([
+      {
+        threadId: 'scoped-thread',
+        lastAt: '2026-04-02T03:13:28.206Z',
+        preview: 'Only this session should see me',
+        messageCount: 1,
+      },
+    ])
+
+    await new Promise<void>((r, j) => server.close(e => (e ? j(e) : r())))
+  })
+
+  it('GET /mirachat/drafts scopes results by user, channel, and account when provided', async () => {
+    const pool = {
+      query: vi.fn(async (text: string, values?: unknown[]) => {
+        if (
+          /FROM outbound_drafts d/.test(text) &&
+          /WHERE d\.status = 'DRAFTED'/.test(text) &&
+          /d\.user_id = \$1/.test(text) &&
+          /d\.channel = \$2/.test(text) &&
+          /d\.account_id = \$3/.test(text)
+        ) {
+          expect(values).toEqual(['demo-user', 'twilio_whatsapp', 'acct-1', 200])
+          return {
+            rows: [
+              {
+                id: 'draft-1',
+                inbound_message_id: 'in-1',
+                generated_text: 'Scoped draft',
+                confidence_score: 0.91,
+                status: 'DRAFTED',
+                rule_triggered: 'high_signal',
+                edited_text: null,
+                approved_at: null,
+                sent_at: null,
+                channel: 'twilio_whatsapp',
+                account_id: 'acct-1',
+                user_id: 'demo-user',
+                thread_id: 'scoped-thread',
+                intent_summary: 'follow_up',
+                reply_options: null,
+                thread_summary: 'Recent context',
+                send_attempt_count: 0,
+                last_send_attempt_at: null,
+                last_send_error: null,
+                next_send_after: null,
+                dead_lettered_at: null,
+                created_at: new Date('2026-04-02T03:13:28.206Z'),
+                updated_at: new Date('2026-04-02T03:13:28.206Z'),
+                inbound_raw_text: 'Need a scoped follow-up',
+              },
+            ],
+          }
+        }
+        throw new Error(`unexpected: ${text.slice(0, 120)}`)
+      }),
+    } as unknown as Pool
+
+    const mirachat: MirachatSqlContext = {
+      pool,
+      boss: { send: vi.fn() } as MirachatSqlContext['boss'],
+      mirachatIdentity: {} as MirachatSqlContext['mirachatIdentity'],
+      mirachatMemory: {
+        getRecentMessages: vi.fn(),
+      } as unknown as MirachatSqlContext['mirachatMemory'],
+    }
+
+    const listener = createDelegateApiListener({
+      memoryRuntime: createInMemoryRuntime(),
+      mirachat,
+    })
+    const server = createServer(listener)
+    await new Promise<void>(r => server.listen(0, r))
+    const addr = server.address()
+    const port = typeof addr === 'object' && addr ? addr.port : 0
+
+    const res = await request(port, {
+      method: 'GET',
+      path: '/mirachat/drafts?userId=demo-user&channel=twilio_whatsapp&accountId=acct-1',
+    })
+    expect(res.status).toBe(200)
+    expect(JSON.parse(res.body)).toEqual([
+      {
+        id: 'draft-1',
+        threadId: 'scoped-thread',
+        inboundText: 'Need a scoped follow-up',
+        generatedText: 'Scoped draft',
+        confidenceScore: 0.91,
+        ruleTriggered: 'high_signal',
+        intentSummary: 'follow_up',
+        replyOptions: null,
+        threadSummary: 'Recent context',
+        createdAt: '2026-04-02T03:13:28.206Z',
       },
     ])
 

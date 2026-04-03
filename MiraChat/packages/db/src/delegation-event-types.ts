@@ -29,6 +29,11 @@ export const DelegationEventType = {
   A2aProposal: 'a2a.proposal',
   A2aResponse: 'a2a.response',
   NegotiationTurn: 'negotiation.turn',
+  PhoneCallRequested: 'phone.call.requested',
+  PhoneCallPlaced: 'phone.call.placed',
+  PhoneCallFailed: 'phone.call.failed',
+  /** Twilio Programmable Voice status callback (includes StirVerstat when present). */
+  PhoneTwilioCallStatus: 'phone.twilio.call_status',
 } as const
 
 export type DelegationEventTypeName = (typeof DelegationEventType)[keyof typeof DelegationEventType]

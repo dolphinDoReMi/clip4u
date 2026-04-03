@@ -273,6 +273,45 @@ export const setInboundStatus = async (
   await pool.query(`UPDATE inbound_messages SET status = $2, error = $3 WHERE id = $1`, [id, status, error ?? null])
 }
 
+/** Inbound rows waiting for the worker (same channel/account as the active gateway preset). */
+export const countPendingInboundForUser = async (
+  pool: Pool,
+  userId: string,
+  channel: string,
+  accountId: string,
+): Promise<number> => {
+  const { rows } = await pool.query<{ n: string }>(
+    `
+    SELECT COUNT(*)::text AS n
+    FROM inbound_messages
+    WHERE user_id = $1 AND channel = $2 AND account_id = $3 AND status = 'PENDING'
+    `,
+    [userId, channel, accountId],
+  )
+  return Number(rows[0]?.n ?? 0)
+}
+
+export const listPendingInboundIdsForUser = async (
+  pool: Pool,
+  userId: string,
+  channel: string,
+  accountId: string,
+  limit = 100,
+): Promise<string[]> => {
+  const cap = Math.min(Math.max(1, limit), 200)
+  const { rows } = await pool.query<{ id: string }>(
+    `
+    SELECT id::text
+    FROM inbound_messages
+    WHERE user_id = $1 AND channel = $2 AND account_id = $3 AND status = 'PENDING'
+    ORDER BY received_at ASC
+    LIMIT $4
+    `,
+    [userId, channel, accountId, cap],
+  )
+  return rows.map(r => r.id)
+}
+
 export const insertOutboundDraft = async (
   pool: Pool,
   input: {
@@ -388,6 +427,33 @@ export const listDraftedOutboundTriageForUser = async (
     LIMIT $2
     `,
     [userId, cap],
+  )
+  return rows
+}
+
+export const listDraftedOutboundTriageForSession = async (
+  pool: Pool,
+  input: {
+    userId: string
+    channel: string
+    accountId: string
+    limit?: number
+  },
+): Promise<OutboundDraftTriageRow[]> => {
+  const cap = Math.min(Math.max(1, input.limit ?? 100), 200)
+  const { rows } = await pool.query<OutboundDraftTriageRow>(
+    `
+    SELECT d.*, i.raw_text AS inbound_raw_text
+    FROM outbound_drafts d
+    LEFT JOIN inbound_messages i ON i.id = d.inbound_message_id
+    WHERE d.status = 'DRAFTED'
+      AND d.user_id = $1
+      AND d.channel = $2
+      AND d.account_id = $3
+    ORDER BY d.created_at DESC
+    LIMIT $4
+    `,
+    [input.userId, input.channel, input.accountId, cap],
   )
   return rows
 }
@@ -1338,6 +1404,76 @@ export const listThreadSummariesForUser = async (
     LIMIT $2
     `,
     [userId, cap],
+  )
+  return rows.map(row => ({
+    threadId: row.thread_id,
+    lastAt: row.last_at.toISOString(),
+    preview: row.preview,
+    messageCount: Number(row.message_count),
+  }))
+}
+
+export const listThreadSummariesForSession = async (
+  pool: Pool,
+  input: {
+    userId: string
+    channel: string
+    accountId: string
+    limit?: number
+  },
+): Promise<ThreadSummaryRow[]> => {
+  const cap = Math.min(Math.max(1, input.limit ?? 50), 200)
+  const { rows } = await pool.query<{
+    thread_id: string
+    last_at: Date
+    preview: string | null
+    message_count: string
+  }>(
+    `
+    SELECT
+      ranked.thread_id,
+      ranked.last_at,
+      ranked.preview,
+      ranked.message_count
+    FROM (
+      SELECT
+        activity.thread_id,
+        MAX(activity.ts) AS last_at,
+        (
+          ARRAY_REMOVE(
+            ARRAY_AGG(
+              CASE WHEN activity.preview IS NOT NULL THEN activity.preview ELSE NULL END
+              ORDER BY activity.ts DESC
+            ),
+            NULL
+          )
+        )[1] AS preview,
+        COUNT(*)::text AS message_count
+      FROM (
+        SELECT
+          im.thread_id,
+          im.received_at AS ts,
+          LEFT(im.raw_text, 160) AS preview
+        FROM inbound_messages im
+        WHERE im.user_id = $1
+          AND im.channel = $2
+          AND im.account_id = $3
+        UNION ALL
+        SELECT
+          od.thread_id,
+          COALESCE(od.sent_at, od.updated_at, od.created_at) AS ts,
+          LEFT(COALESCE(NULLIF(trim(od.edited_text), ''), od.generated_text), 160) AS preview
+        FROM outbound_drafts od
+        WHERE od.user_id = $1
+          AND od.channel = $2
+          AND od.account_id = $3
+      ) activity
+      GROUP BY activity.thread_id
+    ) ranked
+    ORDER BY ranked.last_at DESC
+    LIMIT $4
+    `,
+    [input.userId, input.channel, input.accountId, cap],
   )
   return rows.map(row => ({
     threadId: row.thread_id,

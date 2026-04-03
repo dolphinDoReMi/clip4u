@@ -45,8 +45,28 @@ export class PostgresMemoryService implements MemoryService {
     // Outbound history is represented by outbound_drafts once marked SENT.
   }
 
-  async getRecentMessages(threadId: string, limit = DEFAULT_THREAD_LIMIT): Promise<StoredMessage[]> {
+  async getRecentMessages(
+    threadId: string,
+    limit = DEFAULT_THREAD_LIMIT,
+    userId?: string,
+  ): Promise<StoredMessage[]> {
     const cap = Math.min(Math.max(1, limit), 20000)
+    const uid = userId?.trim()
+    const memoryUnion = uid
+      ? `
+        UNION ALL
+        SELECT mc.id::text,
+               'memory'::text AS channel,
+               mc.user_id,
+               mc.user_id AS sender_id,
+               COALESCE(mc.thread_id, '') AS thread_id,
+               'inbound'::text AS direction,
+               mc.content,
+               mc.created_at AS ts
+        FROM memory_chunks mc
+        WHERE mc.user_id = $3 AND mc.thread_id = $1
+      `
+      : ''
     const { rows } = await this.pool.query<{
       id: string
       channel: string
@@ -71,13 +91,14 @@ export class PostgresMemoryService implements MemoryService {
                  COALESCE(sent_at, updated_at) AS ts
           FROM outbound_drafts
           WHERE thread_id = $1 AND status = 'SENT'
+          ${memoryUnion}
         ) t
         ORDER BY ts DESC
         LIMIT $2
       ) newest
       ORDER BY ts ASC
       `,
-      [threadId, cap],
+      uid ? [threadId, cap, uid] : [threadId, cap],
     )
     return rows.map(mapRow)
   }

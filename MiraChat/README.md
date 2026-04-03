@@ -59,6 +59,22 @@ This is the real PRD/GQM acceptance path:
 Use `npm run test:fast` for quick mocked/unit feedback during development.
 If Playwright's dedicated E2E ports `4400` / `4473` are already in use by a correctly configured stack, opt into reuse with `PW_REUSE_SERVERS=1 npm run test:e2e`.
 
+### WeChat desktop E2E (nut.js)
+
+Optional **native desktop** automation for the **WeChat client** (not Wechaty, not the mini program) uses **`@nut-tree-fork/nut-js`** and is **off by default**.
+
+**Who can “control the desktop”?** nut.js drives the **same machine and session** as the shell that runs it. On Linux, if `DISPLAY` / `WAYLAND_DISPLAY` are unset, `scripts/ensure-linux-display.mjs` (loaded by `desktop:check`, `wechat:reply`, `whatsapp:reply`) tries an **X11 socket in `/tmp/.X11-unix` owned by your user** (e.g. `:1`). Headless CI still has no sockets; remote SSH often still needs X forwarding or a local terminal. Run `npm run desktop:check` — if it lists windows, reply scripts can run too.
+
+- **Send a reply** from the desktop client: `npm run wechat:reply -- --message "Your text"` (optional `-c "ContactName"` for Ctrl/Cmd+F search). Same prerequisites as below.
+- **WhatsApp Desktop (default):** `npm run whatsapp:reply -- --contact "tennis group" --message "I am ok"` — **`scripts/whatsapp-desktop-send.mjs`**. On **Wayland**, it uses **`wtype`** if installed (`sudo apt install wtype`): you get a countdown, then **click WhatsApp** so it’s focused; keys go to the desktop app, not the browser. On **X11**, it uses **nut.js** to find a window titled like WhatsApp. Override: `--backend wtype` or `--backend nut`, or env `WHATSAPP_INPUT_BACKEND`.
+- **Cursor / agent → desktop (so the agent can send again):** In a **normal Terminal window on your desktop** (not headless SSH), run `sudo apt install wtype` once, then `npm run whatsapp:bridge` and leave it running. It listens on **`http://127.0.0.1:9742`**. From anywhere on the same machine (including Cursor’s terminal), run `npm run whatsapp:remote -- -c "tennis group" -m "I am ok"` — or `curl -X POST http://127.0.0.1:9742/send -H 'Content-Type: application/json' -d '{"contact":"tennis group","message":"I am ok"}'`. During the default 8s wait, **focus WhatsApp**. On **X11**, the bridge now checks the **active window** before typing and fails fast if it does not look like WhatsApp; inspect it with `curl http://127.0.0.1:9742/health`. If WhatsApp exposes an odd class/title, pass `--focused-window-regex 'whatsapp|electron'` to `whatsapp:remote`, or set `WHATSAPP_FOCUSED_WINDOW_REGEX`. Optional: `MIRACHAT_WHATSAPP_BRIDGE_TOKEN` + header `X-MiraChat-Token`.
+- **Legacy nut-only script:** `node scripts/whatsapp-reply-nut.mjs` (e.g. `--no-focus`); prefer `whatsapp:reply` above.
+- **WhatsApp Web (optional):** `npm run whatsapp:web-send -- --contact "…" --message "…"` if you explicitly want the browser client.
+- Run smoke / window enumeration: `WECHAT_DESKTOP_E2E=1 npm run test:wechat-desktop`
+- Full flow (focus WeChat, optional Ctrl+F contact search, type message): set `WECHAT_DESKTOP_FULL=1` and see env vars in `tests/e2e/wechat-desktop-nut.e2e.spec.ts`
+- Requires a **graphical session** (`DISPLAY` on Linux). Headless servers will see X11 warnings; the native addon must still load.
+- **Linux arm64:** `@nut-tree-fork/libnut-linux` ships an x86-64 binary; `npm install` runs `scripts/ensure-libnut-linux-native.mjs` to build or restore an **arm64** `libnut.node` (cached under `~/.cache/mirachat-libnut/`). Needs `git`, `cmake`, `g++`, and libnut’s X11 dev packages. Retry after clearing cache: `npm run rebuild:libnut`. In CI (`CI=true`), that step is skipped unless `MIRACHAT_LIBNUT_REBUILD_IN_CI=1`.
+
 ### CI
 
 The workflow `.github/workflows/mirachat-prd-gqm.yml` runs two jobs:

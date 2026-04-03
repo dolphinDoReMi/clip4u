@@ -23,13 +23,45 @@ const contextExcerpt = (context: ContextBundle): string => {
 
 export const fallbackReplyOptions = (primaryDraft: string): PrdReplyOption[] => {
   const t = primaryDraft.trim()
-  const concise =
-    t.length > 280 ? `${t.slice(0, 240).trim()}…` : t || '(empty draft — refine in console)'
+  const empty = '(empty draft — refine in console)'
+  const firstSentence = t ? t.split(/(?<=[.!?])\s+/)[0]?.trim() : ''
+  const useTight =
+    firstSentence &&
+    firstSentence.length >= 12 &&
+    firstSentence.length + 8 < t.length
+  const direct = t
+    ? useTight
+      ? firstSentence
+      : t.length > 220
+        ? `${t.slice(0, 200).trim()}…`
+        : t
+    : empty
+  const balanced = t || empty
+  const relationshipFirst = t
+    ? `${balanced}\n\nThanks again — happy to adjust if anything changes on your side.`
+    : empty
   return [
-    { label: 'concise', text: concise },
-    { label: 'warm', text: t ? `${t}\n\nThanks — let me know if you need anything else.` : concise },
-    { label: 'assertive', text: t || concise },
+    { label: 'direct', text: direct },
+    { label: 'balanced', text: balanced },
+    { label: 'relationship-first', text: relationshipFirst },
   ]
+}
+
+const normalizeReplyOptionLabel = (label: string): string => {
+  const k = label.trim().toLowerCase()
+  if (k === 'concise' || k === 'assertive') return 'direct'
+  if (k === 'warm') return 'relationship-first'
+  return k
+}
+
+const ORDERED_MVP_LABELS = ['direct', 'balanced', 'relationship-first'] as const
+
+const sortOptionsMvpOrder = (opts: PrdReplyOption[]): PrdReplyOption[] => {
+  const rank = (l: string) => {
+    const i = ORDERED_MVP_LABELS.indexOf(l as (typeof ORDERED_MVP_LABELS)[number])
+    return i >= 0 ? i : 99
+  }
+  return [...opts].sort((a, b) => rank(a.label) - rank(b.label))
 }
 
 export const fallbackThreadSummary = (transcript: string): string => {
@@ -45,7 +77,7 @@ async function openRouterJson<T>(body: Record<string, unknown>): Promise<T | nul
   if (!key) {
     return null
   }
-  const model = process.env.OPENROUTER_MODEL?.trim() || 'zhipuai/glm-4-flash'
+  const model = process.env.OPENROUTER_MODEL?.trim() || 'openai/gpt-4o-mini'
   const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
@@ -75,18 +107,18 @@ async function openRouterJson<T>(body: Record<string, unknown>): Promise<T | nul
   }
 }
 
-/** PRD: multi-option replies (concise / warm / assertive) — OpenRouter JSON or templates. */
+/** MVP: three ready-to-send replies — direct, balanced, relationship-first (OpenRouter JSON or templates). */
 export async function buildReplyOptions(
   context: ContextBundle,
   primaryDraftText: string,
 ): Promise<PrdReplyOption[]> {
   const parsed = await openRouterJson<{ options: PrdReplyOption[] }>({
-    model: process.env.OPENROUTER_MODEL?.trim() || 'zhipuai/glm-4-flash',
+    model: process.env.OPENROUTER_MODEL?.trim() || 'openai/gpt-4o-mini',
     messages: [
       {
         role: 'system',
         content:
-          'You output JSON only: {"options":[{"label":"concise","text":"..."},{"label":"warm","text":"..."},{"label":"assertive","text":"..."}]} — three distinct reply drafts for the user to send; same intent, different voice.',
+          'You output JSON only: {"options":[{"label":"direct","text":"..."},{"label":"balanced","text":"..."},{"label":"relationship-first","text":"..."}]} — three distinct outbound replies the human can send as-is. Same facts and intent; direct = shortest clear next step; balanced = primary tone; relationship-first = warm, acknowledges the relationship, minimal risk of sounding cold or escalatory. No new commitments beyond the primary draft. Labels must be exactly direct, balanced, relationship-first.',
       },
       {
         role: 'user',
@@ -96,9 +128,13 @@ export async function buildReplyOptions(
     max_tokens: 900,
     temperature: 0.35,
   })
-  const opts = parsed?.options?.filter(o => o?.label && o?.text && String(o.text).trim())
-  if (opts && opts.length >= 3) {
-    return opts.slice(0, 3) as PrdReplyOption[]
+  const raw = parsed?.options?.filter(o => o?.label && o?.text && String(o.text).trim())
+  if (raw && raw.length >= 3) {
+    const normalized = raw.slice(0, 3).map(o => ({
+      label: normalizeReplyOptionLabel(String(o.label)),
+      text: String(o.text).trim(),
+    }))
+    return sortOptionsMvpOrder(normalized)
   }
   return fallbackReplyOptions(primaryDraftText)
 }
@@ -108,7 +144,7 @@ async function openRouterPlainText(system: string, userContent: string): Promise
   if (!key) {
     return null
   }
-  const model = process.env.OPENROUTER_MODEL?.trim() || 'zhipuai/glm-4-flash'
+  const model = process.env.OPENROUTER_MODEL?.trim() || 'openai/gpt-4o-mini'
   const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
@@ -137,10 +173,10 @@ async function openRouterPlainText(system: string, userContent: string): Promise
   return j.choices?.[0]?.message?.content?.trim() ?? null
 }
 
-/** PRD: thread summarization for the control plane. */
+/** Thread snapshot for triage: bullets + scannable context (control plane / web). */
 export async function buildThreadSummary(transcript: string): Promise<string> {
   const text = await openRouterPlainText(
-    'Summarize the thread in 5–10 short bullet points. Neutral, factual. Plain text only.',
+    'Summarize this conversation for someone about to reply. Use 5–10 short bullet points: what was asked, what was promised, open threads, and tone. Neutral and factual. If something looks like an implicit commitment or date, call it out. Plain text only.',
     truncate(transcript, 12000),
   )
   return text || fallbackThreadSummary(transcript)

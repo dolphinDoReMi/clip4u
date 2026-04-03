@@ -38,7 +38,7 @@ export class InMemoryMemoryService implements MemoryService {
     })
   }
 
-  async getRecentMessages(threadId: string, limit = 5000): Promise<StoredMessage[]> {
+  async getRecentMessages(threadId: string, limit = 5000, _userId?: string): Promise<StoredMessage[]> {
     const threadMsgs = this.messages.filter(message => message.threadId === threadId)
     return threadMsgs.slice(-Math.min(limit, 20000))
   }

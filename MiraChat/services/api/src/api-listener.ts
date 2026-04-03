@@ -7,6 +7,7 @@ import {
   buildReplyOptions,
   buildThreadSummary,
   classifyIntent,
+  openRouterDesktopContextAnalysis,
   runCognitivePipeline,
 } from '@delegate-ai/agent-core'
 import { runNegotiationTurn, toolProposeSlots, validateA2aPayload } from '@delegate-ai/negotiation-tools'
@@ -14,6 +15,7 @@ import {
   appendOutboxEvent,
   approveAndMarkSentOutboundDraft,
   approveOutboundDraft,
+  countPendingInboundForUser,
   DelegationEventType,
   draftHasEventType,
   editApproveAndMarkSentOutboundDraft,
@@ -24,11 +26,15 @@ import {
   insertA2aEnvelope,
   insertDelegationEvent,
   insertInboundMessage,
+  insertMemoryChunks,
   listA2aEnvelopesForUser,
   listDelegationEvents,
   listDraftedOutboundTriage,
+  listDraftedOutboundTriageForSession,
   listDraftedOutboundTriageForUser,
   listPendingSend,
+  listPendingInboundIdsForUser,
+  listThreadSummariesForSession,
   listThreadSummariesForUser,
   markOutboundSendFailed,
   markOutboundSent,
@@ -46,6 +52,7 @@ import {
 import type { Pool } from 'pg'
 import type PgBoss from 'pg-boss'
 import { createOpenClawDoer, type OpenClawDoer } from '@delegate-ai/openclaw-doer'
+import { placeOutboundNotifyCall, resolveTwilioVoiceConfigFromEnv } from '@delegate-ai/twilio-voice-notify'
 import {
   googleAuthorizeUrl,
   googleOAuthCallback,
@@ -54,12 +61,18 @@ import {
   slackAuthorizeUrl,
   slackOAuthCallback,
 } from './oauth-ingest.js'
+import { parseTwilioFormBody, validateTwilioPostSignature } from './twilio-voice-webhook.js'
 import {
   createMiniProgramSessionToken,
   exchangeMiniProgramCode,
   mapDraftToMiniProgramCard,
   verifyMiniProgramSessionToken,
 } from './mini-program.js'
+import {
+  buildDesktopContextMemoryChunks,
+  mergeUniqueStrings,
+  parseDesktopContextIngestRequest,
+} from './desktop-context.js'
 
 export interface MirachatSqlContext {
   pool: Pool
@@ -150,6 +163,29 @@ const trimString = (value: unknown): string | undefined => {
   }
   const trimmed = value.trim()
   return trimmed ? trimmed : undefined
+}
+
+const isValidE164Phone = (value: string): boolean => /^\+[1-9]\d{9,14}$/.test(value.trim())
+
+const maskVoiceFromNumber = (from: string): string => {
+  const t = from.trim()
+  if (t.length <= 6) {
+    return '***'
+  }
+  return `${t.slice(0, 3)}***${t.slice(-4)}`
+}
+
+const checkPhoneOutboundSecret = (request: IncomingMessage, response: ServerResponse): boolean => {
+  const secret = process.env.MIRACHAT_PHONE_OUTBOUND_SECRET?.trim()
+  if (!secret) {
+    return true
+  }
+  const got = request.headers['x-mirachat-phone-secret']
+  if (typeof got !== 'string' || got !== secret) {
+    sendJson(response, 403, { error: 'Invalid or missing X-Mirachat-Phone-Secret' })
+    return false
+  }
+  return true
 }
 
 const resolveMiniProgramSecret = (): string =>
@@ -311,6 +347,36 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
           ok: true,
           service: 'delegate-ai-api',
           mirachat: Boolean(ctx.mirachat),
+        })
+        return
+      }
+
+      if (request.method === 'GET' && url.pathname === '/mirachat/runtime-config') {
+        const twilioAccountSid = trimString(process.env.TWILIO_ACCOUNT_SID)
+        sendJson(response, 200, {
+          ok: true,
+          defaults: {
+            twilio_sms: {
+              accountId: twilioAccountSid ?? null,
+              sender: trimString(process.env.TWILIO_SMS_FROM) ?? null,
+            },
+            twilio_whatsapp: {
+              accountId: twilioAccountSid ?? null,
+              sender: trimString(process.env.TWILIO_WHATSAPP_FROM) ?? null,
+            },
+            whatsapp: {
+              accountId: trimString(process.env.WHATSAPP_ACCOUNT_ID) ?? null,
+            },
+            wechat: {
+              accountId: trimString(process.env.WECHAT_ACCOUNT_ID) ?? null,
+            },
+            telegram: {
+              accountId: trimString(process.env.TELEGRAM_ACCOUNT_ID) ?? null,
+            },
+            wecom: {
+              accountId: trimString(process.env.WECOM_ACCOUNT_ID) ?? null,
+            },
+          },
         })
         return
       }
@@ -523,6 +589,10 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       const channel = trimString(url.searchParams.get('channel'))
       const accountId = trimString(url.searchParams.get('accountId'))
       const connection = channel && accountId ? await getUserConnection(pool, channel, accountId) : null
+      const pendingInboundCount =
+        channel && accountId
+          ? await countPendingInboundForUser(pool, miniProgramUserId, channel, accountId)
+          : 0
 
       sendJson(response, 200, {
         ok: true,
@@ -538,7 +608,27 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         drafts: drafts.map(mapDraftToMiniProgramCard),
         threads,
         connection,
+        pendingInboundCount,
       })
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/mini-program/inbox/process-pending') {
+      if (!requireMiniProgramSession()) {
+        return
+      }
+      const body = parseJson(await readBody(request))
+      const channel = trimString(body.channel)
+      const accountId = trimString(body.accountId)
+      if (!channel || !accountId) {
+        sendJson(response, 400, { error: 'channel and accountId required in body' })
+        return
+      }
+      const ids = await listPendingInboundIdsForUser(pool, miniProgramUserId, channel, accountId, 200)
+      for (const id of ids) {
+        await enqueueInboundProcessing(boss, id)
+      }
+      sendJson(response, 200, { ok: true, enqueued: ids.length })
       return
     }
 
@@ -766,7 +856,7 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         sendJson(response, 400, { error: 'threadId required' })
         return
       }
-      const recent = await mirachatMemory.getRecentMessages(threadId)
+      const recent = await mirachatMemory.getRecentMessages(threadId, undefined, userId)
       const transcript = recent.map(m => `${m.direction}: ${m.content}`).join('\n')
       const summary = await buildThreadSummary(transcript)
       void insertDelegationEvent(pool, {
@@ -825,6 +915,172 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         return
       }
       sendJson(response, 200, r)
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/mirachat/ingest/desktop-context') {
+      const body = parseJson(await readBody(request))
+      const parsed = parseDesktopContextIngestRequest(body)
+      if (!parsed.ok) {
+        sendJson(response, 400, { error: parsed.error })
+        return
+      }
+      const input = parsed.value
+      const relationshipContactId = input.contactId ?? input.threadId
+
+      let openRouterAnalysisText: string | null = null
+      let openRouterSuggestedReply: string | null = null
+      let openRouterAnalysisSkippedReason: 'disabled' | 'no_api_key' | 'openrouter_failed' | null = 'disabled'
+      if (input.openRouterAnalysis) {
+        if (!process.env.OPENROUTER_API_KEY?.trim()) {
+          openRouterAnalysisSkippedReason = 'no_api_key'
+        } else {
+          openRouterAnalysisSkippedReason = 'openrouter_failed'
+          const orBundle = await openRouterDesktopContextAnalysis({
+            channel: input.channel,
+            threadId: input.threadId,
+            contactId: input.contactId,
+            summary: input.summary,
+            extractedText: input.extractedText,
+            identityHints: input.identityHints,
+            relationshipNotes: input.relationshipNotes,
+            windowTitle: input.window?.netWmName || input.window?.wmName || undefined,
+            windowClass: input.window?.wmClass,
+            screenshotImageBase64: input.screenshotImageBase64,
+            screenshotMimeType: input.screenshotMimeType,
+          })
+          const a = orBundle?.analysis?.trim() ?? ''
+          const s = orBundle?.suggestedReply?.trim() ?? ''
+          if (a) {
+            openRouterAnalysisText = a
+          }
+          if (s) {
+            openRouterSuggestedReply = s
+          }
+          if (a || s) {
+            openRouterAnalysisSkippedReason = null
+          }
+        }
+      }
+
+      const memoryContents = [...buildDesktopContextMemoryChunks(input)]
+      const trimmedAnalysis = openRouterAnalysisText?.trim()
+      if (trimmedAnalysis) {
+        memoryContents.push(
+          [
+            `OpenRouter conversation analysis (${input.channel})`,
+            `thread=${input.threadId}`,
+            input.contactId ? `contact=${input.contactId}` : '',
+            '',
+            trimmedAnalysis,
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        )
+      }
+
+      const memoryChunkCount = await insertMemoryChunks(pool, {
+        userId: input.userId,
+        threadId: input.threadId,
+        contents: memoryContents,
+      })
+
+      let identityUpdated = false
+      let relationshipUpdated = false
+
+      if (input.identityHints.length > 0) {
+        const currentIdentity = await mirachatIdentity.getIdentity(input.userId)
+        const nextStyleGuide = mergeUniqueStrings([...currentIdentity.styleGuide, ...input.identityHints], 24)
+        if (nextStyleGuide.join('\n') !== currentIdentity.styleGuide.join('\n')) {
+          await mirachatIdentity.upsertIdentity({
+            ...currentIdentity,
+            styleGuide: nextStyleGuide,
+          })
+          identityUpdated = true
+          void insertDelegationEvent(pool, {
+            eventType: DelegationEventType.IdentityUpdated,
+            userId: input.userId,
+            channel: input.channel,
+            accountId: input.accountId ?? null,
+            threadId: input.threadId,
+            metadata: {
+              source: 'desktop_screenshot',
+              style_guide_count: nextStyleGuide.length,
+              added_identity_hint_count: input.identityHints.length,
+            },
+          }).catch(() => {})
+        }
+      }
+
+      if (input.relationshipNotes.length > 0) {
+        const currentRelationship = await mirachatIdentity.getRelationship(input.userId, relationshipContactId)
+        const nextNotes = mergeUniqueStrings([...currentRelationship.notes, ...input.relationshipNotes], 40)
+        if (nextNotes.join('\n') !== currentRelationship.notes.join('\n')) {
+          await mirachatIdentity.upsertRelationship({
+            ...currentRelationship,
+            contactId: relationshipContactId,
+            notes: nextNotes,
+          })
+          relationshipUpdated = true
+          void insertDelegationEvent(pool, {
+            eventType: DelegationEventType.RelationshipUpdated,
+            userId: input.userId,
+            channel: input.channel,
+            accountId: input.accountId ?? null,
+            threadId: input.threadId,
+            metadata: {
+              source: 'desktop_screenshot',
+              contact_id: relationshipContactId,
+              note_count: nextNotes.length,
+              added_relationship_note_count: input.relationshipNotes.length,
+            },
+          }).catch(() => {})
+        }
+      }
+
+      await insertDelegationEvent(pool, {
+        eventType: DelegationEventType.IngestCompleted,
+        userId: input.userId,
+        channel: input.channel,
+        accountId: input.accountId ?? null,
+        threadId: input.threadId,
+        metadata: {
+          source: 'desktop_screenshot',
+          screenshot_path: input.screenshotPath ?? null,
+          screenshot_mime: input.screenshotMimeType ?? null,
+          capture_tool: input.captureTool ?? null,
+          contact_id: relationshipContactId,
+          memory_chunk_count: memoryChunkCount,
+          identity_hint_count: input.identityHints.length,
+          relationship_note_count: input.relationshipNotes.length,
+          identity_updated: identityUpdated,
+          relationship_updated: relationshipUpdated,
+          window_id: input.window?.id ?? null,
+          window_title: input.window?.netWmName ?? input.window?.wmName ?? null,
+          window_class: input.window?.wmClass ?? [],
+          open_router_analysis_requested: input.openRouterAnalysis,
+          open_router_analysis_stored: Boolean(trimmedAnalysis),
+          open_router_suggested_reply_returned: Boolean(openRouterSuggestedReply),
+          open_router_vision_image: Boolean(input.screenshotImageBase64?.length),
+          open_router_analysis_skipped_reason: openRouterAnalysisSkippedReason,
+        },
+      })
+
+      sendJson(response, 200, {
+        ok: true,
+        source: 'desktop_screenshot',
+        userId: input.userId,
+        channel: input.channel,
+        threadId: input.threadId,
+        contactId: relationshipContactId,
+        memoryChunkCount,
+        identityUpdated,
+        relationshipUpdated,
+        screenshotPath: input.screenshotPath ?? null,
+        openRouterAnalysis: trimmedAnalysis ?? null,
+        openRouterSuggestedReply: openRouterSuggestedReply ?? null,
+        openRouterAnalysisSkippedReason,
+      })
       return
     }
 
@@ -1210,10 +1466,215 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
       return
     }
 
+    if (request.method === 'POST' && url.pathname === '/mirachat/webhooks/twilio/voice-call-status') {
+      const rawBody = await readBody(request)
+      const params = parseTwilioFormBody(rawBody)
+      const authToken = trimString(process.env.MIRACHAT_TWILIO_AUTH_TOKEN ?? process.env.TWILIO_AUTH_TOKEN)
+      const publicBase = trimString(process.env.MIRACHAT_PUBLIC_BASE_URL ?? process.env.MIRACHAT_API_PUBLIC_URL)
+      const skipSig = process.env.MIRACHAT_SKIP_TWILIO_VOICE_WEBHOOK_SIGNATURE?.trim() === '1'
+
+      if (!skipSig) {
+        if (!authToken) {
+          sendJson(response, 503, { error: 'TWILIO_AUTH_TOKEN required to verify voice status webhooks' })
+          return
+        }
+        if (!publicBase) {
+          sendJson(response, 503, {
+            error:
+              'Set MIRACHAT_PUBLIC_BASE_URL to your public API origin (e.g. https://abc.ngrok.app) for Twilio signature verification, or MIRACHAT_SKIP_TWILIO_VOICE_WEBHOOK_SIGNATURE=1 for local dev only',
+          })
+          return
+        }
+        const sig = request.headers['x-twilio-signature']
+        const pathnameWithQuery = request.url?.startsWith('/') ? request.url : `/${request.url ?? ''}`
+        const ok =
+          typeof sig === 'string' &&
+          validateTwilioPostSignature(authToken, sig, publicBase, pathnameWithQuery, params)
+        if (!ok) {
+          sendJson(response, 403, { error: 'Invalid Twilio signature' })
+          return
+        }
+      }
+
+      const metadata: Record<string, unknown> = {
+        CallSid: params.CallSid,
+        CallStatus: params.CallStatus,
+        To: params.To,
+        From: params.From,
+        Direction: params.Direction,
+        CallDuration: params.CallDuration,
+        Timestamp: params.Timestamp,
+        AnsweredBy: params.AnsweredBy,
+        CallbackSource: params.CallbackSource,
+        SipResponseCode: params.SipResponseCode,
+        StirVerstat: params.StirVerstat,
+        StirPassportToken: params.StirPassportToken ? '[present]' : undefined,
+      }
+      const userIdFromQuery = url.searchParams.get('userId')?.trim() || null
+
+      void insertDelegationEvent(pool, {
+        eventType: DelegationEventType.PhoneTwilioCallStatus,
+        userId: userIdFromQuery,
+        metadata,
+      }).catch(err => console.error('[measurement] phone.twilio.call_status', err))
+
+      response.writeHead(200, {
+        'content-type': 'text/xml; charset=utf-8',
+        'access-control-allow-origin': '*',
+      })
+      response.end('<?xml version="1.0" encoding="UTF-8"?><Response></Response>')
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/mirachat/phone/status') {
+      const cfg = resolveTwilioVoiceConfigFromEnv()
+      let statusCallbackHost: string | null = null
+      if (cfg?.statusCallbackUrl) {
+        try {
+          statusCallbackHost = new URL(cfg.statusCallbackUrl).host
+        } catch {
+          statusCallbackHost = null
+        }
+      }
+      sendJson(response, 200, {
+        provider: 'twilio',
+        configured: Boolean(cfg),
+        fromMasked: cfg ? maskVoiceFromNumber(cfg.fromNumber) : null,
+        outboundSecretRequired: Boolean(process.env.MIRACHAT_PHONE_OUTBOUND_SECRET?.trim()),
+        voiceStatusCallbackConfigured: Boolean(cfg?.statusCallbackUrl),
+        voiceStatusCallbackHost: statusCallbackHost,
+      })
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/mirachat/phone/outbound') {
+      if (!checkPhoneOutboundSecret(request, response)) {
+        return
+      }
+      const voiceCfg = resolveTwilioVoiceConfigFromEnv()
+      if (!voiceCfg) {
+        sendJson(response, 503, {
+          error:
+            'Twilio voice not configured. Set MIRACHAT_TWILIO_ACCOUNT_SID, MIRACHAT_TWILIO_AUTH_TOKEN, and MIRACHAT_TWILIO_VOICE_FROM (or TWILIO_* equivalents).',
+        })
+        return
+      }
+      const body = parseJson(await readBody(request)) as Record<string, unknown>
+      const userId = trimString(body.userId) ?? 'demo-user'
+      const to = trimString(body.to)
+      const message = trimString(body.message)
+      const disclosureRaw = trimString(body.disclosureMode)
+      const disclosureMode =
+        disclosureRaw === 'neutral' ? ('neutral' as const) : ('on_behalf' as const)
+      const callerName = trimString(body.callerName)
+      const threadId = trimString(body.threadId)
+      const channel = trimString(body.channel)
+      const accountId = trimString(body.accountId)
+
+      if (!to || !isValidE164Phone(to)) {
+        sendJson(response, 400, { error: 'to must be a E.164 number (e.g. +15551234567)' })
+        return
+      }
+      if (!message || message.length > 2000) {
+        sendJson(response, 400, { error: 'message required, max 2000 characters' })
+        return
+      }
+
+      await insertDelegationEvent(pool, {
+        eventType: DelegationEventType.PhoneCallRequested,
+        userId,
+        channel: channel ?? null,
+        accountId: accountId ?? null,
+        threadId: threadId ?? null,
+        metadata: {
+          to,
+          disclosureMode,
+          messageLength: message.length,
+          provider: 'twilio',
+        },
+      })
+
+      try {
+        const result = await placeOutboundNotifyCall(voiceCfg, {
+          to,
+          message,
+          disclosureMode,
+          callerName: callerName ?? undefined,
+        })
+        void insertDelegationEvent(pool, {
+          eventType: DelegationEventType.PhoneCallPlaced,
+          userId,
+          channel: channel ?? null,
+          accountId: accountId ?? null,
+          threadId: threadId ?? null,
+          metadata: {
+            callSid: result.callSid,
+            status: result.status,
+            to,
+            disclosureMode,
+            provider: 'twilio',
+          },
+        }).catch(err => console.error('[measurement] phone.call.placed', err))
+        sendJson(response, 200, {
+          ok: true,
+          callSid: result.callSid,
+          status: result.status,
+          disclosureMode,
+        })
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        void insertDelegationEvent(pool, {
+          eventType: DelegationEventType.PhoneCallFailed,
+          userId,
+          channel: channel ?? null,
+          accountId: accountId ?? null,
+          threadId: threadId ?? null,
+          metadata: { to, error: msg, provider: 'twilio' },
+        }).catch(err => console.error('[measurement] phone.call.failed', err))
+        sendJson(response, 502, { error: msg })
+      }
+      return
+    }
+
+    if (request.method === 'POST' && url.pathname === '/mirachat/inbox/process-pending') {
+      const body = parseJson(await readBody(request))
+      const userId = trimString(body.userId) ?? 'demo-user'
+      const channel = trimString(body.channel)
+      const accountId = trimString(body.accountId)
+      if (!channel || !accountId) {
+        sendJson(response, 400, { error: 'channel and accountId required in body' })
+        return
+      }
+      const ids = await listPendingInboundIdsForUser(pool, userId, channel, accountId, 200)
+      for (const id of ids) {
+        await enqueueInboundProcessing(boss, id)
+      }
+      sendJson(response, 200, { ok: true, enqueued: ids.length })
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/mirachat/inbox/pending-count') {
+      const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const channel = trimString(url.searchParams.get('channel'))
+      const accountId = trimString(url.searchParams.get('accountId'))
+      if (!channel || !accountId) {
+        sendJson(response, 400, { error: 'channel and accountId query params required' })
+        return
+      }
+      const pendingInboundCount = await countPendingInboundForUser(pool, userId, channel, accountId)
+      sendJson(response, 200, { pendingInboundCount })
+      return
+    }
+
     if (request.method === 'GET' && url.pathname === '/mirachat/threads') {
       const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const channel = trimString(url.searchParams.get('channel'))
+      const accountId = trimString(url.searchParams.get('accountId'))
       const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit') ?? 50)))
-      const threads = await listThreadSummariesForUser(pool, userId, limit)
+      const threads =
+        channel && accountId
+          ? await listThreadSummariesForSession(pool, { userId, channel, accountId, limit })
+          : await listThreadSummariesForUser(pool, userId, limit)
       sendJson(response, 200, threads)
       return
     }
@@ -1224,13 +1685,20 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
         sendJson(response, 400, { error: 'threadId query required' })
         return
       }
-      const messages = await mirachatMemory.getRecentMessages(threadId.trim())
+      const threadUserId = url.searchParams.get('userId')?.trim() || undefined
+      const messages = await mirachatMemory.getRecentMessages(threadId.trim(), undefined, threadUserId)
       sendJson(response, 200, { threadId: threadId.trim(), messages })
       return
     }
 
     if (request.method === 'GET' && url.pathname === '/mirachat/drafts') {
-      const drafts = await listDraftedOutboundTriage(pool, 200)
+      const userId = url.searchParams.get('userId') ?? 'demo-user'
+      const channel = trimString(url.searchParams.get('channel'))
+      const accountId = trimString(url.searchParams.get('accountId'))
+      const drafts =
+        channel && accountId
+          ? await listDraftedOutboundTriageForSession(pool, { userId, channel, accountId, limit: 200 })
+          : await listDraftedOutboundTriage(pool, 200)
       sendJson(
         response,
         200,

@@ -7,7 +7,7 @@ import type { TwilioChannel } from './plugin-types.js'
 const mirachatRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const rootEnv = resolve(mirachatRoot, '.env')
 if (existsSync(rootEnv)) {
-  loadEnv({ path: rootEnv })
+  loadEnv({ path: rootEnv, override: true })
 }
 
 export type TwilioGatewayConfig = {

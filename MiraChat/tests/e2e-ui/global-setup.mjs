@@ -23,6 +23,7 @@ export default async function globalSetup() {
       'npm run build --workspace @delegate-ai/policy-engine',
       'npm run build --workspace @delegate-ai/negotiation-tools',
       'npm run build --workspace @delegate-ai/openclaw-doer',
+      'npm run build --workspace @delegate-ai/twilio-voice-notify',
       'npm run build --workspace @delegate-ai/assist-core',
       'npm run build --workspace @delegate-ai/agent-core',
     ].join(' && '),

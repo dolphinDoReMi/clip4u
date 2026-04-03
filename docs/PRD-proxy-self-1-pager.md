@@ -126,6 +126,10 @@ For execution beyond drafting, MiraForU can hand approved tasks to **OpenClaw** 
 - OpenClaw performs the approved action through its own agent/session runtime.
 - The boundary stays narrow: MiraForU sends a bounded task plus target selector and delivery controls; OpenClaw does not own trust policy.
 
+### G. Desktop computer use (nut.js) + browser automation
+
+**Doer-side only:** **Playwright** / **Puppeteer** for **web** UIs; **[nut.js](https://nutjs.dev/)** (**`@nut-tree-fork/nut-js`** on npm) for **native desktop** mouse/keyboard and screen matching (RPA class). Full “computer use” = compose layers + optional vision/OCR—not one repo. **MVP:** web + nut.js for desktop clients where APIs are missing; **production:** Playwright + nut.js + queue/retries. Core still owns policy, approval, and audit; no nut.js inside channel plugins.
+
 ---
 
 ## 6. Go-to-market and wedge strategy

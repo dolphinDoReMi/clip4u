@@ -459,6 +459,7 @@ Important WeChat-specific rules:
 - **Deploy** OpenClaw (or another `DoerRuntime`) as a separate process or sidecar; core calls it via HTTP/gRPC/queue with **`ApprovedDoerTask`** payloads only.
 - **Register** with `doerId: 'openclaw'` (or versioned id) in the **doer registry**; core selects by policy output + user configuration.
 - **Future doers** (headless browser farm, enterprise RPA, another agent stack) use the same interface—OpenClaw is the **reference** implementation, not a hard dependency in `agent-core`.
+- **Desktop RPA (e.g. nut.js):** mouse/keyboard and screen-image matching for **native apps** belong in a **doer** (or OpenClaw tool surface), not in **channel plugins**. Pair with **Playwright/Puppeteer** for web-only paths; see [PRD-MiraForU.md §5.G](PRD-MiraForU.md).
 
 ---
 

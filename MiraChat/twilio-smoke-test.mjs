@@ -73,16 +73,18 @@ const fetchJson = async (url, init) => {
 }
 
 const waitForGateway = async () => {
-  for (let i = 0; i < 15; i += 1) {
+  await delay(400)
+  const healthUrl = `http://127.0.0.1:${gatewayPort}/health`
+  for (let i = 0; i < 30; i += 1) {
     try {
-      const res = await fetch(`${new URL(`http://127.0.0.1:${gatewayPort}`)}/health`)
+      const res = await fetch(healthUrl)
       if (res.ok) {
         return
       }
     } catch {}
-    await delay(1000)
+    await delay(500)
   }
-  fail(`Timed out waiting for gateway on port ${gatewayPort}`)
+  fail(`Timed out waiting for gateway on port ${gatewayPort} (${healthUrl})`)
 }
 
 const run = async () => {

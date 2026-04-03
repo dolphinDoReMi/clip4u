@@ -156,6 +156,24 @@ To move from “delegate that drafts” to “delegate that gets work done,” a
 - **Boundary:** narrow API (task spec, correlation ids, delivery controls). Doer must **not** be source of truth for identity, relationship policy, or approval state.
 - **Moat:** trust logic stays in core; execution stacks swap. Aligns with [system-design-proxy-self.md §4.2, §9.5](system-design-proxy-self.md).
 
+### G. Desktop computer use (nut.js) and browser automation
+
+**Capability:** optional **doer-side** automation that complements **channel plugins**. There is no single JavaScript stack for “full computer use”; product and engineering should treat it as **layered composition** under the same **policy + approval + audit** boundary as other doers.
+
+| Layer | What it controls | Typical JS stack | Proxy Self role |
+| --- | --- | --- | --- |
+| **Browser (lower risk)** | Web UIs only | **Playwright** (cross-browser, agent-friendly), **Puppeteer** (Chrome-first, fast MVP) | Safe path for WhatsApp Web, Slack web, internal tools—**not** native WeChat desktop |
+| **Desktop (medium)** | Mouse, keyboard, native windows | **[nut.js](https://nutjs.dev/)** — npm: **`@nut-tree-fork/nut-js`** (maintained fork; move, type, image/screen matching)—RPA class with AutoHotkey / Sikuli. Linux arm64: MiraChat **postinstall** can compile [libnut-core](https://github.com/nut-tree/libnut-core) when the prebuilt x64 `.node` does not match the host. | **Approved** tasks only: e.g. typing into a **native desktop client** when no official API exists |
+| **Vision / screen understanding (hard)** | Semantic state of arbitrary UIs | OCR, screenshots + VLM, custom matchers | Optional; pairs with nut.js when coordinates or selectors are unstable |
+
+**Product framing**
+
+- **MVP stack (fast):** browser channels via **Puppeteer** or **Playwright**; **desktop hack channels** (e.g. WeChat desktop) via **nut.js** behind the **doer** boundary—not inside core or channel plugins.
+- **Production-oriented stack:** **Playwright** for web reliability; **nut.js** plus optional vision/OCR; **event queue, retries, and idempotency** around every desktop action (focus loss, DPI, OS updates break naive scripts).
+- **MCP + browser bridges** (e.g. Puppeteer MCP servers) are useful for **LLM → structured browser tools**; they **do not** replace desktop control—desktop remains **explicit doer tooling**.
+
+**Non-claims:** No dependency in MiraChat core on nut.js; implementations live in a **separate process or doer plugin** with narrow **`ApprovedDoerTask`** contracts, timeouts, and allowlists. **Human approval** defaults stricter for OS-level automation than for a single chat send.
+
 ---
 
 ## 6. Go-to-market and wedge strategy
@@ -205,6 +223,7 @@ Full **Goal–Question–Metric** breakdown, targets, experiments, and cross-sys
 | **Over-automation** | Default **APPROVE**; AUTO is explicit per rule/contact. |
 | **Latency** | Fast paths where safe; async approval queue for outbound. |
 | **Platform instability (unofficial APIs)** | Wechaty/WhatsApp confined to **channel plugins**; never entangle with core policy/memory. |
+| **Desktop RPA / nut.js fragility** | **Doer-only** deployment; explicit user consent; stricter **APPROVE** defaults; audit steps; disclose breakage from UI updates, focus, and multi-monitor/DPI. |
 
 ---
 
@@ -259,3 +278,5 @@ The product is the **control layer**: identity, policy, delegation logic, and me
 | 0.3 | 2026-03-31 | Companion GQM doc: [product-GQM-MiraForU.md](product-GQM-MiraForU.md); §7 cross-link |
 | 0.4 | 2026-04-02 | Added `OpenClaw` doer-runtime boundary: MiraForU owns policy/trust, external runtime executes approved tasks |
 | 0.5 | 2026-04-02 | Aligned §1 architecture table and §E–F with **pluggable channel plugins** + **pluggable doer plugins**; cross-link [system-design-proxy-self.md](system-design-proxy-self.md) |
+| 0.6 | 2026-04-02 | §5 **G**: **Desktop computer use** capability—**nut.js** + browser tiers (Playwright/Puppeteer), MVP vs production stack, doer boundary; §9 risk row for desktop RPA |
+| 0.7 | 2026-04-02 | §5 **G** table: npm **`@nut-tree-fork/nut-js`**, arm64 **libnut** postinstall note |

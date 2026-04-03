@@ -177,6 +177,18 @@
         place-items: center;
         font-weight: 700;
         font-size: 0.95rem;
+        overflow: hidden;
+        color: var(--ig-text);
+      }
+      .avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .avatar.has-photo {
+        font-size: 0;
+        line-height: 0;
       }
       .thread-body {
         flex: 1;
@@ -256,6 +268,17 @@
         font-weight: 700;
         font-size: 0.98rem;
       }
+      .head-thread-ref {
+        font-size: 0.72rem;
+        color: var(--ig-soft);
+        margin-top: 0.12rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .head-thread-ref.hidden {
+        display: none;
+      }
       .head-sub {
         font-size: 0.72rem;
         color: var(--ig-muted);
@@ -278,6 +301,7 @@
       }
       .messages {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
         padding: 1rem 1.15rem;
         display: flex;
@@ -300,6 +324,23 @@
       }
       .bubble-row.in {
         justify-content: flex-start;
+        align-items: flex-end;
+        gap: 0.45rem;
+      }
+      .bubble-peer-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 2px solid transparent;
+        background: linear-gradient(var(--ig-bg-elevated), var(--ig-bg-elevated)) padding-box, var(--ig-story) border-box;
+      }
+      .bubble-peer-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
       }
       .bubble-row.out {
         justify-content: flex-end;
@@ -324,6 +365,9 @@
         color: white;
       }
       .approval-panel {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 2;
         border-top: 1px solid var(--ig-border);
         background: rgba(19, 20, 26, 0.86);
         padding: 0.9rem 1rem;
@@ -348,6 +392,9 @@
         border-left: 3px solid #ff4fd8;
       }
       .composer-wrap {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 2;
         padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom));
         background: rgba(17, 18, 24, 0.78);
         border-top: 1px solid var(--ig-border);
@@ -376,6 +423,7 @@
         box-shadow: 0 0 0 4px rgba(255, 79, 216, 0.12);
       }
       .btn {
+        cursor: pointer;
         border-radius: 999px;
         padding: 0.65rem 0.95rem;
         font-weight: 700;
@@ -499,6 +547,51 @@
         white-space: pre-wrap;
         padding: 0.5rem 0;
       }
+      .thread-action-feedback {
+        flex-shrink: 0;
+        margin-bottom: 0.65rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 16px;
+        font-size: 0.86rem;
+        line-height: 1.45;
+        background: rgba(74, 222, 128, 0.1);
+        border: 1px solid rgba(74, 222, 128, 0.28);
+        color: #b8f5cb;
+      }
+      .thread-action-feedback strong {
+        color: #e8fff0;
+        font-weight: 700;
+      }
+      .inbox-actions {
+        padding: 0.55rem 0.85rem 0.65rem;
+        border-bottom: 1px solid var(--ig-border);
+        background: rgba(17, 18, 24, 0.55);
+      }
+      .btn-process-queue {
+        width: 100%;
+        border-radius: 14px;
+        padding: 0.62rem 0.85rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #0f1014;
+        background: linear-gradient(135deg, #ff9aef 0%, #ff4fd8 40%, #fcaf45 100%);
+        border: none;
+      }
+      .btn-process-queue:hover {
+        filter: brightness(1.06);
+      }
+      .btn-process-queue:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        filter: none;
+      }
+      .pending-hint {
+        margin: 0.4rem 0 0;
+        font-size: 0.72rem;
+        color: var(--ig-soft);
+        line-height: 1.35;
+      }
       #chatActive:not(.hidden) {
         display: flex;
         flex-direction: column;
@@ -507,6 +600,53 @@
       }
       #emptyChat.hidden {
         display: none;
+      }
+      .paste-reply-card {
+        flex-shrink: 0;
+        margin: 0 0 0.55rem;
+        padding: 0.65rem 0.75rem;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 79, 216, 0.3);
+        background: rgba(124, 77, 255, 0.08);
+      }
+      .paste-reply-card .paste-reply-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--ig-muted);
+        margin-bottom: 0.35rem;
+      }
+      .paste-reply-card .paste-reply-body {
+        font-size: 0.88rem;
+        line-height: 1.4;
+        color: var(--ig-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+        padding: 0.45rem 0.5rem;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.2);
+        cursor: copy;
+        user-select: all;
+        outline: none;
+      }
+      .paste-reply-card .paste-reply-body:focus-visible {
+        box-shadow: 0 0 0 2px rgba(255, 79, 216, 0.45);
+      }
+      .paste-reply-card .paste-reply-meta {
+        margin-top: 0.35rem;
+        font-size: 0.68rem;
+        color: var(--ig-soft);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .paste-reply-card .paste-reply-hint {
+        color: var(--ig-success);
+        font-weight: 600;
+        min-height: 1em;
       }
     </style>
   </head>
@@ -521,16 +661,22 @@
         <div class="search-wrap">
           <input type="search" id="threadSearch" placeholder="Search threads…" autocomplete="off" />
         </div>
+        <div class="inbox-actions hidden" id="inboxActions">
+          <button type="button" class="btn-process-queue" id="btnProcessQueue">
+            Generate replies for everything in queue
+          </button>
+          <p class="pending-hint" id="pendingHint"></p>
+        </div>
         <div class="thread-list" id="threadList"></div>
       </aside>
       <section class="chat-pane" id="chatPane">
         <div class="empty-state" id="emptyChat">
           <div>
-            <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Your inbox</p>
+            <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Decide faster, not type faster</p>
             <p style="margin: 0; font-size: 0.85rem">
-              Open <strong>☰</strong> to set API URL, gateway (WeChat / WhatsApp / Telegram / WeCom), and
-              <strong>Dev login</strong>. Then pick a thread or draft — same layout as the ops console, tuned for IG-style
-              gradients.
+              Each thread can show a short summary, what they want, and <strong>three ready-to-send replies</strong> (direct,
+              balanced, relationship-first). Open <strong>☰</strong> for API URL, gateway, and <strong>Dev login</strong>, then
+              pick a conversation with a draft badge.
             </p>
           </div>
         </div>
@@ -540,6 +686,7 @@
             <div class="avatar" id="headAvatar">?</div>
             <div class="head-meta">
               <div class="head-title" id="headTitle">—</div>
+              <div class="head-thread-ref hidden" id="headThreadRef"></div>
               <div class="head-sub">
                 <span class="pill" id="gatewayPill">Gateway</span>
                 <span class="pill" id="sessionPill">Session</span>
@@ -552,9 +699,39 @@
           <div class="approval-panel hidden" id="approvalPanel"></div>
           <div class="composer-wrap">
             <div class="assist-out hidden" id="assistOut"></div>
+            <div id="pasteReplyCard" class="paste-reply-card hidden" aria-live="polite">
+              <div class="paste-reply-label">WeChat / WhatsApp — your tone (tap to copy)</div>
+              <div
+                class="paste-reply-body"
+                id="pasteReplyBody"
+                role="button"
+                tabindex="0"
+                title="Copy to clipboard"
+              ></div>
+              <div class="paste-reply-meta">
+                <span id="pasteReplyHint" class="paste-reply-hint"></span>
+                <button type="button" class="btn btn-secondary" id="btnCopyPasteReply" style="margin: 0; padding: 0.35rem 0.65rem; font-size: 0.75rem">
+                  Copy
+                </button>
+              </div>
+            </div>
             <div class="composer-row">
               <textarea id="assistText" rows="1" placeholder="Ask for a summary or draft…"></textarea>
               <button type="button" class="btn btn-primary" id="btnAssist">Assist</button>
+            </div>
+            <div class="composer-row" style="margin-top: 0.4rem; flex-wrap: wrap; gap: 0.35rem; align-items: center">
+              <label class="btn btn-secondary" style="margin: 0; cursor: pointer; font-size: 0.85rem">
+                Import context
+                <input
+                  type="file"
+                  id="contextFileUpload"
+                  accept="image/*,.txt,.md,.text,.csv,.json,.log,text/plain,text/markdown,text/csv,application/json"
+                  style="display: none"
+                />
+              </label>
+              <span style="font-size: 0.75rem; opacity: 0.85">
+                Upload conversation or screenshot → memory ingest (OpenRouter analysis on by default).
+              </span>
             </div>
           </div>
         </div>
@@ -610,6 +787,171 @@
         token: 'mirachatWebSessionToken',
         userId: 'mirachatWebUserId',
         preset: 'mirachatWebChannelPreset',
+        threadPersona: 'mirachatWebThreadPersonaV1',
+      }
+
+      const PERSONA_GIVEN = [
+        'Maya',
+        'River',
+        'Jun',
+        'Sora',
+        'Kai',
+        'Noor',
+        'Leo',
+        'Aria',
+        'Dev',
+        'Mina',
+        'Ravi',
+        'Theo',
+        'Yuki',
+        'Zara',
+        'Omar',
+        'Ines',
+        'Chen',
+        'Luca',
+        'Nia',
+        'Sam',
+        'Bo',
+        'Amy',
+        'Raj',
+        'Eli',
+      ]
+      const PERSONA_FAMILY = [
+        'Kim',
+        'Patel',
+        'Reyes',
+        'Park',
+        'Naidoo',
+        'Tanaka',
+        'Silva',
+        'Khan',
+        'Bakker',
+        'Rossi',
+        'Dubois',
+        'Haddad',
+        'Varga',
+        'Okonkwo',
+        'Fischer',
+        'Lopez',
+        'Nguyen',
+        'Andersen',
+        'Cohen',
+        'Murphy',
+        'Sato',
+        'Kowalski',
+        'Alves',
+        'Grant',
+      ]
+
+      function hash32(str) {
+        let h = 2166136261
+        const s = String(str)
+        for (let i = 0; i < s.length; i++) {
+          h ^= s.charCodeAt(i)
+          h = Math.imul(h, 16777619)
+        }
+        return h >>> 0
+      }
+
+      function randomDisplayName(seed) {
+        const h = hash32(seed)
+        const g = PERSONA_GIVEN[h % PERSONA_GIVEN.length]
+        const f = PERSONA_FAMILY[(h >>> 8) % PERSONA_FAMILY.length]
+        return g + ' ' + f
+      }
+
+      /** Soft gradient “contact” placeholder (no network), stable per thread. */
+      function syntheticAvatarDataUrl(seed) {
+        const h = hash32('av:' + seed)
+        const hue1 = h % 360
+        const hue2 = (Math.imul(h, 17) >>> 0) % 360
+        const gid = 'gr' + (h % 999983)
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs><linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="hsl(${hue1},52%,44%)"/><stop offset="100%" stop-color="hsl(${hue2},46%,30%)"/></linearGradient></defs><circle cx="64" cy="64" r="64" fill="url(#${gid})"/><ellipse cx="64" cy="54" rx="30" ry="26" fill="rgba(255,255,255,0.2)"/><ellipse cx="64" cy="96" rx="44" ry="34" fill="rgba(0,0,0,0.14)"/></svg>`
+        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+      }
+
+      function loadPersonaMap() {
+        try {
+          const raw = localStorage.getItem(K.threadPersona)
+          const o = raw ? JSON.parse(raw) : {}
+          return o && typeof o === 'object' ? o : {}
+        } catch {
+          return {}
+        }
+      }
+
+      function savePersonaMap(map) {
+        try {
+          localStorage.setItem(K.threadPersona, JSON.stringify(map))
+        } catch (e) {
+          console.warn('mirachat: could not save thread persona map', e)
+        }
+      }
+
+      function personaKey(userId, threadId) {
+        return String(userId || '').trim() + '::' + String(threadId || '')
+      }
+
+      /**
+       * @returns {{ displayName: string, avatarDataUrl?: string }}
+       */
+      function getOrCreatePersonaEntry(map, userId, threadId) {
+        const k = personaKey(userId, threadId)
+        let e = map[k]
+        if (!e || typeof e !== 'object') {
+          e = { displayName: randomDisplayName(threadId) }
+          map[k] = e
+          return { entry: e, created: true }
+        }
+        if (!e.displayName || typeof e.displayName !== 'string') {
+          e.displayName = randomDisplayName(threadId)
+          return { entry: e, created: true }
+        }
+        return { entry: e, created: false }
+      }
+
+      function avatarUrlForPersona(threadId, entry) {
+        if (entry?.avatarDataUrl && typeof entry.avatarDataUrl === 'string') return entry.avatarDataUrl
+        return syntheticAvatarDataUrl(threadId)
+      }
+
+      function setPersonaScreenshotAvatar(userId, threadId, dataUrl) {
+        const map = loadPersonaMap()
+        const { entry } = getOrCreatePersonaEntry(map, userId, threadId)
+        entry.avatarDataUrl = dataUrl
+        entry.avatarFromScreenshot = true
+        savePersonaMap(map)
+      }
+
+      async function fileToAvatarDataUrl(file, maxEdge = 112) {
+        const bmp = await createImageBitmap(file)
+        try {
+          const canvas = document.createElement('canvas')
+          const scale = Math.min(maxEdge / bmp.width, maxEdge / bmp.height, 1)
+          canvas.width = Math.max(1, Math.round(bmp.width * scale))
+          canvas.height = Math.max(1, Math.round(bmp.height * scale))
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return null
+          ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+          return canvas.toDataURL('image/jpeg', 0.82)
+        } finally {
+          bmp.close()
+        }
+      }
+
+      function renderAvatarInnerHtml(threadId, entry) {
+        const url = avatarUrlForPersona(threadId, entry)
+        return (
+          '<img src="' +
+          escapeHtml(url) +
+          '" alt="" width="52" height="52" decoding="async" loading="lazy" />'
+        )
+      }
+
+      function applyAvatarElement(el, threadId, entry) {
+        if (!el) return
+        el.classList.add('has-photo')
+        el.innerHTML = renderAvatarInnerHtml(threadId, entry)
       }
       const $ = (id) => document.getElementById(id)
       const state = {
@@ -618,6 +960,24 @@
         connection: null,
         selectedKey: null,
         activeDraft: null,
+        pendingInboundCount: 0,
+        /** Shown in-thread after approve/reject/edit/option; cleared when leaving that thread or opening a draft. */
+        threadActionNote: null,
+      }
+
+      function replyOptionDisplayLabel(raw) {
+        const k = String(raw || '')
+          .trim()
+          .toLowerCase()
+        const map = {
+          direct: 'Direct',
+          balanced: 'Balanced',
+          'relationship-first': 'Relationship-first',
+          concise: 'Direct',
+          warm: 'Relationship-first',
+          assertive: 'Direct',
+        }
+        return map[k] || (raw ? String(raw) : 'Option')
       }
 
       const apiBase = () => {
@@ -680,6 +1040,44 @@
         b.classList.add('show')
       }
 
+      let pasteReplyHintTimer = null
+      function setPasteReplyHint(text) {
+        const el = $('pasteReplyHint')
+        if (pasteReplyHintTimer) clearTimeout(pasteReplyHintTimer)
+        el.textContent = text || ''
+        if (text) {
+          pasteReplyHintTimer = setTimeout(() => {
+            el.textContent = ''
+            pasteReplyHintTimer = null
+          }, 2200)
+        }
+      }
+
+      function applyPasteReplyFromIngest(data) {
+        const card = $('pasteReplyCard')
+        const body = $('pasteReplyBody')
+        setPasteReplyHint('')
+        const t = data?.openRouterSuggestedReply && String(data.openRouterSuggestedReply).trim()
+        if (t) {
+          body.textContent = t
+          card.classList.remove('hidden')
+        } else {
+          body.textContent = ''
+          card.classList.add('hidden')
+        }
+      }
+
+      async function copyPasteReplyBody() {
+        const text = ($('pasteReplyBody').textContent || '').trim()
+        if (!text) return
+        try {
+          await navigator.clipboard.writeText(text)
+          setPasteReplyHint('Copied')
+        } catch {
+          setPasteReplyHint('Copy failed — select text')
+        }
+      }
+
       function showSettingsErr(msg) {
         const el = $('settingsErr')
         if (!msg) {
@@ -689,6 +1087,69 @@
         }
         el.textContent = msg
         el.classList.remove('hidden')
+      }
+
+      function draftSortTime(d) {
+        const n = new Date(d?.createdAt ?? 0).getTime()
+        return Number.isFinite(n) ? n : 0
+      }
+
+      /** Normalize mini-program draft cards (camelCase or accidental snake_case). */
+      function normalizeMiniDraft(d) {
+        if (!d || typeof d !== 'object') return null
+        const id = d.id
+        if (id == null || id === '') return null
+        const ro = d.replyOptions ?? d.reply_options
+        return Object.assign({}, d, {
+          id: String(id),
+          threadId: String(d.threadId ?? d.thread_id ?? ''),
+          inboundText: d.inboundText ?? d.inbound_raw_text ?? d.inbound_text ?? null,
+          generatedText: String(d.generatedText ?? d.generated_text ?? ''),
+          intentSummary: d.intentSummary ?? d.intent_summary ?? null,
+          threadSummary: d.threadSummary ?? d.thread_summary ?? null,
+          createdAt: d.createdAt ?? d.created_at ?? new Date().toISOString(),
+          replyOptions: Array.isArray(ro) ? ro : [],
+        })
+      }
+
+      /** Selection is always thread:{threadId} so the same sidebar row stays active after triage. */
+      function latestDraftForThread(threadId) {
+        const want = String(threadId)
+        let best = null
+        for (const d of state.drafts) {
+          const tid = String(d.threadId ?? '')
+          if (tid !== want) continue
+          if (!best || draftSortTime(d) >= draftSortTime(best)) best = d
+        }
+        return best
+      }
+
+      function syncDraftSelection() {
+        if (state.selectedKey?.startsWith('draft:')) {
+          const id = state.selectedKey.slice('draft:'.length)
+          const d = state.drafts.find((x) => x.id === id)
+          if (d) {
+            const nd = normalizeMiniDraft(d) ?? d
+            state.selectedKey = 'thread:' + nd.threadId
+            state.activeDraft = nd
+          } else {
+            state.selectedKey = null
+            state.activeDraft = null
+            renderSidebar()
+          }
+          return
+        }
+        if (!state.selectedKey?.startsWith('thread:')) return
+        const threadId = state.selectedKey.slice('thread:'.length)
+        state.activeDraft = latestDraftForThread(threadId)
+      }
+
+      function resolveActionDraft() {
+        const tid =
+          state.selectedKey?.startsWith('thread:') ? state.selectedKey.slice('thread:'.length) : null
+        if (!tid) return null
+        if (state.activeDraft?.threadId === tid) return state.activeDraft
+        return latestDraftForThread(tid)
       }
 
       function initials(s) {
@@ -744,37 +1205,76 @@
         return Boolean(sessionStorage.getItem(K.token))
       }
 
+      /** One sidebar row per conversation (threadId). Draft badge when triage is pending. */
       function mergeSidebarRows() {
         const q = ($('threadSearch').value || '').trim().toLowerCase()
-        const byThread = new Set(state.drafts.map((d) => d.threadId))
-        const rows = []
+        const uid = $('userId').value.trim() || 'demo-user'
+        const personaMap = loadPersonaMap()
+        let personaDirty = false
+
+        const latestDraftByThread = new Map()
         for (const d of state.drafts) {
-          const title = d.threadId
-          const prev = [d.intentSummary, d.inboundText].filter(Boolean).join(' · ') || 'Draft'
-          if (q && !title.toLowerCase().includes(q) && !prev.toLowerCase().includes(q)) continue
-          rows.push({
-            key: 'draft:' + d.id,
-            kind: 'draft',
-            title,
-            preview: prev,
-            time: d.createdAt,
-            draft: d,
-          })
+          const tid = d.threadId
+          if (!tid) continue
+          const cur = latestDraftByThread.get(tid)
+          if (!cur || draftSortTime(d) > draftSortTime(cur)) {
+            latestDraftByThread.set(tid, d)
+          }
         }
+
+        const byTid = new Map()
         for (const t of state.threads) {
-          if (byThread.has(t.threadId)) continue
-          const title = t.threadId
-          const prev = t.preview || `${t.messageCount} messages`
-          if (q && !title.toLowerCase().includes(q) && !prev.toLowerCase().includes(q)) continue
-          rows.push({
-            key: 'thread:' + t.threadId,
-            kind: 'thread',
-            title,
-            preview: prev,
-            time: t.lastAt,
+          const draft = latestDraftByThread.get(t.threadId) || null
+          const dTime = draft ? new Date(draft.createdAt).getTime() : 0
+          const tTime = new Date(t.lastAt).getTime()
+          byTid.set(t.threadId, {
             thread: t,
+            draft,
+            sortTime: Math.max(dTime, tTime),
+          })
+          if (draft) latestDraftByThread.delete(t.threadId)
+        }
+        for (const [threadId, draft] of latestDraftByThread) {
+          byTid.set(threadId, {
+            thread: null,
+            draft,
+            sortTime: new Date(draft.createdAt).getTime(),
           })
         }
+
+        const rows = []
+        for (const [threadId, v] of byTid) {
+          const { entry, created } = getOrCreatePersonaEntry(personaMap, uid, threadId)
+          if (created) personaDirty = true
+          const hasDraft = Boolean(v.draft)
+          const title = entry.displayName
+          const prev = hasDraft
+            ? [v.draft.intentSummary, v.draft.inboundText].filter(Boolean).join(' · ') || 'Draft'
+            : v.thread
+              ? v.thread.preview || `${v.thread.messageCount} messages`
+              : 'Conversation'
+          if (
+            q &&
+            !title.toLowerCase().includes(q) &&
+            !String(threadId).toLowerCase().includes(q) &&
+            !String(prev).toLowerCase().includes(q)
+          ) {
+            continue
+          }
+          rows.push({
+            key: 'thread:' + threadId,
+            hasDraft,
+            title,
+            threadId,
+            persona: entry,
+            preview: prev,
+            timeIso: new Date(v.sortTime).toISOString(),
+            draft: v.draft,
+            thread: v.thread,
+          })
+        }
+        if (personaDirty) savePersonaMap(personaMap)
+        rows.sort((a, b) => new Date(b.timeIso) - new Date(a.timeIso))
         return rows
       }
 
@@ -804,9 +1304,25 @@
         if (state.connection) $('connPill').textContent = 'Linked'
       }
 
+      function updateInboxQueueChrome() {
+        const wrap = $('inboxActions')
+        const hint = $('pendingHint')
+        const btn = $('btnProcessQueue')
+        if (!wrap || !hint || !btn) return
+        wrap.classList.toggle('hidden', !hasSession())
+        if (!hasSession()) return
+        const n = Number(state.pendingInboundCount) || 0
+        hint.textContent =
+          n > 0
+            ? `${n} inbound message${n === 1 ? '' : 's'} waiting to become drafts. Tap to run the queue.`
+            : 'Queue is clear — new messages from your gateway appear here as drafts after processing.'
+        btn.disabled = n === 0
+      }
+
       function renderSidebar() {
         const list = $('threadList')
         list.innerHTML = ''
+        updateInboxQueueChrome()
         if (!hasSession()) {
           list.innerHTML =
             '<div class="empty-state" style="padding:1.5rem;font-size:0.85rem">Use ☰ → Dev login to load threads.</div>'
@@ -822,21 +1338,31 @@
           const div = document.createElement('div')
           div.className = 'thread-item' + (state.selectedKey === r.key ? ' active' : '')
           div.dataset.key = r.key
-          const badge = r.kind === 'draft' ? '<span class="badge">Draft</span>' : ''
+          const badge = r.hasDraft ? '<span class="badge">Draft</span>' : ''
           div.innerHTML =
             '<div class="avatar">' +
-            escapeHtml(initials(r.title)) +
+            renderAvatarInnerHtml(r.threadId, r.persona) +
             '</div><div class="thread-body"><div class="thread-row1"><span class="thread-title">' +
             escapeHtml(r.title) +
             badge +
             '</span><span class="thread-time">' +
-            escapeHtml(formatTime(r.time)) +
+            escapeHtml(formatTime(r.timeIso)) +
             '</span></div><div class="thread-preview">' +
             escapeHtml(r.preview) +
             '</div></div>'
+          const av = div.querySelector('.avatar')
+          if (av) av.classList.add('has-photo')
           div.addEventListener('click', () => {
+            const prevTid = state.selectedKey?.startsWith('thread:') ? state.selectedKey.slice('thread:'.length) : null
+            const newTid = r.key.slice('thread:'.length)
+            if (prevTid !== newTid) {
+              applyPasteReplyFromIngest({})
+            }
+            if (state.threadActionNote && state.threadActionNote.threadId !== newTid) {
+              state.threadActionNote = null
+            }
             state.selectedKey = r.key
-            state.activeDraft = r.kind === 'draft' ? r.draft : null
+            state.activeDraft = r.draft || null
             renderSidebar()
             renderMain()
             layoutMobile()
@@ -851,21 +1377,29 @@
         $('chatActive').classList.toggle('hidden', !tok)
         if (!tok) return
 
+        syncDraftSelection()
+
         updateSessionChrome()
         const pr = preset()
         $('gatewayPill').textContent = pr.label
 
-        const draft = state.activeDraft
-        const threadOnly = state.selectedKey && state.selectedKey.startsWith('thread:')
-        const threadId = draft
-          ? draft.threadId
-          : threadOnly
-            ? state.selectedKey.slice('thread:'.length)
-            : null
+        const threadId = state.selectedKey?.startsWith('thread:')
+          ? state.selectedKey.slice('thread:'.length)
+          : null
+        const draft = threadId ? latestDraftForThread(threadId) : null
+        state.activeDraft = draft
 
         if (!state.selectedKey) {
           $('headTitle').textContent = 'MiraChat'
-          $('headAvatar').textContent = 'MC'
+          const href = $('headThreadRef')
+          if (href) {
+            href.textContent = ''
+            href.classList.add('hidden')
+          }
+          const ha = $('headAvatar')
+          ha.classList.remove('has-photo')
+          ha.innerHTML = ''
+          ha.textContent = 'MC'
           $('messages').innerHTML =
             '<div class="empty-state" style="flex:1">Select a thread or draft from the list.</div>'
           $('approvalPanel').classList.add('hidden')
@@ -875,17 +1409,46 @@
           return
         }
 
-        $('headTitle').textContent = threadId || '—'
-        $('headAvatar').textContent = initials(threadId)
+        const uidHead = $('userId').value.trim() || 'demo-user'
+        const pmap = loadPersonaMap()
+        const { entry: pFinal, created: personaCreated } = getOrCreatePersonaEntry(pmap, uidHead, threadId)
+        if (personaCreated) savePersonaMap(pmap)
+
+        $('headTitle').textContent = pFinal.displayName || threadId || '—'
+        const htr = $('headThreadRef')
+        if (htr) {
+          const showRef = threadId && pFinal.displayName && threadId !== pFinal.displayName
+          htr.textContent = showRef ? threadId : ''
+          htr.classList.toggle('hidden', !showRef)
+        }
+        applyAvatarElement($('headAvatar'), threadId, pFinal)
 
         const msgs = $('messages')
         msgs.innerHTML = ''
+
+        if (
+          !draft &&
+          threadId &&
+          state.threadActionNote &&
+          state.threadActionNote.threadId === threadId
+        ) {
+          const fb = document.createElement('div')
+          fb.className = 'thread-action-feedback'
+          fb.innerHTML = '<strong>Done.</strong> ' + escapeHtml(state.threadActionNote.message)
+          msgs.appendChild(fb)
+        }
 
         if (draft) {
           if (draft.inboundText) {
             const row = document.createElement('div')
             row.className = 'bubble-row in'
-            row.innerHTML = '<div class="bubble in">' + escapeHtml(draft.inboundText) + '</div>'
+            const peerSrc = avatarUrlForPersona(threadId, pFinal)
+            row.innerHTML =
+              '<div class="bubble-peer-avatar"><img src="' +
+              escapeHtml(peerSrc) +
+              '" alt="" width="38" height="38" decoding="async" loading="lazy"/></div><div class="bubble in">' +
+              escapeHtml(draft.inboundText) +
+              '</div>'
             msgs.appendChild(row)
           }
           const out = document.createElement('div')
@@ -901,53 +1464,41 @@
         }
 
         const ap = $('approvalPanel')
-        if (draft && draft.replyOptions?.length) {
+        if (draft) {
           ap.classList.remove('hidden')
           let optBtns = ''
-          draft.replyOptions.forEach((opt, i) => {
-            optBtns +=
-              '<button type="button" class="btn btn-secondary btn-pick-opt" data-i="' +
-              i +
-              '">' +
-              escapeHtml(opt.label || 'Option ' + (i + 1)) +
-              '</button>'
-          })
+          if (draft.replyOptions.length) {
+            draft.replyOptions.forEach((opt, i) => {
+              optBtns +=
+                '<button type="button" class="btn btn-secondary" data-draft-action="select" data-opt-index="' +
+                i +
+                '">' +
+                escapeHtml(replyOptionDisplayLabel(opt.label) || 'Option ' + (i + 1)) +
+                '</button>'
+            })
+          }
+          const optRow =
+            optBtns.length > 0
+              ? '<div class="actions-row" style="margin-top:0.75rem">' + optBtns + '</div>'
+              : ''
           ap.innerHTML =
-            '<h3>Review</h3>' +
+            '<h3>Pick a reply</h3>' +
+            '<p class="pending-hint" style="margin:0 0 0.65rem">Scan the summary, then choose a tone — tweak if needed and send.</p>' +
             (draft.threadSummary
-              ? '<div class="summary-box"><strong>Thread</strong><br/>' + escapeHtml(draft.threadSummary) + '</div>'
+              ? '<div class="summary-box"><strong>Thread snapshot</strong><br/>' + escapeHtml(draft.threadSummary) + '</div>'
               : '') +
             (draft.intentSummary
-              ? '<div class="summary-box"><strong>Intent</strong><br/>' + escapeHtml(draft.intentSummary) + '</div>'
+              ? '<div class="summary-box"><strong>What they want</strong><br/>' + escapeHtml(draft.intentSummary) + '</div>'
               : '') +
             '<div class="field"><label>Edit before send</label><textarea id="editDraftText" rows="3">' +
             escapeHtml(draft.generatedText || '') +
             '</textarea></div>' +
             '<div class="actions-row">' +
-            '<button type="button" class="btn btn-ok" id="btnApprove">Approve</button>' +
-            '<button type="button" class="btn btn-primary" id="btnApproveEdit">Save edit &amp; send</button>' +
-            '<button type="button" class="btn btn-danger" id="btnReject">Reject</button>' +
+            '<button type="button" class="btn btn-ok" data-draft-action="approve">Approve</button>' +
+            '<button type="button" class="btn btn-primary" data-draft-action="edit">Save edit &amp; send</button>' +
+            '<button type="button" class="btn btn-danger" data-draft-action="reject">Reject</button>' +
             '</div>' +
-            '<div class="actions-row" style="margin-top:0.75rem">' +
-            optBtns +
-            '</div>'
-
-          $('btnApprove').onclick = () => draftAction('approve')
-          $('btnApproveEdit').onclick = () => draftAction('edit')
-          $('btnReject').onclick = () => draftAction('reject')
-          ap.querySelectorAll('.btn-pick-opt').forEach((btn) => {
-            btn.addEventListener('click', () => draftAction('select', Number(btn.dataset.i)))
-          })
-        } else if (draft) {
-          ap.classList.remove('hidden')
-          ap.innerHTML =
-            '<h3>Review</h3>' +
-            '<div class="actions-row">' +
-            '<button type="button" class="btn btn-ok" id="btnApprove2">Approve</button>' +
-            '<button type="button" class="btn btn-danger" id="btnReject2">Reject</button>' +
-            '</div>'
-          $('btnApprove2').onclick = () => draftAction('approve')
-          $('btnReject2').onclick = () => draftAction('reject')
+            optRow
         } else {
           ap.classList.add('hidden')
           ap.innerHTML = ''
@@ -957,8 +1508,11 @@
       }
 
       async function draftAction(kind, optionIndex) {
-        const d = state.activeDraft
-        if (!d) return
+        const d = resolveActionDraft()
+        if (!d?.id) {
+          showBanner('No draft loaded. Choose the draft again in the sidebar.')
+          return
+        }
         const id = d.id
         showBanner('')
         try {
@@ -979,8 +1533,34 @@
               body: JSON.stringify({ index: optionIndex }),
             })
           }
-          state.selectedKey = null
-          state.activeDraft = null
+
+          const threadId = d.threadId
+          const opt =
+            kind === 'select' && Array.isArray(d.replyOptions)
+              ? d.replyOptions[optionIndex]
+              : null
+          const optLabel =
+            opt?.label ||
+            (kind === 'select' && Number.isFinite(optionIndex) ? 'option ' + (optionIndex + 1) : '')
+
+          let note = ''
+          if (kind === 'approve') {
+            note = 'You approved the draft as written. It is queued to send on your gateway.'
+          } else if (kind === 'reject') {
+            note = 'You rejected this draft. No outbound send will use it.'
+          } else if (kind === 'edit') {
+            note = 'You approved with edits. The updated text is queued to send on your gateway.'
+          } else if (kind === 'select') {
+            note =
+              'You approved reply style "' +
+              optLabel +
+              '". That option is queued to send on your gateway.'
+          }
+
+          state.threadActionNote = { threadId, message: note }
+          state.selectedKey = 'thread:' + threadId
+          showBanner('')
+
           await refreshBootstrap()
           renderSidebar()
           renderMain()
@@ -996,6 +1576,8 @@
           state.drafts = []
           state.threads = []
           state.connection = null
+          state.pendingInboundCount = 0
+          syncDraftSelection()
           return
         }
         const pr = preset()
@@ -1006,27 +1588,52 @@
           encodeURIComponent(pr.accountId)
         try {
           const data = await j(path)
-          state.drafts = Array.isArray(data.drafts) ? data.drafts : []
+          state.drafts = (Array.isArray(data.drafts) ? data.drafts : [])
+            .map((row) => normalizeMiniDraft(row))
+            .filter((d) => d && d.threadId)
           state.threads = Array.isArray(data.threads) ? data.threads : []
           state.connection = data.connection ?? null
+          state.pendingInboundCount =
+            typeof data.pendingInboundCount === 'number' ? data.pendingInboundCount : Number(data.pendingInboundCount) || 0
         } catch (e) {
           showBanner(e instanceof Error ? e.message : String(e))
           state.drafts = []
           state.threads = []
           state.connection = null
+          state.pendingInboundCount = 0
+        }
+        syncDraftSelection()
+      }
+
+      async function processInboundQueue() {
+        if (!hasSession()) return
+        const pr = preset()
+        const btn = $('btnProcessQueue')
+        if (btn) btn.disabled = true
+        showBanner('')
+        try {
+          const data = await j('/mini-program/inbox/process-pending', {
+            method: 'POST',
+            body: JSON.stringify({ channel: pr.channel, accountId: pr.accountId }),
+          })
+          const n = typeof data.enqueued === 'number' ? data.enqueued : 0
+          showBanner(n ? `Queued ${n} message(s) for drafting. Refresh in a few seconds.` : 'Nothing in the queue.')
+          await refreshBootstrap()
+          renderSidebar()
+          renderMain()
+        } catch (e) {
+          showBanner(e instanceof Error ? e.message : String(e))
+        } finally {
+          updateInboxQueueChrome()
         }
       }
 
       async function doAssist() {
         const text = $('assistText').value.trim()
         if (!text) return
-        const draft = state.activeDraft
-        const threadOnly = state.selectedKey && state.selectedKey.startsWith('thread:')
-        const threadId = draft
-          ? draft.threadId
-          : threadOnly
-            ? state.selectedKey.slice('thread:'.length)
-            : null
+        const threadId = state.selectedKey?.startsWith('thread:')
+          ? state.selectedKey.slice('thread:'.length)
+          : null
         if (!threadId) {
           showBanner('Select a thread first.')
           return
@@ -1076,6 +1683,20 @@
         }
       }
 
+      $('approvalPanel').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-draft-action]')
+        if (!btn || !$('approvalPanel').contains(btn)) return
+        e.preventDefault()
+        const act = btn.getAttribute('data-draft-action')
+        if (act === 'approve') void draftAction('approve')
+        else if (act === 'reject') void draftAction('reject')
+        else if (act === 'edit') void draftAction('edit')
+        else if (act === 'select') {
+          const idx = Number(btn.getAttribute('data-opt-index'))
+          if (Number.isFinite(idx)) void draftAction('select', idx)
+        }
+      })
+
       $('btnMenu').addEventListener('click', openDrawer)
       $('btnCloseDrawer').addEventListener('click', closeDrawer)
       $('overlay').addEventListener('click', closeDrawer)
@@ -1090,8 +1711,10 @@
       })
       $('btnLogout').addEventListener('click', () => {
         sessionStorage.removeItem(K.token)
+        applyPasteReplyFromIngest({})
         state.selectedKey = null
         state.activeDraft = null
+        state.threadActionNote = null
         closeDrawer()
         renderSidebar()
         renderMain()
@@ -1107,11 +1730,111 @@
       $('btnBack').addEventListener('click', () => {
         state.selectedKey = null
         state.activeDraft = null
+        state.threadActionNote = null
         renderSidebar()
         renderMain()
         layoutMobile()
       })
+      function webCurrentThreadId() {
+        return state.selectedKey?.startsWith('thread:') ? state.selectedKey.slice('thread:'.length) : null
+      }
+
+      async function ingestContextFromFile(file) {
+        const tid = webCurrentThreadId()
+        if (!tid) {
+          showBanner('Pick a conversation first, then upload.')
+          return
+        }
+        const uid = $('userId').value.trim() || 'demo-user'
+        const pr = preset()
+        const name = file.name || 'upload'
+        const mime = file.type || ''
+        const isText = mime.startsWith('text/') || /\.(txt|md|markdown|csv|json|log)$/i.test(name)
+        const isImage = mime.startsWith('image/')
+        let summary = ''
+        let extracted = ''
+        let screenshotPath
+        let screenshotMimeType
+        if (isText) {
+          extracted = (await file.text()).slice(0, 120000)
+          summary = `Conversation import from «${name}»`
+        } else if (isImage) {
+          summary = `Screenshot / image: «${name}» (${mime || 'image'}). Add what it shows if needed.`
+          screenshotPath = `upload:${name}`
+          screenshotMimeType = mime || undefined
+        } else {
+          showBanner('Use a text file or an image.')
+          return
+        }
+        const payload = {
+          userId: uid,
+          channel: pr.channel,
+          accountId: pr.accountId,
+          threadId: tid,
+          contactId: tid,
+          summary,
+          extractedText: extracted || undefined,
+          screenshotPath,
+          screenshotMimeType,
+          captureTool: 'browser_upload',
+          openRouterAnalysis: true,
+        }
+        try {
+          const res = await fetch(apiBase() + '/mirachat/ingest/desktop-context', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+          const text = await res.text()
+          let data = {}
+          try {
+            data = text ? JSON.parse(text) : {}
+          } catch {
+            data = { error: text }
+          }
+          if (!res.ok) {
+            throw new Error([data.error, data.message].filter(Boolean).join(' — ') || text || res.statusText)
+          }
+          applyPasteReplyFromIngest(data)
+          if (isImage) {
+            try {
+              const thumb = await fileToAvatarDataUrl(file)
+              if (thumb) {
+                setPersonaScreenshotAvatar(uid, tid, thumb)
+                renderSidebar()
+                renderMain()
+              }
+            } catch (err) {
+              console.warn('mirachat: could not set thread avatar from screenshot', err)
+            }
+          }
+          const extra = data.openRouterSuggestedReply ? ' Paste reply ready below.' : ''
+          showBanner(`Context ingested (${data.memoryChunkCount || '?'} chunk(s)).${extra}`)
+        } catch (e) {
+          applyPasteReplyFromIngest({})
+          showBanner(String(e.message || e))
+        }
+      }
+
+      $('pasteReplyBody').addEventListener('click', () => void copyPasteReplyBody())
+      $('pasteReplyBody').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          void copyPasteReplyBody()
+        }
+      })
+      $('btnCopyPasteReply').addEventListener('click', () => void copyPasteReplyBody())
+
+      $('contextFileUpload').addEventListener('change', (e) => {
+        const f = e.target.files?.[0]
+        e.target.value = ''
+        if (f) {
+          void ingestContextFromFile(f)
+        }
+      })
+
       $('btnAssist').addEventListener('click', () => void doAssist())
+      $('btnProcessQueue').addEventListener('click', () => void processInboundQueue())
       $('threadSearch').addEventListener('input', () => renderSidebar())
       $('channelPreset').addEventListener('change', saveSettings)
 

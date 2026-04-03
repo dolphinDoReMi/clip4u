@@ -16,6 +16,8 @@ export default defineConfig({
     include: ['tests/**/*.spec.ts'],
     globals: true,
     environment: 'node',
+    /** OpenRouter calls in agent-core can exceed 5s when OPENROUTER_API_KEY is set. */
+    testTimeout: 30_000,
   },
   resolve: {
     alias: {
@@ -30,6 +32,7 @@ export default defineConfig({
       '@delegate-ai/db': path.resolve(root, 'packages/db/src/index.ts'),
       '@delegate-ai/negotiation-tools': path.resolve(root, 'packages/negotiation-tools/src/index.ts'),
       '@delegate-ai/openclaw-doer': path.resolve(root, 'packages/openclaw-doer/src/index.ts'),
+      '@delegate-ai/twilio-voice-notify': path.resolve(root, 'packages/twilio-voice-notify/src/index.ts'),
     },
   },
 })

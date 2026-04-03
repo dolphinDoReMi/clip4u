@@ -42,11 +42,11 @@ describe('mini program helpers', () => {
       confidence_score: 0.82,
       intent_summary: 'Follow up',
       thread_summary: 'Summary',
-      reply_options: [{ label: 'warm', text: 'Hello there' }],
+      reply_options: [{ label: 'relationship-first', text: 'Hello there' }],
       created_at: new Date('2026-04-02T00:00:00.000Z'),
     })
 
-    expect(card.replyOptions[0]?.label).toBe('warm')
+    expect(card.replyOptions[0]?.label).toBe('relationship-first')
     expect(card.createdAt).toBe('2026-04-02T00:00:00.000Z')
   })
 })

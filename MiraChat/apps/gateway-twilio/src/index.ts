@@ -96,10 +96,15 @@ const postMirachatInbound = async (input: {
 const channelForAddress = (from: string): Channel =>
   from.toLowerCase().startsWith('whatsapp:') ? 'twilio_whatsapp' : 'twilio_sms'
 
-const logTwilioError = (context: string, err: unknown): void => {
+const logTwilioError = (context: string, err: unknown, channel?: Channel): void => {
   connectionStatus = 'DEGRADED'
   if (isTwilioRestLike(err)) {
     console.error(context, err.message, { code: err.code, status: err.status, moreInfo: err.moreInfo })
+    if (channel === 'twilio_whatsapp' && err.code === 63007) {
+      console.error(
+        'Twilio reports no WhatsApp channel for the configured From address. Check TWILIO_WHATSAPP_FROM; sandbox commonly uses whatsapp:+14155238886.',
+      )
+    }
     return
   }
   console.error(context, err)
@@ -156,7 +161,7 @@ const pollPendingSends = async (): Promise<void> => {
           console.error('mark-sent failed', item.id, await mark.text())
         }
       } catch (e) {
-        logTwilioError(`Twilio send failed draft=${item.id}`, e)
+        logTwilioError(`Twilio send failed draft=${item.id}`, e, channel)
         await markSendFailed(item.id, e)
       }
     }
@@ -184,7 +189,7 @@ const forwardStatusToApi = async (params: Record<string, string | string[]>): Pr
   }).catch(err => console.error('twilio status forward failed', err))
 }
 
-createServer(async (request, response) => {
+const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`)
 
   if (request.method === 'GET' && url.pathname === webhookPath) {
@@ -283,13 +288,29 @@ createServer(async (request, response) => {
 
   response.writeHead(404, { 'content-type': 'text/plain' })
   response.end('not found')
-}).listen(gatewayConfig.port, () => {
+})
+
+server.on('error', err => {
+  if ((err as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+    console.error(
+      `gateway-twilio could not bind port ${gatewayConfig.port}: already in use. Stop the old gateway or change TWILIO_GATEWAY_PORT, otherwise the old process keeps running with stale env.`,
+    )
+    process.exit(1)
+  }
+  console.error('gateway-twilio server failed', err)
+  process.exit(1)
+})
+
+server.listen(gatewayConfig.port, () => {
   console.log(`gateway-twilio listening on http://localhost:${gatewayConfig.port}`)
   console.log(`Webhook (POST): http://localhost:${gatewayConfig.port}${webhookPath}`)
   console.log(
     `Status callback (POST): http://localhost:${gatewayConfig.port}${statusWebhookPath} → API /mirachat/instrumentation/twilio-status`,
   )
   console.log(`Twilio transport routing: ${JSON.stringify(gatewayConfig.pluginByChannel)}`)
+  console.log(
+    `Twilio senders: sms=${gatewayConfig.smsFrom || '(unset)'} whatsapp=${gatewayConfig.whatsappFrom || '(unset)'}`,
+  )
   if (gatewayConfig.skipSig) {
     console.warn('TWILIO_SKIP_SIGNATURE enabled — do not use in production')
   }

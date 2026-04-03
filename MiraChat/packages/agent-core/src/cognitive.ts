@@ -71,7 +71,28 @@ export const classifyIntent = (event: MessageEvent): IntentSignal => {
   }
   const urgency: IntentSignal['urgency'] =
     /no rush|whenever|next month/.test(t) ? 'low' : /urgent|asap|today|now|critical/.test(t) ? 'high' : 'normal'
-  return { domain, urgency, summary: `${domain}; urgency=${urgency}` }
+  return { domain, urgency, summary: humanIntentLine(domain, urgency, event.text) }
+}
+
+const humanIntentLine = (domain: string, urgency: IntentSignal['urgency'], raw: string): string => {
+  const urgencyBit =
+    urgency === 'high' ? 'Time-sensitive.' : urgency === 'low' ? 'No rush implied.' : 'Standard priority.'
+  const clip = compact(raw)
+  const short = clip.length > 140 ? `${clip.slice(0, 137)}…` : clip
+  switch (domain) {
+    case 'scheduling':
+      return `They want to coordinate time or calendar. ${urgencyBit}`
+    case 'finance':
+      return `Money, invoice, payment, or budget—avoid casual commitments. ${urgencyBit}`
+    case 'delivery':
+      return `Project status, shipping, or deadlines. ${urgencyBit}`
+    case 'follow_up':
+      return `They’re checking in or waiting on you. ${urgencyBit}`
+    default:
+      return short
+        ? `Latest from them: “${short}”. ${urgencyBit}`
+        : `Inbound message. ${urgencyBit}`
+  }
 }
 
 const planner = async (context: ContextBundle): Promise<{ instruction: string; intent: IntentSignal }> => {
@@ -228,7 +249,7 @@ export const buildContextBundle = async (
   const [identity, relationship, recentMessages, searchMatches] = await Promise.all([
     services.identityService.getIdentity(event.userId),
     services.identityService.getRelationship(event.userId, event.senderId),
-    services.memoryService.getRecentMessages(event.threadId),
+    services.memoryService.getRecentMessages(event.threadId, undefined, event.userId),
     services.memoryService.searchMessages(event.userId, event.text),
   ])
 

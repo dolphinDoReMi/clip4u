@@ -357,6 +357,16 @@
         text-align: right;
         margin-top: 0.35rem;
       }
+      .memory-import-tag {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #7dd3fc;
+        margin-bottom: 0.35rem;
+      }
+      .bubble.memory-bubble.in {
+        border-left: 3px solid rgba(125, 211, 252, 0.5);
+      }
       .approval-panel {
         border-top: 1px solid var(--ig-border);
         background: rgba(19, 20, 26, 0.86);
@@ -473,6 +483,29 @@
         background: rgba(74, 222, 128, 0.14);
         color: #97efaf;
         border-color: rgba(74, 222, 128, 0.2);
+      }
+      .thread-import-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        align-items: center;
+        padding: 0 1rem;
+      }
+      .thread-import-row .thread-import-label {
+        font-size: 0.7rem;
+        color: var(--ig-muted);
+        margin-right: 0.15rem;
+      }
+      .file-input-screen-reader {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
       }
       .actions-row {
         display: flex;
@@ -649,6 +682,67 @@
         border-color: rgba(255, 93, 115, 0.35);
         color: #ffd4db;
       }
+      .desktop-or-panel {
+        display: none;
+        flex-direction: column;
+        gap: 0.55rem;
+        margin-bottom: 0.65rem;
+      }
+      .desktop-or-panel.show {
+        display: flex;
+      }
+      .desktop-or-card {
+        border-radius: 10px;
+        border: 1px solid var(--ig-border);
+        background: var(--ig-panel-2);
+        padding: 0.55rem 0.65rem;
+      }
+      .desktop-or-card.desktop-or-paste {
+        border-color: rgba(255, 79, 216, 0.28);
+        background: rgba(124, 77, 255, 0.06);
+      }
+      .desktop-or-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--ig-muted);
+        margin-bottom: 0.35rem;
+      }
+      .desktop-or-sub {
+        font-weight: 500;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--ig-soft);
+      }
+      .desktop-or-body {
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: var(--ig-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 10rem;
+        overflow: auto;
+      }
+      .desktop-or-reply {
+        font-size: 0.88rem;
+        line-height: 1.4;
+        color: var(--ig-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+        padding: 0.5rem 0.55rem;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.22);
+        cursor: copy;
+        user-select: all;
+        outline: none;
+      }
+      .desktop-or-reply:hover {
+        background: rgba(255, 79, 216, 0.08);
+      }
+      .desktop-or-reply:focus-visible {
+        box-shadow: 0 0 0 2px rgba(255, 79, 216, 0.45);
+      }
       .empty-state {
         flex: 1;
         display: grid;
@@ -713,13 +807,22 @@
         <div class="search-wrap">
           <input type="search" id="threadSearch" placeholder="Search DMs" autocomplete="off" />
         </div>
+        <div class="inbox-queue-actions" style="padding: 0 0.85rem 0.65rem; border-bottom: 1px solid var(--ig-border)">
+          <button type="button" class="btn btn-primary" id="btnProcessPending" style="width: 100%; font-size: 0.78rem; padding: 0.5rem">
+            Generate replies for queue
+          </button>
+          <div id="pendingInboundHint" style="font-size: 0.72rem; color: var(--ig-muted); margin-top: 0.35rem; line-height: 1.35"></div>
+        </div>
         <div class="thread-list" id="threadList"></div>
       </aside>
       <section class="chat-pane" id="chatPane">
         <div class="empty-state" id="emptyChat" style="display: none">
           <div>
-            <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Select a conversation</p>
-            <p style="margin: 0; font-size: 0.85rem">A cleaner IG-style inbox for draft, approve, and send workflows.</p>
+            <p style="margin: 0 0 0.5rem; color: var(--ig-text)">Decision-first inbox</p>
+            <p style="margin: 0; font-size: 0.85rem">
+              Summaries, intent, and three tone options per draft — pick, tweak, send. Use the sidebar button to drain the
+              inbound queue when messages are waiting.
+            </p>
           </div>
         </div>
         <div id="chatActive" style="display: flex; flex-direction: column; flex: 1; min-height: 0">
@@ -740,10 +843,60 @@
           <div class="approval-panel" id="approvalPanel" style="display: none"></div>
           <div class="composer-wrap">
             <div class="pending-queue" id="pendingQueue" style="display: none"></div>
+            <div class="field" style="padding: 0 1rem 0.5rem; margin: 0">
+              <label for="simThreadId" style="font-size: 0.72rem; color: var(--ig-muted)"
+                >Simulate inbound — thread / recipient id (when none selected)</label
+              >
+              <input
+                id="simThreadId"
+                type="text"
+                placeholder="e.g. whatsapp:+15551234567 (Twilio WhatsApp)"
+                autocomplete="off"
+                style="
+                  width: 100%;
+                  margin-top: 0.25rem;
+                  padding: 0.55rem 0.65rem;
+                  border-radius: 12px;
+                  border: 1px solid var(--ig-border);
+                  background: rgba(255, 255, 255, 0.04);
+                  color: var(--ig-text);
+                  font-size: 0.82rem;
+                "
+              />
+            </div>
+            <div class="thread-import-row" role="group" aria-label="Import context into memory for this thread">
+              <span class="thread-import-label">Import to memory</span>
+              <input
+                type="file"
+                id="threadUploadConversation"
+                class="file-input-screen-reader"
+                tabindex="-1"
+                aria-hidden="true"
+                accept=".txt,.text,.md,.mdown,.markdown,.csv,.json,.log,text/plain,text/markdown,text/csv,application/json"
+              />
+              <input type="file" id="threadUploadScreenshot" class="file-input-screen-reader" tabindex="-1" aria-hidden="true" accept="image/*" />
+              <button type="button" class="btn btn-secondary" id="btnThreadUploadConversation" style="font-size: 0.78rem; padding: 0.5rem 0.85rem">
+                Upload conversation
+              </button>
+              <button type="button" class="btn btn-secondary" id="btnThreadUploadScreenshot" style="font-size: 0.78rem; padding: 0.5rem 0.85rem">
+                Upload screenshot
+              </button>
+            </div>
             <div class="composer-row">
               <textarea id="composer" rows="1" placeholder="Drop in a DM to simulate…"></textarea>
               <button type="button" class="btn btn-primary" id="btnInbound">Send</button>
             </div>
+            <p
+              style="
+                margin: 0.35rem 1rem 0.5rem;
+                font-size: 0.7rem;
+                line-height: 1.35;
+                color: var(--ig-muted);
+              "
+            >
+              Simulated inbound only (not a file upload). <strong>Upload conversation</strong> / <strong>Upload screenshot</strong> ingest into memory for the selected thread (or the simulate recipient id above). OpenRouter and manual edit: menu (☰) →
+              <strong>Desktop</strong>.
+            </p>
             <div class="actions-row">
               <button type="button" class="btn btn-secondary" id="btnAssist">Assist &amp; options</button>
               <button type="button" class="btn btn-secondary" id="btnNegotiate">Negotiate schedule</button>
@@ -768,6 +921,7 @@
           <button type="button" class="tab" data-tab="audit">Audit</button>
           <button type="button" class="tab" data-tab="identity">Identity</button>
           <button type="button" class="tab" data-tab="rel">Relationship</button>
+          <button type="button" class="tab" data-tab="desktop">Desktop</button>
         </div>
         <div id="panel-conn">
           <div class="field">
@@ -791,6 +945,9 @@
           <div class="field">
             <label for="accountId">Account ID</label>
             <input id="accountId" placeholder="default-account" />
+            <div style="font-size: 0.72rem; color: var(--ig-muted); margin-top: 0.35rem">
+              Twilio channels should use `TWILIO_ACCOUNT_SID`. When this is still `default-account`, the console will try to load the SID from the API.
+            </div>
           </div>
           <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">OpenClaw doer settings (used by “Run with OpenClaw” approval actions)</p>
           <div class="field">
@@ -809,6 +966,37 @@
             <label for="openClawThinking">OpenClaw thinking</label>
             <input id="openClawThinking" placeholder="optional thinking level" />
           </div>
+          <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">Twilio voice notify (outbound TTS — see docs/FEATURE-phone-calls-openclaw-delegation.md)</p>
+          <div class="field">
+            <label for="myPhoneE164">My phone — call me now (E.164)</label>
+            <input id="myPhoneE164" placeholder="+15551234567" autocomplete="tel" />
+          </div>
+          <button type="button" class="btn btn-primary" id="btnPhoneMeNow" style="width: 100%; margin-bottom: 0.35rem">Phone me now</button>
+          <p style="font-size: 0.72rem; color: var(--ig-muted); margin: 0 0 0.65rem">Uses caller name and disclosure below. Spoken message defaults to a short test line if the message box is empty. If My phone is empty, Call destination is used.</p>
+          <div class="field">
+            <label for="phoneNotifyTo">Call destination (E.164)</label>
+            <input id="phoneNotifyTo" placeholder="+15551234567" autocomplete="tel" />
+          </div>
+          <div class="field">
+            <label for="phoneCallerName">Caller name (on-behalf disclosure)</label>
+            <input id="phoneCallerName" placeholder="Your name" />
+          </div>
+          <div class="field">
+            <label for="phoneDisclosureMode">Disclosure</label>
+            <select id="phoneDisclosureMode">
+              <option value="on_behalf">On behalf of (recommended)</option>
+              <option value="neutral">Neutral (no delegation prefix)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="phoneNotifyMessage">Spoken message</label>
+            <textarea id="phoneNotifyMessage" rows="2" placeholder="Short message read by TTS…"></textarea>
+          </div>
+          <div class="field">
+            <label for="phoneOutboundSecret">Outbound secret (optional)</label>
+            <input id="phoneOutboundSecret" type="password" placeholder="If API requires X-Mirachat-Phone-Secret" autocomplete="off" />
+          </div>
+          <button type="button" class="btn btn-secondary" id="btnPhoneNotify" style="width: 100%; margin-bottom: 0.75rem">Place voice call (Twilio)</button>
           <p style="font-size: 0.78rem; color: var(--ig-muted); margin: 0 0 0.5rem">Gateway connection (scan QR when auth required)</p>
           <div id="qrConn"></div>
           <div class="drawer-footer">
@@ -860,6 +1048,84 @@
             <textarea id="relNotes"></textarea>
           </div>
           <button type="button" class="btn btn-primary" id="btnSaveRel" style="width: 100%">Save relationship</button>
+        </div>
+        <div id="panel-desktop" style="display: none">
+          <p style="font-size: 0.8rem; color: var(--ig-muted); margin-top: 0">
+            <strong>Default flow:</strong> upload a conversation file or screenshot — we ingest into memory and run
+            <strong>OpenRouter analysis</strong> when the API has <span class="mono">OPENROUTER_API_KEY</span>. You can also
+            type a summary/transcript and click ingest. The same file upload is available in the chat area as
+            <strong>Upload conversation</strong> and <strong>Upload screenshot</strong>.
+          </p>
+          <div class="field">
+            <label for="desktopContextUpload">Upload conversation or screenshot</label>
+            <input
+              type="file"
+              id="desktopContextUpload"
+              accept="image/*,.txt,.text,.md,.markdown,.csv,.json,.log,text/plain,text/markdown,text/csv,application/json"
+              style="font-size: 0.8rem; max-width: 100%"
+            />
+            <div style="font-size: 0.72rem; color: var(--ig-muted); margin-top: 0.35rem">
+              Text files fill the transcript field and <strong>ingest immediately</strong>. Images are sent as base64 to OpenRouter
+              for vision when <strong>OpenRouter analysis</strong> is on (PNG/JPEG/WebP/GIF; keep files modest, ~6 MB or less).
+              Uses the thread id below or the selected inbox thread.
+            </div>
+          </div>
+          <div class="field">
+            <label for="desktopIngestThreadId">Thread / contact id</label>
+            <input id="desktopIngestThreadId" placeholder="e.g. alice (prefilled when a thread is selected)" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="desktopIngestSummary">Summary</label>
+            <textarea id="desktopIngestSummary" rows="3" placeholder="What happened in this chat?"></textarea>
+          </div>
+          <div class="field">
+            <label for="desktopIngestExtracted">Transcript / extracted text (optional)</label>
+            <textarea id="desktopIngestExtracted" rows="4" placeholder="Paste or loaded from a .txt / .md upload"></textarea>
+          </div>
+          <div class="field">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer">
+              <input type="checkbox" id="desktopIngestOpenRouter" checked />
+              <span>OpenRouter analysis (on by default; uncheck to skip)</span>
+            </label>
+          </div>
+          <button type="button" class="btn btn-primary" id="btnDesktopIngest" style="width: 100%; margin-bottom: 0.5rem">
+            Ingest context (same as upload)
+          </button>
+          <div id="desktopOpenRouterPanel" class="desktop-or-panel" aria-live="polite">
+            <div id="desktopOpenRouterAnalysisWrap" class="desktop-or-card" style="display: none">
+              <div class="desktop-or-label">OpenRouter analysis</div>
+              <div id="desktopOpenRouterAnalysis" class="desktop-or-body"></div>
+            </div>
+            <div id="desktopOpenRouterPasteWrap" class="desktop-or-card desktop-or-paste" style="display: none">
+              <div class="desktop-or-label">
+                WeChat / WhatsApp reply <span class="desktop-or-sub">— matches your tone · click to copy</span>
+              </div>
+              <div
+                id="desktopOpenRouterReply"
+                class="desktop-or-reply"
+                role="button"
+                tabindex="0"
+                title="Copy to clipboard"
+              ></div>
+              <button type="button" class="btn btn-secondary" id="btnCopyOpenRouterReply" style="width: 100%; margin-top: 0.45rem">
+                Copy reply
+              </button>
+            </div>
+          </div>
+          <pre
+            id="desktopIngestResult"
+            style="
+              font-size: 0.72rem;
+              max-height: 14rem;
+              overflow: auto;
+              margin: 0;
+              padding: 0.5rem;
+              background: var(--ig-panel-2);
+              border-radius: 6px;
+              white-space: pre-wrap;
+              word-break: break-word;
+            "
+          ></pre>
         </div>
       </div>
     </aside>
@@ -924,12 +1190,47 @@
         threads: [],
         drafts: [],
         pending: [],
+        /** draft id → expiry (ms); keeps Mark sent visible if /pending-send lags or gateway drains the row quickly */
+        pendingStickyUntil: new Map(),
         messages: [],
         drawerTab: 'conn',
+        pendingInboundCount: 0,
+        runtimeConfig: null,
+        /** Last browser upload metadata for ingest payload */
+        desktopUploadMeta: null,
+      }
+
+      const replyOptionDisplayLabel = (raw) => {
+        const k = String(raw || '')
+          .trim()
+          .toLowerCase()
+        const map = {
+          direct: 'Direct',
+          balanced: 'Balanced',
+          'relationship-first': 'Relationship-first',
+          concise: 'Direct',
+          warm: 'Relationship-first',
+          assertive: 'Direct',
+        }
+        return map[k] || (raw ? String(raw) : 'Option')
       }
       let toastTimer = null
 
       const params = new URLSearchParams(location.search)
+
+      /** Normalize `myPhone` query (e.g. +1 412… or 412…) to E.164; empty if invalid. */
+      const parsePhoneQuery = (raw) => {
+        const t = String(raw ?? '')
+          .trim()
+          .replace(/[\s\-().]/g, '')
+        if (!t) return ''
+        if (/^\+[1-9]\d{6,14}$/.test(t)) return t
+        const digits = t.replace(/\D/g, '')
+        if (digits.length === 10) return `+1${digits}`
+        if (digits.length === 11 && digits[0] === '1') return `+${digits}`
+        return ''
+      }
+
       const loadStored = () => {
         $('apiBase').value = params.get('api') || localStorage.getItem('mirachatApiBase') || 'http://127.0.0.1:4000'
         $('userId').value = localStorage.getItem('mirachatUserId') || 'demo-user'
@@ -939,6 +1240,20 @@
         $('openClawSessionId').value = localStorage.getItem('mirachatOpenClawSessionId') || ''
         $('openClawTo').value = localStorage.getItem('mirachatOpenClawTo') || ''
         $('openClawThinking').value = localStorage.getItem('mirachatOpenClawThinking') || ''
+        $('myPhoneE164').value = localStorage.getItem('mirachatMyPhoneE164') || ''
+        $('phoneNotifyTo').value = localStorage.getItem('mirachatPhoneNotifyTo') || ''
+        const fromQuery = parsePhoneQuery(params.get('myPhone'))
+        if (fromQuery) {
+          $('myPhoneE164').value = fromQuery
+          localStorage.setItem('mirachatMyPhoneE164', fromQuery)
+        }
+        $('phoneCallerName').value = localStorage.getItem('mirachatPhoneCallerName') || ''
+        $('phoneDisclosureMode').value = localStorage.getItem('mirachatPhoneDisclosureMode') || 'on_behalf'
+        $('phoneNotifyMessage').value =
+          localStorage.getItem('mirachatPhoneNotifyMessage') || 'This is an automated notification. No reply is required.'
+        if ($('simThreadId')) {
+          $('simThreadId').value = localStorage.getItem('mirachatSimThreadId') || ''
+        }
       }
 
       const persist = () => {
@@ -950,6 +1265,14 @@
         localStorage.setItem('mirachatOpenClawSessionId', $('openClawSessionId').value.trim())
         localStorage.setItem('mirachatOpenClawTo', $('openClawTo').value.trim())
         localStorage.setItem('mirachatOpenClawThinking', $('openClawThinking').value.trim())
+        localStorage.setItem('mirachatMyPhoneE164', $('myPhoneE164').value.trim())
+        localStorage.setItem('mirachatPhoneNotifyTo', $('phoneNotifyTo').value.trim())
+        localStorage.setItem('mirachatPhoneCallerName', $('phoneCallerName').value.trim())
+        localStorage.setItem('mirachatPhoneDisclosureMode', $('phoneDisclosureMode').value)
+        localStorage.setItem('mirachatPhoneNotifyMessage', $('phoneNotifyMessage').value.trim())
+        if ($('simThreadId')) {
+          localStorage.setItem('mirachatSimThreadId', $('simThreadId').value.trim())
+        }
       }
 
       const syncApiQueryParam = () => {
@@ -961,6 +1284,39 @@
       const api = () => {
         const base = $('apiBase').value.trim()
         return base.endsWith('/') ? base.slice(0, -1) : base
+      }
+
+      const defaultAccountIdForChannel = (channel) =>
+        state.runtimeConfig?.defaults?.[channel]?.accountId || ''
+
+      const accountIdNeedsDefault = (value) => {
+        const next = String(value || '').trim()
+        return !next || next === 'default-account'
+      }
+
+      const loadRuntimeConfig = async (force = false) => {
+        if (!force && state.runtimeConfig) return state.runtimeConfig
+        try {
+          const cfg = await j('/mirachat/runtime-config')
+          state.runtimeConfig = cfg
+          return cfg
+        } catch {
+          return state.runtimeConfig
+        }
+      }
+
+      const maybeApplyChannelDefaults = async () => {
+        if (!accountIdNeedsDefault($('accountId').value)) return false
+        await loadRuntimeConfig()
+        const channel = $('channel').value
+        const defaultAccountId = defaultAccountIdForChannel(channel)
+        if (!defaultAccountId) return false
+        $('accountId').value = defaultAccountId
+        persistConnectionFields()
+        if (channel === 'twilio_whatsapp' || channel === 'twilio_sms') {
+          $('connSaveHint').textContent = 'Loaded Twilio Account SID from API env so pending-send matches gateway polling.'
+        }
+        return true
       }
 
       const trimVal = (value) => {
@@ -1005,7 +1361,7 @@
           toast.className = 'toast'
           toast.textContent = ''
           toastTimer = null
-        }, 2600)
+        }, 4200)
       }
 
       const latestInboundText = () =>
@@ -1135,6 +1491,9 @@
           const row = document.createElement('div')
           row.className = 'thread-item' + (t.threadId === state.selectedThreadId ? ' active' : '')
           row.dataset.tid = t.threadId
+          row.setAttribute('role', 'button')
+          row.setAttribute('tabindex', '0')
+          row.setAttribute('aria-label', `Open thread ${t.threadId}`)
           const badge = t.draftCount ? `<span class="badge">${t.draftCount}</span>` : ''
           row.innerHTML = `
             <div class="avatar">${initials(t.threadId)}</div>
@@ -1146,6 +1505,12 @@
               <div class="thread-preview">${escapeHtml(t.preview || '')}${badge}</div>
             </div>`
           row.addEventListener('click', () => selectThread(t.threadId))
+          row.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              selectThread(t.threadId)
+            }
+          })
           list.appendChild(row)
         }
       }
@@ -1168,10 +1533,13 @@
         el.lastChild.textContent = 'Today'
         for (const m of state.messages) {
           const row = document.createElement('div')
-          row.className = 'bubble-row ' + (m.direction === 'outbound' ? 'out' : 'in')
+          const isMem = m.channel === 'memory'
+          row.className =
+            'bubble-row ' + (m.direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-row' : '')
           const b = document.createElement('div')
-          b.className = 'bubble ' + (m.direction === 'outbound' ? 'out' : 'in')
-          b.innerHTML = `${escapeHtml(m.content)}<time>${formatTime(m.timestamp)}</time>`
+          b.className = 'bubble ' + (m.direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-bubble' : '')
+          const memLabel = isMem ? '<div class="memory-import-tag">Imported context</div>' : ''
+          b.innerHTML = `${memLabel}${escapeHtml(m.content)}<time>${formatTime(m.timestamp)}</time>`
           row.appendChild(b)
           el.appendChild(row)
         }
@@ -1192,7 +1560,7 @@
         let optsHtml = ''
         opts.forEach((o, i) => {
           optsHtml += `<div class="opt-block">
-            <div class="opt-label">${escapeHtml(o.label || 'Option ' + (i + 1))}</div>
+            <div class="opt-label">${escapeHtml(replyOptionDisplayLabel(o.label) || 'Option ' + (i + 1))}</div>
             <div style="font-size:0.88rem">${escapeHtml(o.text || '')}</div>
             <div class="actions-row">
               <button type="button" class="btn btn-secondary btn-pick-opt" data-i="${i}">Approve this option</button>
@@ -1206,10 +1574,10 @@
           </div>`
         })
         panel.innerHTML = `
-          <h3>Draft → approve → send</h3>
+          <h3>Pick a reply</h3>
           <div class="policy-bar">Confidence ${conf}% · ${escapeHtml(d.intentSummary || '')}
             ${d.ruleTriggered ? ' · Rules: ' + escapeHtml(d.ruleTriggered) : ''}</div>
-          ${d.threadSummary ? `<div class="summary-box"><strong>Thread summary</strong><br/>${escapeHtml(d.threadSummary)}</div>` : ''}
+          ${d.threadSummary ? `<div class="summary-box"><strong>Thread snapshot</strong><br/>${escapeHtml(d.threadSummary)}</div>` : ''}
           <div class="opt-label">Inbound</div>
           <div class="summary-box" style="border-left-color: var(--ig-warn)">${escapeHtml(d.inboundText || '')}</div>
           <div class="opt-label">Primary draft</div>
@@ -1239,6 +1607,21 @@
         })
       }
 
+      const normalizePendingSendRow = (p) => ({
+        id: p.id,
+        threadId: p.threadId ?? p.thread_id ?? state.selectedThreadId,
+        text: p.text ?? '',
+        channel: p.channel ?? $('channel').value,
+        accountId: p.accountId ?? p.account_id ?? $('accountId').value.trim(),
+      })
+
+      const prunePendingSticky = () => {
+        const now = Date.now()
+        for (const [id, until] of state.pendingStickyUntil) {
+          if (until < now) state.pendingStickyUntil.delete(id)
+        }
+      }
+
       const upsertPendingRow = (row, fallback = {}) => {
         if (!row || row.status !== 'APPROVED' || row.sent_at) return
         const pending = {
@@ -1248,56 +1631,90 @@
           channel: row.channel || fallback.channel || $('channel').value,
           accountId: row.account_id || fallback.accountId || $('accountId').value.trim(),
         }
+        state.pendingStickyUntil.set(pending.id, Date.now() + 25_000)
         state.pending = [pending, ...state.pending.filter((p) => p.id !== pending.id)]
         renderPending()
       }
 
+      /** Approve / edit / select-option return either a draft row or `{ draft, doer }` when OpenClaw ran. */
+      const draftRowFromApproveLikeResponse = (res) => {
+        if (res && typeof res === 'object' && res.draft && typeof res.draft === 'object') return res.draft
+        return res
+      }
+
       const doApprove = async (id, useOpenClaw = false, task = '') => {
-        const payload = useOpenClaw ? buildOpenClawBody(task) : {}
-        const res = await j('/mirachat/drafts/' + id + '/approve', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        })
-        upsertPendingRow(res)
-        if (useOpenClaw) {
-          const summary = trimVal(res?.doer?.summary)
-          showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+        try {
+          const payload = useOpenClaw ? buildOpenClawBody(task) : {}
+          const res = await j('/mirachat/drafts/' + id + '/approve', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          upsertPendingRow(draftRowFromApproveLikeResponse(res))
+          if (useOpenClaw) {
+            const summary = trimVal(res?.doer?.summary)
+            showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+          } else {
+            showToast('Approved - queued for gateway send')
+          }
+          await refreshData()
+        } catch (e) {
+          showErr(String(e.message || e))
+          showToast(String(e.message || e), 'error')
         }
-        await refreshData()
       }
       const doReject = async (id) => {
-        await j('/mirachat/drafts/' + id + '/reject', { method: 'POST', body: '{}' })
-        await refreshData()
+        try {
+          await j('/mirachat/drafts/' + id + '/reject', { method: 'POST', body: '{}' })
+          showToast('Draft rejected')
+          await refreshData()
+        } catch (e) {
+          showErr(String(e.message || e))
+          showToast(String(e.message || e), 'error')
+        }
       }
       const doEdit = async (id, text, useOpenClaw = false) => {
         const next = prompt('Edited reply', text || '')
         if (next === null) return
-        const payload = useOpenClaw
-          ? { editedText: next, ...buildOpenClawBody(next) }
-          : { editedText: next }
-        const res = await j('/mirachat/drafts/' + id + '/edit', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        })
-        upsertPendingRow(res, { text: next })
-        if (useOpenClaw) {
-          const summary = trimVal(res?.doer?.summary)
-          showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+        try {
+          const payload = useOpenClaw
+            ? { editedText: next, ...buildOpenClawBody(next) }
+            : { editedText: next }
+          const res = await j('/mirachat/drafts/' + id + '/edit', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          upsertPendingRow(draftRowFromApproveLikeResponse(res), { text: next })
+          if (useOpenClaw) {
+            const summary = trimVal(res?.doer?.summary)
+            showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+          } else {
+            showToast('Saved edit - queued for gateway send')
+          }
+          await refreshData()
+        } catch (e) {
+          showErr(String(e.message || e))
+          showToast(String(e.message || e), 'error')
         }
-        await refreshData()
       }
       const doSelectOpt = async (id, index, useOpenClaw = false, task = '') => {
-        const payload = useOpenClaw ? { index, ...buildOpenClawBody(task) } : { index }
-        const res = await j('/mirachat/drafts/' + id + '/select-option', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        })
-        upsertPendingRow(res, { text: task })
-        if (useOpenClaw) {
-          const summary = trimVal(res?.doer?.summary)
-          showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+        try {
+          const payload = useOpenClaw ? { index, ...buildOpenClawBody(task) } : { index }
+          const res = await j('/mirachat/drafts/' + id + '/select-option', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          upsertPendingRow(draftRowFromApproveLikeResponse(res), { text: task })
+          if (useOpenClaw) {
+            const summary = trimVal(res?.doer?.summary)
+            showToast(summary ? `OpenClaw completed: ${summary}` : 'OpenClaw completed')
+          } else {
+            showToast('Option approved - queued for gateway send')
+          }
+          await refreshData()
+        } catch (e) {
+          showErr(String(e.message || e))
+          showToast(String(e.message || e), 'error')
         }
-        await refreshData()
       }
 
       const renderPending = () => {
@@ -1323,8 +1740,15 @@
             .join('')
         bar.querySelectorAll('.btn-mark').forEach((btn) => {
           btn.addEventListener('click', async () => {
-            await j('/mirachat/drafts/' + btn.dataset.id + '/mark-sent', { method: 'POST', body: '{}' })
-            await refreshData()
+            try {
+              await j('/mirachat/drafts/' + btn.dataset.id + '/mark-sent', { method: 'POST', body: '{}' })
+              state.pendingStickyUntil.delete(btn.dataset.id)
+              showToast('Marked sent')
+              await refreshData()
+            } catch (e) {
+              showErr(String(e.message || e))
+              showToast(String(e.message || e), 'error')
+            }
           })
         })
       }
@@ -1373,7 +1797,12 @@
       async function loadThreadMessages() {
         if (!state.selectedThreadId) return
         try {
-          const data = await j('/mirachat/thread?threadId=' + encodeURIComponent(state.selectedThreadId))
+          const uid = $('userId').value.trim()
+          const data = await j(
+            '/mirachat/thread?threadId=' +
+              encodeURIComponent(state.selectedThreadId) +
+              (uid ? '&userId=' + encodeURIComponent(uid) : ''),
+          )
           state.messages = data.messages || []
           renderMessages()
         } catch (e) {
@@ -1386,19 +1815,61 @@
       async function refreshData() {
         showErr('')
         try {
+          await maybeApplyChannelDefaults()
           const uid = $('userId').value.trim()
-          const [threads, drafts, health] = await Promise.all([
-            j('/mirachat/threads?userId=' + encodeURIComponent(uid)).catch(() => []),
-            j('/mirachat/drafts').catch(() => []),
+          const ch = $('channel').value
+          const acc = $('accountId').value.trim()
+          const sessionScope =
+            '?userId=' +
+            encodeURIComponent(uid) +
+            '&channel=' +
+            encodeURIComponent(ch) +
+            '&accountId=' +
+            encodeURIComponent(acc)
+          const [threads, drafts, health, pendingMeta] = await Promise.all([
+            j('/mirachat/threads' + sessionScope).catch(() => []),
+            j('/mirachat/drafts' + sessionScope).catch(() => []),
             j('/health').catch(() => ({})),
+            j(
+              '/mirachat/inbox/pending-count?userId=' +
+                encodeURIComponent(uid) +
+                '&channel=' +
+                encodeURIComponent(ch) +
+                '&accountId=' +
+                encodeURIComponent(acc),
+            ).catch(() => ({})),
           ])
           state.threads = Array.isArray(threads) ? threads : []
           state.drafts = Array.isArray(drafts) ? drafts : []
-          const ch = $('channel').value
-          const acc = $('accountId').value.trim()
-          state.pending = await j(
+          state.pendingInboundCount =
+            typeof pendingMeta?.pendingInboundCount === 'number' ? pendingMeta.pendingInboundCount : 0
+          const hintEl = $('pendingInboundHint')
+          const pqBtn = $('btnProcessPending')
+          if (hintEl) {
+            const n = state.pendingInboundCount
+            hintEl.textContent =
+              n > 0
+                ? `${n} inbound message${n === 1 ? '' : 's'} waiting in queue — click to enqueue drafting.`
+                : 'Inbound queue clear for this user + gateway.'
+          }
+          if (pqBtn) pqBtn.disabled = state.pendingInboundCount === 0
+          const prevPending = state.pending || []
+          const rawPending = await j(
             '/mirachat/pending-send?channel=' + encodeURIComponent(ch) + '&accountId=' + encodeURIComponent(acc),
           ).catch(() => [])
+          const serverList = Array.isArray(rawPending) ? rawPending.map(normalizePendingSendRow) : []
+          prunePendingSticky()
+          const byId = new Map()
+          for (const p of serverList) {
+            byId.set(p.id, p)
+            state.pendingStickyUntil.delete(p.id)
+          }
+          for (const p of prevPending) {
+            if (byId.has(p.id)) continue
+            const until = state.pendingStickyUntil.get(p.id)
+            if (until && Date.now() < until) byId.set(p.id, p)
+          }
+          state.pending = [...byId.values()]
           $('healthPill').textContent = health.ok ? (health.mirachat ? 'DB online' : 'No DB') : 'API down'
           await refreshConn()
           renderThreadList()
@@ -1530,7 +2001,7 @@
         document.querySelectorAll('#drawerTabs .tab').forEach((t) => {
           t.classList.toggle('active', t.dataset.tab === name)
         })
-        ;['conn', 'metrics', 'audit', 'identity', 'rel'].forEach((id) => {
+        ;['conn', 'metrics', 'audit', 'identity', 'rel', 'desktop'].forEach((id) => {
           $('panel-' + id).style.display = id === name ? 'block' : 'none'
         })
         if (name === 'metrics') loadMetrics()
@@ -1539,6 +2010,12 @@
         if (name === 'rel') {
           setRelationshipFormDisabled(true)
           loadRelationship().finally(() => setRelationshipFormDisabled(false))
+        }
+        if (name === 'desktop' && state.selectedThreadId) {
+          const cur = $('desktopIngestThreadId').value.trim()
+          if (!cur) {
+            $('desktopIngestThreadId').value = state.selectedThreadId
+          }
         }
       }
 
@@ -1557,6 +2034,224 @@
         const t = e.target.closest('.tab')
         if (t) setDrawerTab(t.dataset.tab)
       })
+
+      const submitDesktopContextIngest = async () => {
+        let threadId = $('desktopIngestThreadId').value.trim()
+        if (!threadId && state.selectedThreadId) {
+          threadId = state.selectedThreadId
+          $('desktopIngestThreadId').value = threadId
+        }
+        const summary = $('desktopIngestSummary').value.trim()
+        const extracted = $('desktopIngestExtracted').value.trim()
+        if (!threadId) {
+          showToast('Thread id required — select a thread or type a contact / thread id.', 'error')
+          return
+        }
+        if (!summary && !extracted) {
+          showToast('Add a summary or transcript (or upload a conversation file / screenshot).', 'error')
+          return
+        }
+        const btn = $('btnDesktopIngest')
+        const prev = btn.textContent
+        btn.disabled = true
+        btn.textContent = 'Ingesting…'
+        try {
+          const accountRaw = $('accountId').value.trim()
+          const meta = state.desktopUploadMeta
+          const payload = {
+            userId: $('userId').value.trim(),
+            channel: $('channel').value,
+            threadId,
+            contactId: threadId,
+            summary: summary || undefined,
+            extractedText: extracted || undefined,
+            openRouterAnalysis: $('desktopIngestOpenRouter').checked,
+          }
+          if (accountRaw) {
+            payload.accountId = accountRaw
+          }
+          if (meta?.screenshotPath) {
+            payload.screenshotPath = meta.screenshotPath
+            payload.captureTool = meta.captureTool || 'browser_upload'
+            if (meta.screenshotMimeType) {
+              payload.screenshotMimeType = meta.screenshotMimeType
+            }
+          }
+          if (meta?.screenshotImageBase64) {
+            payload.screenshotImageBase64 = meta.screenshotImageBase64
+          }
+          const data = await j('/mirachat/ingest/desktop-context', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          })
+          state.desktopUploadMeta = null
+          $('desktopIngestResult').textContent = JSON.stringify(data, null, 2)
+          const panel = $('desktopOpenRouterPanel')
+          const analysisWrap = $('desktopOpenRouterAnalysisWrap')
+          const pasteWrap = $('desktopOpenRouterPasteWrap')
+          const analysisEl = $('desktopOpenRouterAnalysis')
+          const replyEl = $('desktopOpenRouterReply')
+          const hasAnalysis = Boolean(data.openRouterAnalysis && String(data.openRouterAnalysis).trim())
+          const hasReply = Boolean(data.openRouterSuggestedReply && String(data.openRouterSuggestedReply).trim())
+          if (hasAnalysis || hasReply) {
+            panel.classList.add('show')
+            if (hasAnalysis) {
+              analysisWrap.style.display = 'block'
+              analysisEl.textContent = data.openRouterAnalysis
+            } else {
+              analysisWrap.style.display = 'none'
+              analysisEl.textContent = ''
+            }
+            if (hasReply) {
+              pasteWrap.style.display = 'block'
+              replyEl.textContent = data.openRouterSuggestedReply
+            } else {
+              pasteWrap.style.display = 'none'
+              replyEl.textContent = ''
+            }
+          } else {
+            panel.classList.remove('show')
+            analysisWrap.style.display = 'none'
+            pasteWrap.style.display = 'none'
+            analysisEl.textContent = ''
+            replyEl.textContent = ''
+          }
+          const or =
+            hasAnalysis || hasReply
+              ? ` + OpenRouter${hasReply ? ' + paste reply' : ''}`
+              : ''
+          showToast(`Context ingested (${data.memoryChunkCount} chunk(s))${or}`)
+        } catch (e) {
+          $('desktopOpenRouterPanel').classList.remove('show')
+          $('desktopOpenRouterAnalysisWrap').style.display = 'none'
+          $('desktopOpenRouterPasteWrap').style.display = 'none'
+          $('desktopOpenRouterAnalysis').textContent = ''
+          $('desktopOpenRouterReply').textContent = ''
+          $('desktopIngestResult').textContent = String(e.message || e)
+          showToast(String(e.message || e), 'error')
+        } finally {
+          btn.disabled = false
+          btn.textContent = prev
+        }
+      }
+
+      $('btnDesktopIngest').addEventListener('click', () => submitDesktopContextIngest())
+
+      const copyOpenRouterReplyToClipboard = async () => {
+        const el = $('desktopOpenRouterReply')
+        const text = (el.textContent || '').trim()
+        if (!text) {
+          showToast('No suggested reply yet.', 'error')
+          return
+        }
+        try {
+          await navigator.clipboard.writeText(text)
+          showToast('Reply copied to clipboard')
+        } catch {
+          showToast('Copy failed — select the text and copy manually', 'error')
+        }
+      }
+      $('desktopOpenRouterReply').addEventListener('click', () => void copyOpenRouterReplyToClipboard())
+      $('desktopOpenRouterReply').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          void copyOpenRouterReplyToClipboard()
+        }
+      })
+      $('btnCopyOpenRouterReply').addEventListener('click', () => void copyOpenRouterReplyToClipboard())
+
+      const resolveDesktopIngestThreadId = () => {
+        const fromSelected = (state.selectedThreadId || '').trim()
+        const fromField = $('desktopIngestThreadId').value.trim()
+        const fromSim = ($('simThreadId') && $('simThreadId').value.trim()) || ''
+        if (fromSelected) return fromSelected
+        if (fromField) return fromField
+        return fromSim
+      }
+
+      const ingestDesktopContextFromFile = async (file) => {
+        if (!file) {
+          return
+        }
+        let threadId = resolveDesktopIngestThreadId()
+        if (!threadId) {
+          showToast('Select a thread in the inbox or enter a recipient id (simulate field), then upload again.', 'error')
+          return
+        }
+        $('desktopIngestThreadId').value = threadId
+
+        const name = file.name || 'upload'
+        const mime = file.type || ''
+        const isText =
+          mime.startsWith('text/') ||
+          /\.(txt|md|mdown|markdown|csv|json|log)$/i.test(name)
+        const isImage = mime.startsWith('image/')
+
+        try {
+          if (isText) {
+            state.desktopUploadMeta = {
+              screenshotPath: `upload:${name}`,
+              screenshotMimeType: mime || 'text/plain',
+              captureTool: 'browser_upload',
+            }
+            const text = await file.text()
+            $('desktopIngestExtracted').value = text.slice(0, 120_000)
+            if (!$('desktopIngestSummary').value.trim()) {
+              $('desktopIngestSummary').value = `Conversation import from «${name}»`
+            }
+          } else if (isImage) {
+            const maxDataUrlChars = 9_000_000
+            const dataUrl = await new Promise((resolve, reject) => {
+              const r = new FileReader()
+              r.onload = () => resolve(String(r.result || ''))
+              r.onerror = () => reject(new Error('Failed to read image file'))
+              r.readAsDataURL(file)
+            })
+            if (dataUrl.length > maxDataUrlChars) {
+              showToast('Image too large — try a screenshot under ~6 MB.', 'error')
+              return
+            }
+            const dm = dataUrl.match(/^data:([\w/+.-]+);base64,(.*)$/i)
+            if (!dm) {
+              showToast('Could not read image as base64.', 'error')
+              return
+            }
+            state.desktopUploadMeta = {
+              screenshotPath: `upload:${name}`,
+              screenshotMimeType: dm[1],
+              screenshotImageBase64: dm[2],
+              captureTool: 'browser_upload',
+            }
+            $('desktopIngestExtracted').value = ''
+            if (!$('desktopIngestSummary').value.trim()) {
+              $('desktopIngestSummary').value = `Screenshot / image: «${name}» (${dm[1]}). Add what it shows if needed.`
+            }
+          } else {
+            showToast('Unsupported file — use a text file or an image.', 'error')
+            return
+          }
+        } catch (err) {
+          state.desktopUploadMeta = null
+          showToast(String(err.message || err), 'error')
+          return
+        }
+
+        await submitDesktopContextIngest()
+      }
+
+      const bindDesktopFileInput = (inputEl) => {
+        inputEl.addEventListener('change', async () => {
+          const f = inputEl.files?.[0]
+          inputEl.value = ''
+          await ingestDesktopContextFromFile(f)
+        })
+      }
+      bindDesktopFileInput($('desktopContextUpload'))
+      bindDesktopFileInput($('threadUploadConversation'))
+      bindDesktopFileInput($('threadUploadScreenshot'))
+
+      $('btnThreadUploadConversation').addEventListener('click', () => $('threadUploadConversation').click())
+      $('btnThreadUploadScreenshot').addEventListener('click', () => $('threadUploadScreenshot').click())
 
       const persistConnectionFields = () => {
         persist()
@@ -1587,12 +2282,42 @@
         }
       }
 
-      ;['apiBase', 'userId', 'channel', 'accountId', 'openClawAgentId', 'openClawSessionId', 'openClawTo', 'openClawThinking'].forEach((id) => {
+      ;[
+        'apiBase',
+        'userId',
+        'accountId',
+        'openClawAgentId',
+        'openClawSessionId',
+        'openClawTo',
+        'openClawThinking',
+        'myPhoneE164',
+        'phoneNotifyTo',
+        'phoneCallerName',
+        'phoneDisclosureMode',
+        'phoneNotifyMessage',
+      ].forEach((id) => {
         $(id).addEventListener('change', persistConnectionFields)
         $(id).addEventListener('blur', persistConnectionFields)
       })
+      if ($('simThreadId')) {
+        $('simThreadId').addEventListener('change', persistConnectionFields)
+        $('simThreadId').addEventListener('blur', persistConnectionFields)
+      }
 
-      ;['apiBase', 'userId', 'accountId', 'openClawAgentId', 'openClawSessionId', 'openClawTo', 'openClawThinking'].forEach((id) => {
+      ;[
+        'apiBase',
+        'userId',
+        'accountId',
+        'openClawAgentId',
+        'openClawSessionId',
+        'openClawTo',
+        'openClawThinking',
+        'myPhoneE164',
+        'phoneNotifyTo',
+        'phoneCallerName',
+        'phoneDisclosureMode',
+        'phoneNotifyMessage',
+      ].forEach((id) => {
         $(id).addEventListener('keydown', async (e) => {
           if (e.key === 'Enter') {
             e.preventDefault()
@@ -1606,8 +2331,94 @@
           await saveSettingsAndReconnect()
         }
       })
+      $('channel').addEventListener('change', async () => {
+        persistConnectionFields()
+        await maybeApplyChannelDefaults()
+      })
 
       $('btnSaveSettings').addEventListener('click', saveSettingsAndReconnect)
+
+      const isValidE164 = (n) => /^\+[1-9]\d{6,14}$/.test(n)
+
+      async function placeMirachatOutboundVoiceCall({ to, message, requireCustomMessage, loadingBtn }) {
+        persist()
+        const userId = $('userId').value.trim()
+        const callerName = $('phoneCallerName').value.trim()
+        const disclosureMode = $('phoneDisclosureMode').value
+        const secret = $('phoneOutboundSecret').value.trim()
+        const msg =
+          message.trim() ||
+          (!requireCustomMessage
+            ? 'This is MiraChat calling you now from the ops console.'
+            : '')
+        if (!userId) {
+          showToast('Set user ID first', 'error')
+          return
+        }
+        if (!to || !isValidE164(to)) {
+          showToast('Enter a valid E.164 number (e.g. +15551234567)', 'error')
+          return
+        }
+        if (!msg) {
+          showToast('Enter a spoken message', 'error')
+          return
+        }
+        const btn = loadingBtn
+        const prev = btn.textContent
+        btn.disabled = true
+        btn.textContent = 'Calling…'
+        try {
+          const body = {
+            userId,
+            to,
+            message: msg,
+            disclosureMode,
+            channel: $('channel').value,
+            accountId: $('accountId').value.trim() || undefined,
+          }
+          if (callerName) body.callerName = callerName
+          if (state.selectedThreadId) body.threadId = state.selectedThreadId
+          const headers = {}
+          if (secret) headers['X-Mirachat-Phone-Secret'] = secret
+          const data = await j('/mirachat/phone/outbound', {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers,
+          })
+          const sid = data?.callSid || data?.status || 'queued'
+          showToast(`Call placed (${sid})`)
+        } catch (e) {
+          showToast(String(e.message || e), 'error')
+        } finally {
+          btn.disabled = false
+          btn.textContent = prev
+        }
+      }
+
+      $('btnPhoneMeNow').addEventListener('click', async () => {
+        const my = $('myPhoneE164').value.trim()
+        const fallback = $('phoneNotifyTo').value.trim()
+        const to = my || fallback
+        if (!to) {
+          showToast('Set My phone or Call destination to your E.164 number', 'error')
+          return
+        }
+        await placeMirachatOutboundVoiceCall({
+          to,
+          message: $('phoneNotifyMessage').value,
+          requireCustomMessage: false,
+          loadingBtn: $('btnPhoneMeNow'),
+        })
+      })
+
+      $('btnPhoneNotify').addEventListener('click', async () => {
+        await placeMirachatOutboundVoiceCall({
+          to: $('phoneNotifyTo').value.trim(),
+          message: $('phoneNotifyMessage').value,
+          requireCustomMessage: true,
+          loadingBtn: $('btnPhoneNotify'),
+        })
+      })
 
       $('btnSaveIdentity').addEventListener('click', async () => {
         const uid = $('userId').value.trim()
@@ -1658,8 +2469,10 @@
       $('btnInbound').addEventListener('click', async () => {
         const text = $('composer').value.trim()
         if (!text) return
+        const simTid = ($('simThreadId').value || '').trim()
         const tid =
           state.selectedThreadId ||
+          simTid ||
           prompt('Thread / contact id', 'demo-contact') ||
           'demo-contact'
         if (!state.selectedThreadId) await selectThread(tid)
@@ -1714,7 +2527,13 @@
           }
           if (Array.isArray(res.replyOptions)) {
             res.replyOptions.forEach((o) => {
-              parts.push('<div class="opt-block"><div class="opt-label">' + escapeHtml(o.label) + '</div>' + escapeHtml(o.text) + '</div>')
+              parts.push(
+                '<div class="opt-block"><div class="opt-label">' +
+                  escapeHtml(replyOptionDisplayLabel(o.label)) +
+                  '</div>' +
+                  escapeHtml(o.text) +
+                  '</div>',
+              )
             })
           }
           if (Array.isArray(res.assistVariants)) {
@@ -1821,6 +2640,28 @@
       })
 
       $('btnRefresh').addEventListener('click', refreshData)
+
+      $('btnProcessPending').addEventListener('click', async () => {
+        const uid = $('userId').value.trim()
+        const channel = $('channel').value
+        const accountId = $('accountId').value.trim()
+        if (!channel || !accountId) {
+          showToast('Set channel and account ID first', 'error')
+          return
+        }
+        try {
+          const res = await j('/mirachat/inbox/process-pending', {
+            method: 'POST',
+            body: JSON.stringify({ userId: uid, channel, accountId }),
+          })
+          const n = typeof res?.enqueued === 'number' ? res.enqueued : 0
+          showToast(n > 0 ? `Queued ${n} for drafting` : 'No pending messages in queue')
+          await refreshData()
+        } catch (e) {
+          showErr(String(e.message || e))
+          showToast(String(e.message || e), 'error')
+        }
+      })
 
       loadStored()
       renderIdleComposerState()

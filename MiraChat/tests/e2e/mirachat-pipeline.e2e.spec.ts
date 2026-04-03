@@ -24,7 +24,7 @@ describe.skipIf(!conn)('E2E: MiraChat worker pipeline (real Postgres)', () => {
   beforeAll(async () => {
     pool = new pg.Pool({ connectionString: conn! })
     await runMigrations(pool)
-  })
+  }, 60_000)
 
   afterAll(async () => {
     await pool.end()
@@ -63,5 +63,44 @@ describe.skipIf(!conn)('E2E: MiraChat worker pipeline (real Postgres)', () => {
     )
     expect(rows.length).toBe(1)
     expect(['DRAFTED', 'APPROVED', 'REJECTED']).toContain(rows[0]!.status)
-  })
+  }, 45_000)
+
+  it('DRAFTED path stores MVP reply option labels (direct / balanced / relationship-first or fallbacks)', async () => {
+    const suffix = `${Date.now()}`
+    const userId = `e2e-opt-${suffix}`
+    const accountId = `ACopt${suffix.slice(-8)}`
+    const channel = 'twilio_sms'
+    const threadId = `+1777${suffix.slice(-7)}`
+
+    await upsertUserConnection(pool, { channel, accountId, userId, status: 'ONLINE' })
+    const connRow = await getUserConnection(pool, channel, accountId)
+
+    const inboundId = await insertInboundMessage(pool, {
+      userConnectionId: connRow?.id ?? null,
+      contactId: threadId,
+      roomId: null,
+      threadId,
+      rawText: 'Can we sync Thursday or Friday afternoon?',
+      channel,
+      accountId,
+      userId,
+      senderId: threadId,
+      messageId: `SMopt${suffix}`,
+    })
+
+    const identity = new PostgresIdentityService(pool)
+    const memory = new PostgresMemoryService(pool)
+    await processInboundJob(pool, identity, memory, inboundId)
+
+    const { rows } = await pool.query<{ status: string; reply_options: unknown }>(
+      `SELECT status, reply_options FROM outbound_drafts WHERE inbound_message_id = $1`,
+      [inboundId],
+    )
+    expect(rows.length).toBe(1)
+    expect(rows[0]!.status).toBe('DRAFTED')
+    const raw = rows[0]!.reply_options
+    expect(Array.isArray(raw)).toBe(true)
+    const labels = (raw as { label: string }[]).map(o => String(o.label).toLowerCase()).sort()
+    expect(labels).toEqual(['balanced', 'direct', 'relationship-first'])
+  }, 45_000)
 })

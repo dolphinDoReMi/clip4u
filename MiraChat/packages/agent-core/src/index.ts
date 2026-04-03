@@ -7,7 +7,12 @@ import { DefaultPolicyEngine } from '@delegate-ai/policy-engine'
 import { buildContextBundle, runCognitivePipeline } from './cognitive.js'
 
 export { buildContextBundle, classifyIntent, runCognitivePipeline } from './cognitive.js'
-export { openRouterAnalysisAssist } from './openrouter-assist.js'
+export {
+  openRouterAnalysisAssist,
+  openRouterDesktopContextAnalysis,
+  parseOpenRouterDesktopContextJson,
+} from './openrouter-assist.js'
+export type { OpenRouterDesktopContextInput, OpenRouterDesktopContextResult } from './openrouter-assist.js'
 export {
   buildAssistSuggestions,
   buildReplyOptions,

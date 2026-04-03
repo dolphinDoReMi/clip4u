@@ -63,7 +63,7 @@ export interface StoredMessage {
 }
 
 export interface MemoryContext {
-  /** Full thread history (newest slice, chronological), not embedding retrieval. */
+  /** Full thread history (newest slice, chronological): inbound/outbound plus same-thread memory_chunks when userId is passed to getRecentMessages. */
   recentMessages: StoredMessage[]
   /** Text search hits across all of this user’s stored messages (other threads, etc.). */
   searchMatches: StoredMessage[]
@@ -126,8 +126,8 @@ export interface IdentityService {
 export interface MemoryService {
   recordIncoming(event: MessageEvent): Promise<void>
   recordOutgoing(command: OutboundCommand): Promise<void>
-  /** Thread transcript: returns up to `limit` newest messages in chronological order. */
-  getRecentMessages(threadId: string, limit?: number): Promise<StoredMessage[]>
+  /** Thread transcript: returns up to `limit` newest rows in chronological order (messages + optional same-thread memory chunks when `userId` is set). */
+  getRecentMessages(threadId: string, limit?: number, userId?: string): Promise<StoredMessage[]>
   /** Full-history message search for `userId` (text match on stored bodies, not vectors). */
   searchMessages(userId: string, query: string, limit?: number): Promise<StoredMessage[]>
 }

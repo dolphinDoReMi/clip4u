@@ -623,6 +623,8 @@ Context should combine:
 - recent thread history
 - semantic recall from prior relevant messages
 - relationship and identity metadata
+- **structured entity-linked facts** and **sequence/timeline-aware** slices (see §14.5)
+- a **short user narrative / self-representation** block sourced from identity + distilled memory (see §14.5)
 
 ### 14.3 Initial schema
 
@@ -636,11 +638,176 @@ Context should combine:
 - `policy_events`
 - `agent_runs`
 
+**Evolution (memory strategy):** add tables or JSONB columns for **user-scoped entities** (type, label, confidence, provenance, optional `contact_id`), **events or sequence steps** (ordering, recurrence hints, thread/entity links), and **narrative snapshots** (versioned summary, user-edited overrides, last reconciled at). Exact DDL is implementation-specific; the PRD priority order is fixed in [PRD-MiraForU.md §5.B.1](PRD-MiraForU.md).
+
 ### 14.4 Memory rules
 
 - preserve enough history to explain decisions
 - keep raw transport references for replay and debugging
 - keep retrieval latency low enough to maintain a sub-2.5 second response target
+
+### 14.5 Three-layer memory strategy (aligned with PRD)
+
+Priority order for **writes** and **retrieval ranking** (see [PRD-MiraForU.md §5.B.1](PRD-MiraForU.md)):
+
+1. **Entity specificity** — On each user multimodal ingest path, extract and persist **named entities** (contacts, celebrities/public figures *as the user references them*, orgs, products, places, identifiable items, fictional or persona **characters**) with provenance; link to the relationship graph when resolvable.
+2. **Sequential pattern** — Capture **order, recurrence, and state** (multi-step flows, follow-up chains, last-known state per entity/thread) so context assembly can reason about **what happened next / already happened** without relying on embedding similarity alone.
+3. **User narrative** — Maintain a **stable, user-correctable narrative** of goals, values, boundaries, and ongoing arcs; inject before generation; update conservatively with conflict surfacing.
+
+**Retrieval:** hybrid structured lookup + vectors + recency; do not treat raw KNN as sufficient for (1) or (2).
+
+### 14.6 Memory write pipeline (core placement)
+
+The **core** (not channel plugins) owns enrichment after a normalized `MessageEvent` is accepted and persisted.
+
+```text
+MessageEvent (text / voice transcript / desktop-ingest payload + optional image ref)
+    → persist raw row(s): messages, memory_chunks (OCR / ingest text as today)
+    → enqueue MemoryEnrichmentJob { userId, sourceMessageIds[], modalities[], correlationId }
+         OR trigger inline when latency budget allows (desktop ingest already uses an OpenRouter pass)
+
+MemoryEnrichmentWorker (API process or dedicated worker)
+    → load tenant-scoped context window (recent thread + linked contact ids + prior narrative blob)
+    → call OpenRouter structured jobs (§14.7) → validate JSON → upsert structured tables (§14.3)
+    → emit audit / metrics (§14.8)
+```
+
+**Latency strategy:** The **assist / draft** path must not block on full memory enrichment. Default pattern:
+
+- **Synchronous path:** thread history + lexical/vector recall + **last-known** entity/narrative snapshot read from Postgres (may be one turn stale).
+- **Asynchronous path:** OpenRouter jobs complete in seconds; results **upsert** structured memory; the **next** turn sees richer context.
+
+For **desktop / screenshot ingest**, the product already performs an optional OpenRouter multimodal analysis (`openRouterDesktopContext` in `MiraChat/packages/agent-core`); the same request MAY be **extended** or **followed** by dedicated memory JSON extractions (§14.7) so one vision call does not multiply without need—see **call batching** below.
+
+### 14.7 OpenRouter as the structured-memory provider
+
+**Rationale:** Entity typing, sequence understanding, and narrative synthesis are **language-model tasks**. The reference stack routes them through **OpenRouter** (`https://openrouter.ai/api/v1/chat/completions`, OpenAI-compatible Chat Completions) so the core stays provider-agnostic at the HTTP boundary while reusing one key, model policy, and observability.
+
+**Request shape (shared):**
+
+| Element | Requirement |
+| --- | --- |
+| Endpoint | `POST https://openrouter.ai/api/v1/chat/completions` |
+| Auth | `Authorization: Bearer <OPENROUTER_API_KEY>` |
+| Body | `model`, `messages` (`system` + `user`), optional `response_format: { type: "json_object" }` when the upstream model supports it |
+| Multimodal user content | Same convention as MiraChat: `content: [{ type: "text", text }, { type: "image_url", image_url: { url } }]` — build with `buildOpenRouterMultimodalUserContent` / data URL helpers in `@delegate-ai/agent-core` |
+| Vision model | When `image_url` is present, use a multimodal route (e.g. `OPENROUTER_VISION_MODEL` or allowlisted id); never send images to text-only models |
+
+**Environment alignment (MiraChat today → memory jobs):**
+
+| Variable | Role |
+| --- | --- |
+| `OPENROUTER_API_KEY` | Required for any enrichment call; if unset, skip enrichment and rely on raw storage + search only |
+| `OPENROUTER_MODEL` | Default text / JSON model for entity + sequence + narrative jobs when not overridden |
+| `OPENROUTER_VISION_MODEL` | Multimodal model for memory extraction over screenshots |
+| `OPENROUTER_VISION_MODEL_ALLOWLIST` | Optional safety gate (see `isOpenRouterVisionModelAllowed` in agent-core) |
+| `OPENROUTER_MEMORY_MODEL` | *(Recommended addition)* Optional override for memory-only jobs (cheaper or JSON-tuned model) |
+| `OPENROUTER_MEMORY_JSON_STRICT` | *(Recommended)* If `1`, prefer `response_format`; on provider rejection, retry once without it (same pattern as desktop context + PRD delegate in agent-core) |
+
+**Call batching (cost + latency):** Prefer **one** OpenRouter call per ingest when possible: a single `system` prompt that asks for a **unified JSON object** with three top-level keys — `entities`, `sequences`, `narrativeDelta` — subject to token limits. If the payload is too large or quality drops, **split** into two calls: `(entities + sequences)` then `(narrativeDelta)` on a slower cadence.
+
+#### 14.7.1 Job A — Entity extraction (PRD priority 1)
+
+**Input (user message):** Plaintext (message body, OCR text, transcript) + optional multimodal parts + metadata: `userId`, `threadId`, `messageId`, `modality` enum, `knownContactHints[]` (display names from relationship graph for linking).
+
+**Output (JSON, illustrative):**
+
+```json
+{
+  "entities": [
+    {
+      "surfaceForm": "Alex",
+      "type": "contact_candidate | public_figure | organization | product | place | identifiable_item | fictional_character | other",
+      "canonicalLabel": "Alex (PM at Acme)",
+      "confidence": 0.86,
+      "contactId": "uuid-or-null",
+      "notes": "optional short grounding phrase from user text"
+    }
+  ]
+}
+```
+
+**Persistence:** Upsert into `memory_entities` (or JSONB on `messages`): dedupe on `(user_id, normalized_label)` with **provenance** = source `message_id` + modality; never delete user-visible facts without policy.
+
+#### 14.7.2 Job B — Sequence / temporal extraction (PRD priority 2)
+
+**Input:** Same window as Job A, optionally augmented with **last N** structured events from DB for continuity.
+
+**Output (illustrative):**
+
+```json
+{
+  "events": [
+    {
+      "kind": "commitment | follow_up | recurrence | state_change | scheduling_constraint | other",
+      "summary": "User committed to send deck Thursday",
+      "entitiesTouched": ["Alex", "Acme"],
+      "ordering": "after_previous_message",
+      "recurrence": null,
+      "dueHint": "2026-04-10T00:00:00Z-or-null",
+      "confidence": 0.72
+    }
+  ]
+}
+```
+
+**Persistence:** Append to `memory_events` / timeline store; index by `user_id`, `thread_id`, `entity_id`, `ts`.
+
+#### 14.7.3 Job C — Narrative reconciliation (PRD priority 3)
+
+**Input:** Current **user narrative snapshot** (from `identity_profiles` or `memory_narrative_versions`), new **entity + event** summaries from Jobs A/B (or from the batched call), and a short **high-signal** recent dialog slice.
+
+**Output (illustrative):**
+
+```json
+{
+  "narrativeMarkdown": "3–8 bullet user-facing summary",
+  "internalSummary": "optional shorter line for system prompt",
+  "conflicts": [
+    { "field": "current_role", "before": "…", "after": "…", "resolution": "needs_user_confirm" }
+  ],
+  "confidence": 0.8
+}
+```
+
+**Persistence:** If `conflicts` non-empty and `resolution` requires confirmation, write **pending** row and surface in settings / identity UI; else bump `version` and store new narrative. **User edits** always win over model-suggested text.
+
+#### 14.7.4 Prompting and guardrails
+
+- **System prompts** should be versioned (same spirit as `openrouter-prompt-os.ts`: sectioned, named version string) with explicit rules: *no fabrication*; *mark uncertainty*; *output JSON only*; *respect do-not-store classes* (e.g. raw payment numbers) if product policy adds them.
+- **Structured output:** Parse with strict JSON validation in core; on parse failure, retry once with “fix JSON” instruction or drop the job with metric `memory_enrichment_parse_error`.
+
+### 14.8 Retrieval integration (read path)
+
+After enrichment:
+
+1. **Entity-aware recall:** Query `memory_entities` / links for entities co-occurring with active `thread_id` or search hits; merge with `MemoryService.searchMessages`.
+2. **Timeline slice:** Fetch `memory_events` ordered by `ts` DESC (cap tokens) for the same scope.
+3. **Narrative block:** Inject `internalSummary` or bounded `narrativeMarkdown` into the same pre-generation slot as identity (§13.3).
+
+OpenRouter is **not** used on the hot read path for MVP—reads are Postgres + optional local embedding search.
+
+### 14.9 Failure modes, idempotency, and observability
+
+| Concern | Design |
+| --- | --- |
+| OpenRouter outage / 429 | Exponential backoff; max attempts; job remains **pending**; user experience unchanged except slightly stale structured memory |
+| Idempotency | Key `(user_id, source_message_id, job_name)`; upserts are merges, not blind inserts |
+| Cost control | Cap tokens per job; skip enrichment for low-signal messages (reuse `isLowSignalInboundText` heuristic where applicable) |
+| PII | Optional redaction pass **before** OpenRouter; tenant isolation on all rows; see PRD §5.H |
+| Observability | Log `correlationId`, model id, latency, token usage (if returned), outcome; optional `MIRACHAT_EXPOSE_OPENROUTER_REASONING` parity for debug builds only |
+
+### 14.10 Reference implementation map (repo)
+
+| Concern | Location |
+| --- | --- |
+| OpenRouter HTTP + vision + desktop JSON | `MiraChat/packages/agent-core/src/openrouter-assist.ts` |
+| Multimodal content shape | `MiraChat/packages/agent-core/src/openrouter-vision-schema.ts` |
+| Versioned analysis prompts | `MiraChat/packages/agent-core/src/openrouter-prompt-os.ts` |
+| Ingest entrypoint calling OpenRouter | `MiraChat/services/api/src/api-listener.ts` (desktop context path), `MiraChat/services/api/src/desktop-context.ts` |
+| Cognitive loop / analysis assist | `MiraChat/packages/agent-core/src/cognitive.ts` |
+
+New work to **fully** implement §14.7–14.8: add `openrouter-memory-enrich.ts` (or extend `openrouter-prompt-os.ts` with memory sections), Postgres migrations for entity/event/narrative tables, and a queue consumer that runs after message persist.
 
 ---
 

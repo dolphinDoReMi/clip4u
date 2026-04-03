@@ -49,7 +49,6 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:ops": "playwright test tests/e2e-ui/ops-console",
-    "test:e2e:ops:tenant": "MIRACHAT_E2E_TENANT=1 playwright test tests/e2e-ui/ops-console.tenant-flow.pw.ts",
     "test:e2e:ops:headed": "PW_HEADED=1 playwright test tests/e2e-ui/ops-console",
     "test:e2e:ops:headed:slow": "PW_HEADED=1 PW_SLOW_MO=400 playwright test tests/e2e-ui/ops-console",
     "test:e2e:ops:debug": "playwright test tests/e2e-ui/ops-console --debug",

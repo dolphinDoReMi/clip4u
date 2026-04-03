@@ -603,12 +603,16 @@
         flex-direction: column;
         min-height: 0;
         max-height: min(78vh, 720px);
-        border-radius: 14px;
+        border-radius: 18px;
         background: rgba(22, 23, 30, 0.96);
-        padding: 0.5rem 0.6rem;
+        padding: 0.85rem 1rem;
         border: 1px solid rgba(255, 79, 216, 0.22);
         box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
         backdrop-filter: blur(16px);
+        align-self: flex-end;
+        max-width: min(680px, 85%);
+        margin-top: 0.5rem;
+        border-top-right-radius: 6px;
       }
       .approval-panel-head {
         flex-shrink: 0;
@@ -949,13 +953,26 @@
       }
       .drawer-body {
         flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 0;
+      }
+      .drawer-tabs-strip {
+        flex-shrink: 0;
+        padding: 0.85rem 0.85rem 0;
+      }
+      .drawer-body-scroll {
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
-        padding: 0.85rem;
+        padding: 0 0.85rem 0.85rem;
+        -webkit-overflow-scrolling: touch;
       }
       .drawer-footer {
-        position: sticky;
-        bottom: -0.85rem;
-        margin: 1rem -0.85rem -0.85rem;
+        flex-shrink: 0;
+        margin: 0;
         padding: 0.75rem 0.85rem calc(0.75rem + env(safe-area-inset-bottom));
         background: linear-gradient(180deg, rgba(18, 19, 25, 0.75), rgba(18, 19, 25, 1) 30%);
         border-top: 1px solid var(--ig-border);
@@ -1731,8 +1748,9 @@
             </button>
           </header>
           <div class="chat-thread" id="chatThread" aria-label="Conversation and draft review">
-            <div class="messages" id="messages"></div>
-            <div class="approval-panel" id="approvalPanel" style="display: none"></div>
+            <div class="messages" id="messages">
+              <div class="approval-panel" id="approvalPanel" style="display: none"></div>
+            </div>
           </div>
           <div class="composer-wrap">
             <div class="pending-queue" id="pendingQueue" style="display: none"></div>
@@ -1910,14 +1928,17 @@
         </p>
       </div>
       <div class="drawer-body">
-        <div class="tabs" id="drawerTabs">
-          <button type="button" class="tab active" data-tab="conn">Connection</button>
-          <button type="button" class="tab" data-tab="metrics">Metrics</button>
-          <button type="button" class="tab" data-tab="audit">Audit</button>
-          <button type="button" class="tab" data-tab="identity">Identity</button>
-          <button type="button" class="tab" data-tab="rel">Relationship</button>
-          <button type="button" class="tab" data-tab="desktop">Desktop</button>
+        <div class="drawer-tabs-strip">
+          <div class="tabs" id="drawerTabs">
+            <button type="button" class="tab active" data-tab="conn">Connection</button>
+            <button type="button" class="tab" data-tab="metrics">Metrics</button>
+            <button type="button" class="tab" data-tab="audit">Audit</button>
+            <button type="button" class="tab" data-tab="identity">Identity</button>
+            <button type="button" class="tab" data-tab="rel">Relationship</button>
+            <button type="button" class="tab" data-tab="desktop">Desktop</button>
+          </div>
         </div>
+        <div class="drawer-body-scroll">
         <div id="panel-conn">
           <div class="field">
             <label for="apiBase">API base URL</label>
@@ -2009,13 +2030,6 @@
             Link your chat account (scan the QR when asked). <strong style="color: var(--ig-muted)">Shown only on this device</strong> while you are signed in here.
           </p>
           <div id="qrConn"></div>
-          <div class="drawer-footer">
-            <button type="button" class="btn btn-primary" id="btnSaveSettings" style="width: 100%">Save &amp; reconnect</button>
-            <div class="drawer-note" id="connSaveHint">
-              <strong style="color: var(--ig-muted)">On this device only.</strong> Connection details stay in your browser until
-              you change them. Press Enter in a field to reconnect.
-            </div>
-          </div>
         </div>
         <div id="panel-metrics" style="display: none"></div>
         <div id="panel-audit" style="display: none"></div>
@@ -2092,7 +2106,24 @@
             <div style="font-size: 0.72rem; color: var(--ig-muted); margin-top: 0.35rem">
               Text files fill the transcript field and <strong>ingest immediately</strong>. Images are sent as base64 to OpenRouter
               for vision when <strong>OpenRouter analysis</strong> is on (PNG/JPEG/WebP/GIF; keep files modest, ~6 MB or less).
+              Or paste a public <strong>https</strong> image URL below (automation-friendly; no file picker).
               Uses the thread id below or the selected inbox thread.
+            </div>
+          </div>
+          <div class="field">
+            <label for="desktopIngestImageUrl">Screenshot image URL (optional)</label>
+            <input
+              id="desktopIngestImageUrl"
+              type="url"
+              inputmode="url"
+              autocomplete="off"
+              placeholder="https://example.com/chart.png"
+              data-testid="desktop-ingest-image-url"
+              style="max-width: 100%; font-size: 0.85rem"
+            />
+            <div style="font-size: 0.72rem; color: var(--ig-muted); margin-top: 0.35rem">
+              Public <span class="mono">https://</span> only. Sent to the API as <span class="mono">screenshotImageUrl</span> (OpenRouter
+              <span class="mono">image_url</span>) — preferred over huge base64 when the image is already hosted.
             </div>
           </div>
           <div class="field">
@@ -2154,7 +2185,15 @@
               white-space: pre-wrap;
               word-break: break-word;
             "
-          ></pre>
+            ></pre>
+        </div>
+        </div>
+        <div id="drawerConnFooter" class="drawer-footer">
+          <button type="button" class="btn btn-primary" id="btnSaveSettings" style="width: 100%">Save &amp; reconnect</button>
+          <div class="drawer-note" id="connSaveHint">
+            <strong style="color: var(--ig-muted)">On this device only.</strong> Connection details stay in your browser until
+            you change them. Press Enter in a field to reconnect.
+          </div>
         </div>
       </div>
     </aside>
@@ -2849,14 +2888,22 @@
           byId.set(t.threadId, { ...t, draftCount: 0 })
         }
         for (const d of state.drafts) {
+          const isBlocked = d.status === 'REJECTED' && d.ruleTriggered
+          const isAutoSend = d.status === 'APPROVED' && d.ruleTriggered
+          const statusStr = isBlocked ? 'BLOCKED' : isAutoSend ? 'AUTO_SEND' : 'DRAFTED'
+
           const ex = byId.get(d.threadId)
-          if (ex) ex.draftCount += 1
+          if (ex) {
+            ex.draftCount += 1
+            ex.draftStatus = statusStr
+          }
           else {
             byId.set(d.threadId, {
               threadId: d.threadId,
               lastAt: d.createdAt || new Date().toISOString(),
               preview: d.inboundText?.slice(0, 80) || 'Pending approval',
               draftCount: 1,
+              draftStatus: statusStr,
             })
           }
         }
@@ -2917,7 +2964,16 @@
           row.setAttribute('role', 'button')
           row.setAttribute('tabindex', '0')
           row.setAttribute('aria-label', `Open thread ${displayTitle}`)
-          const badge = t.draftCount ? `<span class="badge">${t.draftCount}</span>` : ''
+          let badge = ''
+          if (t.draftCount) {
+            if (t.draftStatus === 'BLOCKED') {
+              badge = `<span class="badge" style="background:var(--ig-danger);border-radius:4px;font-size:0.6rem;padding:0.15rem 0.35rem;">BLOCKED</span>`
+            } else if (t.draftStatus === 'AUTO_SEND') {
+              badge = `<span class="badge" style="background:var(--ig-success);color:#000;border-radius:4px;font-size:0.6rem;padding:0.15rem 0.35rem;">AUTO</span>`
+            } else {
+              badge = `<span class="badge">${t.draftCount}</span>`
+            }
+          }
           const av = document.createElement('div')
           av.className = 'avatar has-photo'
           const img = document.createElement('img')
@@ -3151,6 +3207,8 @@
 
       const renderMessages = () => {
         const el = $('messages')
+        const ap = $('approvalPanel')
+        if (ap) ap.remove()
         el.innerHTML = ''
         const tid = state.selectedThreadId
 
@@ -3159,6 +3217,7 @@
           empty.className = 'day-label'
           empty.textContent = 'No history in store for this thread'
           el.appendChild(empty)
+          if (ap) el.appendChild(ap)
           scrollChatThreadToEnd()
           return
         }
@@ -3175,8 +3234,9 @@
         el.appendChild(document.createElement('div')).className = 'day-label'
         el.lastChild.textContent = 'Today'
         for (const m of state.messages) {
+          if (m.channel === 'memory') continue
           const row = document.createElement('div')
-          const isMem = m.channel === 'memory'
+          const isMem = false
           row.className =
             'bubble-row ' + (m.direction === 'outbound' ? 'out' : 'in') + (isMem ? ' memory-row' : '')
           if (m.direction !== 'outbound' && !isMem && tid && peerEntry) {
@@ -3198,15 +3258,15 @@
           row.appendChild(b)
           el.appendChild(row)
         }
+        if (ap) el.appendChild(ap)
         scrollChatThreadToEnd()
       }
 
       $('chatThread').addEventListener('click', (e) => {
-        const btn = e.target.closest('.btn-appr-copy')
-        if (!btn || !btn.closest('#approvalPanel')) return
+        const card = e.target.closest('.appr-suggest-card')
+        if (!card || !card.closest('#approvalPanel')) return
         e.preventDefault()
-        const card = btn.closest('.appr-suggest-card')
-        const pre = card?.querySelector('.appr-suggest-text')
+        const pre = card.querySelector('.appr-suggest-text')
         void copyPlainToClipboard(pre?.textContent || '')
       })
 
@@ -3235,9 +3295,9 @@
 
         let suggestionsBlockHtml = ''
         if (replyText) {
-          suggestionsBlockHtml = `<div class="appr-suggest-card appr-suggest-card--primary">
+          suggestionsBlockHtml = `<div class="appr-suggest-card appr-suggest-card--primary" style="cursor: pointer;" title="Tap to copy">
             <div class="appr-suggest-head">
-              <span class="appr-suggest-tone">Your reply</span>
+              <span class="appr-suggest-tone">WeChat / WhatsApp — your tone (tap to copy)</span>
               <button type="button" class="btn btn-secondary btn-compact btn-appr-copy">Copy</button>
             </div>
             <pre class="appr-suggest-text">${escapeHtml(replyText)}</pre>
@@ -3247,6 +3307,32 @@
             '<p class="policy-bar" style="margin:0">No reply text yet — try <strong>Refresh</strong> or wait for drafting to finish.</p>'
         }
 
+        const isBlocked = d.status === 'REJECTED' && d.ruleTriggered
+        const isAutoSend = d.status === 'APPROVED' && d.ruleTriggered
+
+        let badgeHtml = ''
+        if (isBlocked) {
+          badgeHtml = `<span style="background:var(--ig-danger);color:#fff;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-right:0.5rem;">BLOCKED</span>`
+        } else if (isAutoSend) {
+          badgeHtml = `<span style="background:var(--ig-success);color:#000;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-right:0.5rem;">AUTO_SEND</span>`
+        } else {
+          badgeHtml = `<span style="background:var(--ig-warn);color:#000;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-right:0.5rem;">DRAFTED</span>`
+        }
+
+        let policyBannerHtml = ''
+        if (isBlocked) {
+          policyBannerHtml = `<div style="background:rgba(255, 93, 115, 0.15);border-left:3px solid var(--ig-danger);padding:0.5rem 0.75rem;margin-bottom:0.75rem;border-radius:4px;font-size:0.8rem;color:#ffd4db;">
+            ⚠️ <strong>Blocked by Policy Engine:</strong> ${escapeHtml(friendlyPolicyHint(d.ruleTriggered))}
+          </div>`
+        }
+
+        const groundingHtml = d.groundingFacts
+          ? `<details class="snapshot-details" open>
+            <summary><strong>🧠 Grounded In (Attended Ledger)</strong> <span style="color:var(--ig-soft);font-weight:500">· collapse</span></summary>
+            <div class="snapshot-body" style="color:#b8f5cb;">${escapeHtml(d.groundingFacts)}</div>
+          </details>`
+          : ''
+
         const snapshotHtml = d.threadSummary
           ? `<details class="snapshot-details">
             <summary><strong>Thread snapshot</strong> <span style="color:var(--ig-soft);font-weight:500">· expand</span></summary>
@@ -3255,29 +3341,41 @@
           : ''
         panel.innerHTML = `
           <div class="approval-panel-head">
-            <h3>Reply in your tone</h3>
+            <div style="display:flex;align-items:center;margin-bottom:0.5rem;">
+              ${badgeHtml}
+              <h3 style="margin:0;">Reply in your tone</h3>
+            </div>
             <p class="trust-note" style="margin: 0 0 0.65rem"><strong>Private to you.</strong> One personalized reply in <strong>your tone</strong> (identity + style settings). Copy or edit, then approve to queue sending — nothing is delivered until you approve.</p>
-            <div class="policy-bar">Confidence ${conf}% · ${escapeHtml(d.intentSummary || '')}
-              ${d.ruleTriggered ? ' · ' + escapeHtml(friendlyPolicyHint(d.ruleTriggered)) : ''}</div>
+            <div class="policy-bar">Confidence ${conf}% · ${escapeHtml(d.intentSummary || '')}</div>
           </div>
           <div class="approval-panel-scroll">
+            ${policyBannerHtml}
+            ${groundingHtml}
             ${snapshotHtml}
             ${suggestionsBlockHtml}
           </div>
           <div class="approval-panel-actions">
-            <div class="actions-row">
-              <button type="button" class="btn btn-ok btn-compact" id="apprPrimary">Approve reply</button>
-              <button type="button" class="btn btn-primary btn-compact" id="apprPrimaryDoer" aria-label="Run reply with OpenClaw">Run with OpenClaw</button>
-              <button type="button" class="btn btn-danger btn-compact" id="apprReject">Reject</button>
-              <button type="button" class="btn btn-secondary btn-compact" id="apprEdit">Edit &amp; approve</button>
-              <button type="button" class="btn btn-secondary btn-compact" id="apprEditDoer">Edit &amp; OpenClaw</button>
-            </div>
+            ${isBlocked ? `<div class="actions-row"><button type="button" class="btn btn-secondary btn-compact" id="apprEdit">Edit manually</button></div>` :
+              isAutoSend ? `<div class="actions-row"><button type="button" class="btn btn-danger btn-compact" id="apprReject">Cancel auto-send</button></div>` :
+              `<div class="actions-row">
+                <button type="button" class="btn btn-ok btn-compact" id="apprPrimary">Approve reply</button>
+                <button type="button" class="btn btn-primary btn-compact" id="apprPrimaryDoer" aria-label="Run reply with OpenClaw">Run with OpenClaw</button>
+                <button type="button" class="btn btn-danger btn-compact" id="apprReject">Reject</button>
+                <button type="button" class="btn btn-secondary btn-compact" id="apprEdit">Edit &amp; approve</button>
+                <button type="button" class="btn btn-secondary btn-compact" id="apprEditDoer">Edit &amp; OpenClaw</button>
+              </div>`}
           </div>`
-        panel.querySelector('#apprPrimary').addEventListener('click', () => doApprove(d.id))
-        panel.querySelector('#apprPrimaryDoer').addEventListener('click', () => doApprove(d.id, true, replyForActions))
-        panel.querySelector('#apprReject').addEventListener('click', () => doReject(d.id))
-        panel.querySelector('#apprEdit').addEventListener('click', () => doEdit(d.id, replyForActions))
-        panel.querySelector('#apprEditDoer').addEventListener('click', () => doEdit(d.id, replyForActions, true))
+        if (!isBlocked && !isAutoSend) {
+          panel.querySelector('#apprPrimary').addEventListener('click', () => doApprove(d.id))
+          panel.querySelector('#apprPrimaryDoer').addEventListener('click', () => doApprove(d.id, true, replyForActions))
+          panel.querySelector('#apprReject').addEventListener('click', () => doReject(d.id))
+          panel.querySelector('#apprEdit').addEventListener('click', () => doEdit(d.id, replyForActions))
+          panel.querySelector('#apprEditDoer').addEventListener('click', () => doEdit(d.id, replyForActions, true))
+        } else if (isBlocked) {
+          panel.querySelector('#apprEdit').addEventListener('click', () => doEdit(d.id, replyForActions))
+        } else if (isAutoSend) {
+          panel.querySelector('#apprReject').addEventListener('click', () => doReject(d.id))
+        }
         scrollChatThreadToEnd()
       }
 
@@ -3693,6 +3791,10 @@
         document.querySelectorAll('#drawerTabs .tab').forEach((t) => {
           t.classList.toggle('active', t.dataset.tab === name)
         })
+        const dcf = $('drawerConnFooter')
+        if (dcf) {
+          dcf.style.display = name === 'conn' ? 'block' : 'none'
+        }
         ;['conn', 'metrics', 'audit', 'identity', 'rel', 'desktop'].forEach((id) => {
           $('panel-' + id).style.display = id === name ? 'block' : 'none'
         })
@@ -4136,14 +4238,19 @@
         }
         const summary = $('desktopIngestSummary').value.trim()
         const extracted = $('desktopIngestExtracted').value.trim()
+        const imageUrl = ($('desktopIngestImageUrl') && $('desktopIngestImageUrl').value.trim()) || ''
         if (!threadId) {
           if (flowAlreadyOpen) hideIngestFlowInline()
           showToast('Thread id required — select a thread or type a contact / thread id.', 'error')
           return false
         }
-        if (!summary && !extracted) {
+        const hasQueuedFile = Boolean(state.desktopUploadMeta?.screenshotImageBase64)
+        if (!summary && !extracted && !imageUrl && !hasQueuedFile) {
           if (flowAlreadyOpen) hideIngestFlowInline()
-          showToast('Add a summary or transcript (or upload a conversation file / screenshot).', 'error')
+          showToast(
+            'Add a summary or transcript, paste an https image URL, or upload a file / screenshot.',
+            'error',
+          )
           return false
         }
         if (!flowAlreadyOpen) {
@@ -4153,6 +4260,7 @@
           const prepMeta = state.desktopUploadMeta
           let prep = `Thread «${threadId}».`
           if (prepMeta?.screenshotImageBase64) prep += ' Image payload ready for vision.'
+          else if (imageUrl) prep += ' Public image URL set for vision.'
           else if (summary && extracted) prep += ' Summary and transcript set.'
           else if (extracted) prep += ' Transcript set.'
           else prep += ' Summary set.'
@@ -4197,6 +4305,9 @@
               meta.screenshotMimeType && String(meta.screenshotMimeType).startsWith('image/')
                 ? meta.screenshotMimeType
                 : 'image/png'
+          }
+          if (imageUrl) {
+            payload.screenshotImageUrl = imageUrl
           }
           const ingestTimeoutMs =
             meta?.screenshotImageBase64 && meta.screenshotImageBase64.length > 200_000 ? 480_000 : 300_000

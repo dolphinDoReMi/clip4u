@@ -62,6 +62,9 @@ test.describe('Ops console — desktop context ingest', () => {
 
     await expect(page.locator('#ingestFlowModal')).toBeHidden()
     await expect(page.locator('#ingestFlowInline')).toBeVisible()
+    /** Drawer stays open on Desktop tab; it can sit over the composer and steal clicks from inline ingest controls. */
+    await page.locator('#btnCloseDrawer').click()
+    await expect(page.locator('#drawer')).not.toHaveClass(/open/)
     await page.locator('#ingestFlowExpand').click()
     await expect(page.locator('#ingestFlowModal')).toBeVisible()
     await page.locator('#ingestFlowClose').click()

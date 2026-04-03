@@ -1,8 +1,11 @@
 import {
   type InboundJobData,
+  type MemoryEnrichJobData,
   MIRACHAT_INBOUND_QUEUE,
+  MIRACHAT_MEMORY_ENRICH_QUEUE,
   DelegationEventType,
   POLICY_ENGINE_ID,
+  enqueueMemoryEnrichment,
   getInboundMessage,
   insertDelegationEvent,
   insertOutboundDraft,
@@ -21,6 +24,7 @@ import { DefaultPolicyEngine } from '@delegate-ai/policy-engine'
 import type { IdentityService, MemoryService, MessageEvent } from '@delegate-ai/adapter-types'
 import type PgBoss from 'pg-boss'
 import type { Pool } from 'pg'
+import { processMemoryEnrichJob, skipMemoryEnqueue } from './mirachat-memory-worker.js'
 
 const policyEngine = new DefaultPolicyEngine()
 
@@ -52,6 +56,7 @@ export const processInboundJob = async (
   identity: IdentityService,
   memory: MemoryService,
   inboundMessageId: string,
+  boss: PgBoss | null = null,
 ): Promise<void> => {
   const row = await getInboundMessage(pool, inboundMessageId)
   if (!row) {
@@ -70,6 +75,7 @@ export const processInboundJob = async (
       event,
       draft,
       relationship: context.relationship,
+      attendedRecall: context.memory.attendedRecall,
     })
     void insertDelegationEvent(pool, {
       eventType: DelegationEventType.PolicyEvaluated,
@@ -125,6 +131,7 @@ export const processInboundJob = async (
       intentSummary: intent.summary,
       replyOptions,
       threadSummary,
+      groundingFacts: context.memory.attendedRecall || null,
       approvedAt,
     })
 
@@ -211,6 +218,11 @@ export const processInboundJob = async (
     }
 
     await setInboundStatus(pool, inboundMessageId, 'DONE')
+    if (boss && !skipMemoryEnqueue()) {
+      await enqueueMemoryEnrichment(boss, inboundMessageId).catch(err =>
+        console.error('[mirachat] enqueue memory enrich failed', err),
+      )
+    }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     void insertDelegationEvent(pool, {
@@ -238,7 +250,16 @@ export const registerMirachatWorkers = async (
       if (!data?.inboundMessageId) {
         continue
       }
-      await processInboundJob(pool, identity, memory, data.inboundMessageId)
+      await processInboundJob(pool, identity, memory, data.inboundMessageId, boss)
+    }
+  })
+  await boss.work(MIRACHAT_MEMORY_ENRICH_QUEUE, async jobs => {
+    for (const job of jobs) {
+      const data = job.data as MemoryEnrichJobData
+      if (!data?.inboundMessageId) {
+        continue
+      }
+      await processMemoryEnrichJob(pool, data.inboundMessageId)
     }
   })
 }

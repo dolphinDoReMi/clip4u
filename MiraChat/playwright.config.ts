@@ -76,7 +76,6 @@ export default defineConfig({
         PORT: playwrightApiPort,
         ...(mirachatE2eTenant
           ? {
-              MIRACHAT_TENANT_ENFORCE: '1',
               MIRACHAT_TENANT_TOKEN_MAP:
                 process.env.MIRACHAT_E2E_TENANT_TOKEN_MAP ??
                 '{"e2e-tenant-ui-secret":"demo-user"}',

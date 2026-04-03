@@ -102,17 +102,41 @@ const humanIntentLine = (domain: string, urgency: IntentSignal['urgency'], raw: 
   }
 }
 
+const structuredRecallBlock = (context: ContextBundle): string => {
+  const attended = context.memory.attendedRecall?.trim()
+  if (attended) {
+    return `\n\nAttended Ledger (Relevant Facts):\n${attended}`
+  }
+  
+  const sr = context.memory.structuredRecall
+  if (!sr) {
+    return ''
+  }
+  const parts: string[] = []
+  const internal = sr.internalSummary?.trim()
+  const ent = sr.entityBullets?.trim()
+  const ev = sr.eventBullets?.trim()
+  if (internal) {
+    parts.push(`Structured user narrative: ${internal}`)
+  }
+  if (ent) {
+    parts.push(`Remembered entities:\n${ent}`)
+  }
+  if (ev) {
+    parts.push(`Recent timeline / commitments:\n${ev}`)
+  }
+  return parts.length > 0 ? `\n\n${parts.join('\n\n')}` : ''
+}
+
 const planner = async (context: ContextBundle): Promise<{ instruction: string; intent: IntentSignal }> => {
   const intent = classifyIntent(context.event)
   const base = `Reply in a ${context.relationship.tone} tone while honoring: ${context.identity.hardBoundaries.join(', ')}`
+  let instruction = `${base}${structuredRecallBlock(context)}`
   const assist = context.memory.analysisAssist?.trim()
-  if (!assist) {
-    return { instruction: base, intent }
+  if (assist) {
+    instruction = `${instruction}\n\nExternal analysis (for drafting context, not verbatim):\n${assist}`
   }
-  return {
-    instruction: `${base}\n\nExternal analysis (for drafting context, not verbatim):\n${assist}`,
-    intent,
-  }
+  return { instruction, intent }
 }
 
 const summarizePriorContext = (context: ContextBundle): string[] => {
@@ -281,11 +305,25 @@ export const buildContextBundle = async (
         searchMatches,
       })
 
+  const structuredRecall = services.memoryService.getStructuredRecall
+    ? await services.memoryService.getStructuredRecall(event.userId, event.threadId)
+    : null
+
+  let attendedRecall: string | null = null
+  if (structuredRecall) {
+    const { openRouterMemoryAttention } = await import('./openrouter-assist.js')
+    attendedRecall = await openRouterMemoryAttention({
+      latestUserText: event.text,
+      recentMessages,
+      structuredRecall,
+    })
+  }
+
   return {
     event,
     identity,
     relationship,
-    memory: { recentMessages, searchMatches, analysisAssist },
+    memory: { recentMessages, searchMatches, analysisAssist, structuredRecall, attendedRecall },
   }
 }
 

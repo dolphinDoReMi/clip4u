@@ -77,6 +77,13 @@ export interface MemorySearchOptions {
   threadId?: string
 }
 
+/** Postgres-backed structured recall (entities, timeline, narrative); optional on MemoryService. */
+export interface StructuredMemoryRecall {
+  internalSummary: string
+  entityBullets: string
+  eventBullets: string
+}
+
 export interface MemoryContext {
   /** Full thread history (newest slice, chronological): inbound/outbound plus same-thread memory_chunks when userId is passed to getRecentMessages. */
   recentMessages: StoredMessage[]
@@ -84,6 +91,10 @@ export interface MemoryContext {
   searchMatches: StoredMessage[]
   /** Optional OpenRouter (or compatible) model notes — analysis only, not the outbound draft. */
   analysisAssist?: string | null
+  /** Optional structured memory (OpenRouter enrichment + entity/event/narrative tables). */
+  structuredRecall?: StructuredMemoryRecall | null
+  /** Optional attended ledger (filtered facts from structured memory based on current context). */
+  attendedRecall?: string | null
 }
 
 export interface ContextBundle {
@@ -153,6 +164,11 @@ export interface MemoryService {
     limit?: number,
     options?: MemorySearchOptions,
   ): Promise<StoredMessage[]>
+  /**
+   * Optional: structured recall for prompts (entities, recent timeline events, narrative summary).
+   * Implemented by Postgres-backed services when memory enrichment migrations are applied.
+   */
+  getStructuredRecall?(userId: string, threadId: string): Promise<StructuredMemoryRecall | null>
 }
 
 export interface ApprovalStore {
@@ -169,6 +185,7 @@ export interface PolicyEngine {
     event: MessageEvent
     draft: DelegateDraft
     relationship: RelationshipProfile
+    attendedRecall?: string | null
   }): Promise<PolicyDecision>
 }
 

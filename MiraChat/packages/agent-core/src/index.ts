@@ -8,12 +8,27 @@ import { buildContextBundle, runCognitivePipeline } from './cognitive.js'
 
 export { buildContextBundle, classifyIntent, runCognitivePipeline } from './cognitive.js'
 export {
+  OPENROUTER_MEMORY_ENRICH_VERSION,
+  openRouterMemoryEnrichment,
+  parseMemoryEnrichmentJson,
+} from './openrouter-memory-enrich.js'
+export type {
+  MemoryEnrichmentEntity,
+  MemoryEnrichmentEvent,
+  MemoryEnrichmentNarrativeDelta,
+  MemoryEnrichmentOpenRouterInput,
+  MemoryEnrichmentParsed,
+} from './openrouter-memory-enrich.js'
+export { isLowSignalInboundText, isSimpleAcknowledgement } from './message-signals.js'
+export {
   MIRACHAT_INGEST_SUGGESTED_REPLY_MARKER,
   buildIngestSuggestedReplyMemoryChunk,
   extractLatestIngestSuggestedReply,
   isOpenRouterPrimaryDraftEnabled,
   openRouterAnalysisAssist,
   openRouterDesktopContextAnalysis,
+  openRouterMemoryAttention,
+  openRouterPolicyEvaluation,
   openRouterPrimaryReplyDraft,
   parseOpenRouterDesktopContextJson,
 } from './openrouter-assist.js'

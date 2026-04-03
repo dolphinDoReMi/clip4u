@@ -1,0 +1,1 @@
+ALTER TABLE outbound_drafts ADD COLUMN grounding_facts text;

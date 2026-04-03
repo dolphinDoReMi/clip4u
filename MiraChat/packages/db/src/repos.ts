@@ -54,6 +54,7 @@ export interface OutboundDraftRow {
   intent_summary: string | null
   reply_options: ReplyOptionRow[] | null
   thread_summary: string | null
+  grounding_facts: string | null
   send_attempt_count: number
   last_send_attempt_at: Date | null
   last_send_error: string | null
@@ -327,6 +328,7 @@ export const insertOutboundDraft = async (
     intentSummary: string | null
     replyOptions?: ReplyOptionRow[] | null
     threadSummary?: string | null
+    groundingFacts?: string | null
     /** When status is APPROVED (e.g. policy AUTO_SEND), sets approved_at for pending-send pickup. */
     approvedAt?: Date | null
   },
@@ -338,9 +340,9 @@ export const insertOutboundDraft = async (
     `
     INSERT INTO outbound_drafts (
       inbound_message_id, generated_text, confidence_score, status, rule_triggered,
-      channel, account_id, user_id, thread_id, intent_summary, reply_options, thread_summary, approved_at
+      channel, account_id, user_id, thread_id, intent_summary, reply_options, thread_summary, grounding_facts, approved_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14)
     RETURNING *
     `,
     [
@@ -356,6 +358,7 @@ export const insertOutboundDraft = async (
       input.intentSummary,
       input.replyOptions?.length ? JSON.stringify(input.replyOptions) : null,
       input.threadSummary ?? null,
+      input.groundingFacts ?? null,
       approvedAt,
     ],
   )
@@ -402,7 +405,8 @@ export const listDraftedOutboundTriage = async (pool: Pool, limit = 100): Promis
     SELECT d.*, i.raw_text AS inbound_raw_text
     FROM outbound_drafts d
     LEFT JOIN inbound_messages i ON i.id = d.inbound_message_id
-    WHERE d.status = 'DRAFTED'
+    WHERE d.status IN ('DRAFTED', 'REJECTED', 'APPROVED')
+      AND d.created_at > now() - interval '1 day'
     ORDER BY d.created_at DESC
     LIMIT $1
     `,
@@ -422,7 +426,8 @@ export const listDraftedOutboundTriageForUser = async (
     SELECT d.*, i.raw_text AS inbound_raw_text
     FROM outbound_drafts d
     LEFT JOIN inbound_messages i ON i.id = d.inbound_message_id
-    WHERE d.status = 'DRAFTED' AND d.user_id = $1
+    WHERE d.status IN ('DRAFTED', 'REJECTED', 'APPROVED') AND d.user_id = $1
+      AND d.created_at > now() - interval '1 day'
     ORDER BY d.created_at DESC
     LIMIT $2
     `,
@@ -446,10 +451,11 @@ export const listDraftedOutboundTriageForSession = async (
     SELECT d.*, i.raw_text AS inbound_raw_text
     FROM outbound_drafts d
     LEFT JOIN inbound_messages i ON i.id = d.inbound_message_id
-    WHERE d.status = 'DRAFTED'
+    WHERE d.status IN ('DRAFTED', 'REJECTED', 'APPROVED')
       AND d.user_id = $1
       AND d.channel = $2
       AND d.account_id = $3
+      AND d.created_at > now() - interval '1 day'
     ORDER BY d.created_at DESC
     LIMIT $4
     `,
@@ -1550,4 +1556,270 @@ export const listThreadSummariesForSession = async (
     preview: row.preview,
     messageCount: Number(row.message_count),
   }))
+}
+
+/** Stable key for entity upserts (NFKC, lower, trim, capped). */
+export const normalizeMemoryEntityKey = (label: string): string => {
+  const t = label.normalize('NFKC').trim().toLowerCase()
+  return t.length > 500 ? t.slice(0, 500) : t
+}
+
+export type MemoryEnrichmentRunStatus = 'success' | 'skipped' | 'failed'
+
+export const getMemoryEnrichmentRun = async (
+  pool: Pool,
+  userId: string,
+  sourceInboundId: string,
+): Promise<{ status: MemoryEnrichmentRunStatus; detail: string | null } | null> => {
+  const { rows } = await pool.query<{ status: MemoryEnrichmentRunStatus; detail: string | null }>(
+    `SELECT status, detail FROM memory_enrichment_runs WHERE user_id = $1 AND source_inbound_id = $2`,
+    [userId, sourceInboundId],
+  )
+  return rows[0] ?? null
+}
+
+export const upsertMemoryEnrichmentRun = async (
+  pool: Pool,
+  input: { userId: string; sourceInboundId: string; status: MemoryEnrichmentRunStatus; detail?: string | null },
+): Promise<void> => {
+  await pool.query(
+    `
+    INSERT INTO memory_enrichment_runs (user_id, source_inbound_id, status, detail)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (user_id, source_inbound_id) DO UPDATE SET
+      status = EXCLUDED.status,
+      detail = EXCLUDED.detail,
+      created_at = now()
+    `,
+    [input.userId, input.sourceInboundId, input.status, input.detail ?? null],
+  )
+}
+
+export interface RelationshipHintRow {
+  contact_id: string
+  relationship_type: string
+  notes: string[]
+}
+
+export const getRelationshipHintsForContact = async (
+  pool: Pool,
+  userId: string,
+  contactId: string,
+): Promise<RelationshipHintRow | null> => {
+  const { rows } = await pool.query<RelationshipHintRow>(
+    `
+    SELECT contact_id, relationship_type, notes
+    FROM relationship_graph
+    WHERE user_id = $1 AND contact_id = $2
+    LIMIT 1
+    `,
+    [userId, contactId],
+  )
+  return rows[0] ?? null
+}
+
+export interface MemoryEntityUpsertInput {
+  userId: string
+  threadId: string
+  sourceInboundId: string
+  surfaceForm: string
+  entityType: string
+  canonicalLabel: string
+  confidence: number | null
+  contactId: string | null
+  notes: string | null
+}
+
+export const upsertMemoryEntities = async (pool: Pool, entities: MemoryEntityUpsertInput[]): Promise<number> => {
+  let n = 0
+  for (const e of entities) {
+    const nk = normalizeMemoryEntityKey(e.canonicalLabel)
+    if (!nk) {
+      continue
+    }
+    await pool.query(
+      `
+      INSERT INTO memory_entities (
+        user_id, thread_id, source_inbound_id, surface_form, entity_type, canonical_label, normalized_key,
+        confidence, contact_id, notes
+      )
+      VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT (user_id, normalized_key) DO UPDATE SET
+        confidence = GREATEST(COALESCE(memory_entities.confidence, 0), COALESCE(EXCLUDED.confidence, 0)),
+        surface_form = EXCLUDED.surface_form,
+        entity_type = EXCLUDED.entity_type,
+        canonical_label = EXCLUDED.canonical_label,
+        notes = COALESCE(EXCLUDED.notes, memory_entities.notes),
+        thread_id = COALESCE(EXCLUDED.thread_id, memory_entities.thread_id),
+        source_inbound_id = EXCLUDED.source_inbound_id,
+        updated_at = now()
+      `,
+      [
+        e.userId,
+        e.threadId,
+        e.sourceInboundId,
+        e.surfaceForm.slice(0, 500),
+        e.entityType.slice(0, 120),
+        e.canonicalLabel.slice(0, 1000),
+        nk,
+        e.confidence,
+        e.contactId,
+        e.notes ? e.notes.slice(0, 2000) : null,
+      ],
+    )
+    n++
+  }
+  return n
+}
+
+export interface MemoryEventInsertInput {
+  userId: string
+  threadId: string
+  sourceInboundId: string
+  kind: string
+  summary: string
+  entitiesTouched: string[]
+  orderingHint: string | null
+  recurrence: string | null
+  dueHint: Date | null
+  confidence: number | null
+}
+
+export const insertMemoryEvents = async (pool: Pool, events: MemoryEventInsertInput[]): Promise<number> => {
+  let n = 0
+  for (const ev of events) {
+    const s = ev.summary.trim()
+    if (!s) {
+      continue
+    }
+    await pool.query(
+      `
+      INSERT INTO memory_events (
+        user_id, thread_id, source_inbound_id, kind, summary, entities_touched,
+        ordering_hint, recurrence, due_hint, confidence
+      )
+      VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, $9, $10)
+      `,
+      [
+        ev.userId,
+        ev.threadId,
+        ev.sourceInboundId,
+        ev.kind.slice(0, 120),
+        s.slice(0, 4000),
+        ev.entitiesTouched,
+        ev.orderingHint,
+        ev.recurrence,
+        ev.dueHint,
+        ev.confidence,
+      ],
+    )
+    n++
+  }
+  return n
+}
+
+export interface MemoryNarrativeSnapshotRow {
+  user_id: string
+  narrative_markdown: string
+  internal_summary: string
+  pending_conflicts: unknown | null
+  version: number
+  updated_at: Date
+}
+
+export const getMemoryNarrativeSnapshot = async (
+  pool: Pool,
+  userId: string,
+): Promise<MemoryNarrativeSnapshotRow | null> => {
+  const { rows } = await pool.query<MemoryNarrativeSnapshotRow>(
+    `SELECT user_id, narrative_markdown, internal_summary, pending_conflicts, version, updated_at
+     FROM memory_narrative_snapshots WHERE user_id = $1`,
+    [userId],
+  )
+  return rows[0] ?? null
+}
+
+export const upsertMemoryNarrativeFromEnrichment = async (
+  pool: Pool,
+  input: {
+    userId: string
+    narrativeMarkdown: string
+    internalSummary: string
+    pendingConflicts: unknown | null
+    expectedVersion: number
+  },
+): Promise<boolean> => {
+  const md = input.narrativeMarkdown.trim()
+  const internal = input.internalSummary.trim()
+  const { rowCount } = await pool.query(
+    `
+    INSERT INTO memory_narrative_snapshots (user_id, narrative_markdown, internal_summary, pending_conflicts, version)
+    VALUES ($1, $2, $3, $4::jsonb, 1)
+    ON CONFLICT (user_id) DO UPDATE SET
+      narrative_markdown = CASE WHEN EXCLUDED.narrative_markdown <> '' THEN EXCLUDED.narrative_markdown ELSE memory_narrative_snapshots.narrative_markdown END,
+      internal_summary = CASE WHEN EXCLUDED.internal_summary <> '' THEN EXCLUDED.internal_summary ELSE memory_narrative_snapshots.internal_summary END,
+      pending_conflicts = COALESCE(EXCLUDED.pending_conflicts, memory_narrative_snapshots.pending_conflicts),
+      version = memory_narrative_snapshots.version + 1,
+      updated_at = now()
+    WHERE memory_narrative_snapshots.version = $5
+    `,
+    [input.userId, md, internal, input.pendingConflicts == null ? null : JSON.stringify(input.pendingConflicts), input.expectedVersion],
+  )
+  // rowCount will be 1 if inserted or updated, 0 if conflict and WHERE clause failed
+  return (rowCount ?? 0) > 0
+}
+
+export interface StructuredMemoryRecallRow {
+  internalSummary: string
+  entityBullets: string
+  eventBullets: string
+}
+
+export const fetchStructuredMemoryRecall = async (
+  pool: Pool,
+  userId: string,
+  threadId: string,
+): Promise<StructuredMemoryRecallRow> => {
+  const narrative = await getMemoryNarrativeSnapshot(pool, userId)
+  const internalSummary = narrative?.internal_summary?.trim() ?? ''
+
+  const { rows: entRows } = await pool.query<{ line: string }>(
+    `
+    SELECT '- ' || entity_type || ': ' || canonical_label ||
+           COALESCE(' — ' || NULLIF(trim(notes), ''), '') AS line
+    FROM memory_entities
+    WHERE user_id = $1
+    ORDER BY updated_at DESC
+    LIMIT 100
+    `,
+    [userId],
+  )
+  const entityBullets = entRows.map(r => r.line).join('\n')
+
+  const { rows: evRows } = await pool.query<{ line: string }>(
+    `
+    SELECT '- [' || kind || '] ' || LEFT(summary, 200) AS line
+    FROM memory_events
+    WHERE user_id = $1
+    ORDER BY created_at DESC
+    LIMIT 100
+    `,
+    [userId],
+  )
+  const eventBullets = evRows.map(r => r.line).join('\n')
+
+  return { internalSummary, entityBullets, eventBullets }
+}
+
+export const listRecentMemoryEventSummaries = async (
+  pool: Pool,
+  userId: string,
+  limit = 6,
+): Promise<string[]> => {
+  const cap = Math.min(20, Math.max(1, limit))
+  const { rows } = await pool.query<{ summary: string }>(
+    `SELECT summary FROM memory_events WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
+    [userId, cap],
+  )
+  return rows.map(r => r.summary)
 }

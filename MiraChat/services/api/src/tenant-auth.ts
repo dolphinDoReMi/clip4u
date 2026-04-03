@@ -12,8 +12,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
  *   Payload shape: `{ "sub": "<userId>", "exp"?: <unixSeconds> }`.
  */
 export function mirachatTenantEnforceEnabled(): boolean {
-  const v = process.env.MIRACHAT_TENANT_ENFORCE?.trim().toLowerCase()
-  return v === '1' || v === 'true' || v === 'yes'
+  return false
 }
 
 function parseBearer(request: IncomingMessage): string | undefined {

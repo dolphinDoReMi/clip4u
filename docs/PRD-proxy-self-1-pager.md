@@ -94,11 +94,16 @@ UserModel = {
 
 **Cross-channel** aggregation; **relationship trajectory** (not only current thread). *Illustrative backing store:* Postgres + pgvector; messages and relationships tables per user/thread/contact.
 
+**The Commitment Ledger:** Memory is a timeline of state changes and promises (`memory_entities`, `memory_events`). 
+**Attention-Based Retrieval:** The system filters the entire ledger against the current message to extract only strictly relevant facts (the **Attended Ledger**), preventing context bloat.
+
 ### C. Communication engine
 
 **Agent Core:** planner → executor → evaluator. Negotiation as **tools** (e.g. `scheduleNegotiator`, `constraintResolver`).
 
 ### D. Delegation and trust layer (non-negotiable)
+
+**Decoupled Policy Engine (Safety Firewall):** The system uses an "Actor-Critic" model. The Drafter (Actor) writes the message based on the Attended Ledger, but an independent Policy Engine (Critic) judges it against Hard Constraints to prevent people-pleasing and boundary violations.
 
 - **Graduated autonomy:** Assist (suggest) → Approve (draft) → Auto (execute only inside boundaries).
 - **Hard constraints:** e.g. **no financial commitments**, no irreversible decisions without explicit human approval.
@@ -162,9 +167,12 @@ GTM is not only outbound: the **inbox and draft flows** must repeatedly teach **
 
 ## 8. Key user flows (system execution)
 
-- **Assisted reply:** message in → `ASSIST` → suggestions / drafts → user sends.
-- **Delegated scheduling (v1.5+):** message in → delegate mode → scheduling tool → policy → approve → send.
-- **Auto (v2, policy-gated):** message in → policy allows `AUTO` → generate → send immediately.
+The system shifts from a "chat interface" to an "autonomous proxy" model.
+
+- **Ingest & Contextualize:** User forwards context (text, photos).
+- **Ledger Attention:** System extracts only relevant facts from the Commitment Ledger.
+- **Draft & Policy Evaluation:** Drafter writes message; Policy Engine independently reviews against Hard Constraints.
+- **Ops Console Triage:** Lands in Ops Console as `AUTO_SEND`, `DRAFTED`, or `BLOCKED`.
 
 ### UI behavior requirements
 
@@ -173,6 +181,7 @@ GTM is not only outbound: the **inbox and draft flows** must repeatedly teach **
 - **Composer:** fixed at the bottom of the thread, always available, with approval actions visually adjacent to the active draft state.
 - **Approval model:** draft review appears inline with the current conversation context, not in a detached admin page.
 - **Navigation:** settings, metrics, audit, and identity tools live in secondary surfaces such as drawers or dedicated dashboards, not the primary chat rail.
+- **Status & Grounding:** UI must surface Policy Engine decisions (e.g., red `BLOCKED` badge) and the Attended Ledger facts ("Grounded In" panel) to build trust.
 
 ---
 

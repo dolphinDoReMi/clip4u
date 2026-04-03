@@ -146,6 +146,157 @@ export async function openRouterAnalysisAssist(input: OpenRouterAnalysisInput): 
   return text || null
 }
 
+export interface OpenRouterMemoryAttentionInput {
+  latestUserText: string
+  recentMessages: { threadId: string; direction: string; content: string }[]
+  structuredRecall: { internalSummary: string; entityBullets: string; eventBullets: string }
+}
+
+/**
+ * Attention-based retrieval: filters the full structured memory ledger against the current context
+ * to extract only strictly relevant facts and commitments.
+ */
+export async function openRouterMemoryAttention(input: OpenRouterMemoryAttentionInput): Promise<string | null> {
+  const key = process.env.OPENROUTER_API_KEY?.trim()
+  if (!key) {
+    return null
+  }
+
+  const model =
+    process.env.OPENROUTER_MEMORY_MODEL?.trim() ||
+    process.env.OPENROUTER_MODEL?.trim() ||
+    'openai/gpt-4o-mini'
+
+  const threadExcerpt = truncate(
+    formatMessages('Current thread', input.recentMessages),
+    8000,
+  )
+
+  const ledgerText = `
+--- NARRATIVE ---
+${input.structuredRecall.internalSummary}
+
+--- ENTITIES ---
+${input.structuredRecall.entityBullets}
+
+--- EVENTS ---
+${input.structuredRecall.eventBullets}
+`.trim()
+
+  const systemPrompt = `You are an attention filter for a communication proxy.
+Your job is to read the user's full memory ledger (entities, events, narrative) and extract ONLY the facts that are strictly relevant to the current thread and the latest inbound message.
+Do not write a reply. Output a concise bulleted list of relevant facts. If nothing in the ledger is relevant, output "No relevant ledger facts."`
+
+  const userPrompt = `Latest inbound message:
+${truncate(input.latestUserText, 4000)}
+
+${threadExcerpt}
+
+Full Memory Ledger:
+${truncate(ledgerText, 16000)}`
+
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      ...(process.env.OPENROUTER_HTTP_REFERER
+        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+        : {}),
+      'X-Title': 'MiraChat memory attention',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 400,
+      temperature: 0.1,
+    }),
+  })
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '')
+    console.error('OpenRouter memory attention failed', res.status, errText)
+    return null
+  }
+
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string } }[]
+  }
+  const text = data.choices?.[0]?.message?.content?.trim()
+  if (text === 'No relevant ledger facts.') {
+    return null
+  }
+  return text || null
+}
+
+export interface OpenRouterPolicyEvaluationInput {
+  draft: string
+  attendedRecall: string
+  hardBoundaries: string[]
+}
+
+export async function openRouterPolicyEvaluation(input: OpenRouterPolicyEvaluationInput): Promise<{ safe: boolean; reason?: string }> {
+  const key = process.env.OPENROUTER_API_KEY?.trim()
+  if (!key || !input.attendedRecall) {
+    return { safe: true }
+  }
+
+  const model =
+    process.env.OPENROUTER_MEMORY_MODEL?.trim() ||
+    process.env.OPENROUTER_MODEL?.trim() ||
+    'openai/gpt-4o-mini'
+
+  const systemPrompt = `You are a strict Policy Engine for an AI communication proxy.
+Evaluate the proposed draft against the user's Hard Boundaries and the Attended Ledger facts.
+If the draft violates ANY boundary or contradicts ANY ledger fact, output "BLOCK: <reason>".
+Otherwise, output "SAFE".`
+
+  const userPrompt = `Hard Boundaries:
+${input.hardBoundaries.join(', ') || 'None'}
+
+Attended Ledger Facts:
+${input.attendedRecall}
+
+Proposed Draft:
+${input.draft}`
+
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      ...(process.env.OPENROUTER_HTTP_REFERER
+        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+        : {}),
+      'X-Title': 'MiraChat policy evaluation',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 100,
+      temperature: 0.0,
+    }),
+  })
+
+  if (!res.ok) {
+    return { safe: true }
+  }
+
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] }
+  const text = data.choices?.[0]?.message?.content?.trim() || 'SAFE'
+  
+  if (text.startsWith('BLOCK:')) {
+    return { safe: false, reason: text.replace('BLOCK:', '').trim() }
+  }
+  return { safe: true }
+}
+
 const primaryDraftDisabled = (): boolean => {
   const v = process.env.OPENROUTER_PRIMARY_DRAFT?.trim().toLowerCase()
   return v === '0' || v === 'false' || v === 'off'

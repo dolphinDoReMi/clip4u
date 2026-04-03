@@ -1918,7 +1918,9 @@ export const createDelegateApiListener = (ctx: DelegateApiContext) => {
           intentSummary: d.intent_summary,
           replyOptions: d.reply_options,
           threadSummary: d.thread_summary,
+          groundingFacts: (d as any).grounding_facts || null,
           createdAt: d.created_at,
+          status: d.status,
         })),
       )
       return

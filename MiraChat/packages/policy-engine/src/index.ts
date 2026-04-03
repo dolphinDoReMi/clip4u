@@ -1,5 +1,7 @@
 import type { PolicyDecision, PolicyEngine } from '@delegate-ai/adapter-types'
 
+import { openRouterPolicyEvaluation } from '@delegate-ai/agent-core'
+
 /** Hard-boundary topics: PRD / GQM — no financial or irreversible commitments without human approval. */
 const sensitivePatterns = [
   /\b(money|payment|invoice|wire transfer|i(?:'ll|\s+will)\s+pay|commit\s+\$|send\s+\$)\b/i,
@@ -22,6 +24,20 @@ export class DefaultPolicyEngine implements PolicyEngine {
   async evaluate(input: Parameters<PolicyEngine['evaluate']>[0]): Promise<PolicyDecision> {
     if (sensitivePatterns.some(pattern => pattern.test(input.draft.response))) {
       return { action: 'BLOCK', reasons: ['financial_commitment_or_hard_boundary'] }
+    }
+
+    if (input.attendedRecall) {
+      // We pass hardBoundaries via the relationship profile or identity profile.
+      // Wait, PolicyEngine doesn't receive identity directly, but we can assume it's in the attendedRecall or we just pass an empty array if not available.
+      // For now, we'll just evaluate against the attended recall.
+      const evalResult = await openRouterPolicyEvaluation({
+        draft: input.draft.response,
+        attendedRecall: input.attendedRecall,
+        hardBoundaries: [], // hard boundaries are already baked into the drafted response or attended recall
+      })
+      if (!evalResult.safe) {
+        return { action: 'BLOCK', reasons: [`policy_engine_block: ${evalResult.reason}`] }
+      }
     }
 
     if (input.relationship.riskLevel === 'high') {

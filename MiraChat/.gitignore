@@ -10,3 +10,7 @@ playwright/.cache
 
 # Local package artifacts (do not commit)
 *.deb
+
+# One-off desktop-context ingest scripts (often embed absolute image paths)
+simulate-image*.mjs
+simulate-images.mjs

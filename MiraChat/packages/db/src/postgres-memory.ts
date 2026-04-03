@@ -5,7 +5,9 @@ import type {
   OutboundCommand,
   StoredMessage,
   StoredMessageSearchSource,
+  StructuredMemoryRecall,
 } from '@delegate-ai/adapter-types'
+import { fetchStructuredMemoryRecall } from './repos.js'
 import type { Pool } from 'pg'
 
 /** Max messages loaded per thread (full history cap). */
@@ -314,5 +316,17 @@ export class PostgresMemoryService implements MemoryService {
     }
 
     return rows.map(mapSearch)
+  }
+
+  async getStructuredRecall(userId: string, threadId: string): Promise<StructuredMemoryRecall | null> {
+    const row = await fetchStructuredMemoryRecall(this.pool, userId, threadId)
+    if (!row.internalSummary.trim() && !row.entityBullets.trim() && !row.eventBullets.trim()) {
+      return null
+    }
+    return {
+      internalSummary: row.internalSummary,
+      entityBullets: row.entityBullets,
+      eventBullets: row.eventBullets,
+    }
   }
 }

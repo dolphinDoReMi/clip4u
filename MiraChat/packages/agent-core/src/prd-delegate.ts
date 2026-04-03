@@ -4,6 +4,7 @@ import { AssistService } from '@delegate-ai/assist-core'
 import { buildPrdReplyOptionsSystemPrompt, buildThreadSummarySystemPrompt } from './openrouter-prompt-os.js'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_PRD_TIMEOUT_MS_DEFAULT = 15_000
 
 export type PrdReplyOption = { label: string; text: string }
 
@@ -167,6 +168,32 @@ function parseJsonObjectLoose<T extends Record<string, unknown>>(raw: string): T
   return null
 }
 
+function openRouterPrdTimeoutMs(): number {
+  const raw = Number(process.env.OPENROUTER_PRD_TIMEOUT_MS ?? process.env.OPENROUTER_TIMEOUT_MS ?? OPENROUTER_PRD_TIMEOUT_MS_DEFAULT)
+  return Number.isFinite(raw) && raw >= 100 ? raw : OPENROUTER_PRD_TIMEOUT_MS_DEFAULT
+}
+
+async function openRouterFetch(body: Record<string, unknown>, headers: Record<string, string>, title: string): Promise<Response | null> {
+  const controller = new AbortController()
+  const timeoutMs = openRouterPrdTimeoutMs()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const prefix = message.toLowerCase().includes('abort') ? 'timed out' : 'failed'
+    console.warn(`OpenRouter ${title} ${prefix}; using fallback`, { timeoutMs, message })
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function openRouterJson<T extends Record<string, unknown>>(body: Record<string, unknown>): Promise<T | null> {
   const key = process.env.OPENROUTER_API_KEY?.trim()
   if (!key) {
@@ -179,11 +206,10 @@ async function openRouterJson<T extends Record<string, unknown>>(body: Record<st
     'X-Title': 'MiraChat PRD delegate',
   }
   const withFormat = { ...body, response_format: { type: 'json_object' as const } }
-  let res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(withFormat),
-  })
+  let res = await openRouterFetch(withFormat, headers, 'PRD reply-options')
+  if (!res) {
+    return null
+  }
   if (!res.ok && (res.status === 400 || res.status === 422)) {
     const errPeek = await res.text().catch(() => '')
     console.warn(
@@ -191,11 +217,10 @@ async function openRouterJson<T extends Record<string, unknown>>(body: Record<st
       res.status,
       errPeek.slice(0, 240),
     )
-    res = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    })
+    res = await openRouterFetch(body, headers, 'PRD reply-options retry')
+    if (!res) {
+      return null
+    }
   }
   if (!res.ok) {
     console.error('OpenRouter PRD call failed', res.status, await res.text().catch(() => ''))
@@ -250,17 +275,8 @@ async function openRouterPlainText(system: string, userContent: string): Promise
     return null
   }
   const model = process.env.OPENROUTER_MODEL?.trim() || 'openai/gpt-4o-mini'
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      ...(process.env.OPENROUTER_HTTP_REFERER
-        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
-        : {}),
-      'X-Title': 'MiraChat thread summary',
-    },
-    body: JSON.stringify({
+  const res = await openRouterFetch(
+    {
       model,
       messages: [
         { role: 'system', content: system },
@@ -268,8 +284,20 @@ async function openRouterPlainText(system: string, userContent: string): Promise
       ],
       max_tokens: 500,
       temperature: 0.2,
-    }),
-  })
+    },
+    {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      ...(process.env.OPENROUTER_HTTP_REFERER
+        ? { 'HTTP-Referer': process.env.OPENROUTER_HTTP_REFERER }
+        : {}),
+      'X-Title': 'MiraChat thread summary',
+    },
+    'thread summary',
+  )
+  if (!res) {
+    return null
+  }
   if (!res.ok) {
     console.error('OpenRouter summary failed', res.status, await res.text().catch(() => ''))
     return null
